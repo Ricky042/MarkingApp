@@ -8,6 +8,17 @@ This repository is a documentation of all stages of development for the applicat
 - Split terminal
 - Run the starter commands for front and backend at the same time
 
+## Installing Stuff
+Here's how to install most of the stuff to get it working
+
+```bash
+  cd backend
+  npm install # Installs all the backend dependencies
+  cd ..
+  cd frontend
+  npm install # Installs the frontend dependencies
+  ```
+
   ```bash
   cd frontend
   npm start # This starts the frontend stuff
@@ -18,4 +29,3 @@ This repository is a documentation of all stages of development for the applicat
 ## Extra Notes for Team
 - If using VSCode, install some way to view .db files (I'm using SQLite viewer from the built in market thing)
 - The database is excluded in the .gitignore for now, it creates a new database on startup, so for now database stuff is local only
-- Make sure to install nodejs in the backend folder and react in the frontend folder, not in the main folder part or it won't work
