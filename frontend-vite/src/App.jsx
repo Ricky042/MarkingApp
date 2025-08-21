@@ -1,6 +1,4 @@
-// Currently a basic startup system for our 3 pages in react
-
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Home from "./pages/Home.jsx";
@@ -8,10 +6,11 @@ import Home from "./pages/Home.jsx";
 function App() {
   return (
     <Router>
-      <nav>
-        <Link to="/login">Login</Link> | <Link to="/signup">Signup</Link>
-      </nav>
       <Routes>
+        {/* Default redirect from / to /login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
+        {/* Your main routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/home" element={<Home />} />
