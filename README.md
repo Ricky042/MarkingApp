@@ -15,14 +15,16 @@ Here's how to install most of the stuff to get it working
   cd backend
   npm install # Installs all the backend dependencies
   cd ..
-  cd frontend
+  cd frontend-vite
   npm install # Installs the frontend dependencies
+  npm install -D tailwindcss postcss autoprefixer # You might need this if tailwind doesn't install off npm
+  npm install axois react-router-dom # If backend is failing
   ```
 
   ```bash
-  cd frontend
-  npm start # This starts the frontend stuff
-  cd ..
+  cd frontend-vite
+  npm run dev # Starts frontend
+  cd .. # Split terminals
   cd backend
   node server.js # This will start the server storage stuff
   ```
