@@ -11,7 +11,7 @@ export default function Signup() {
 
   const handleSignup = async () => {
     try {
-      await axios.post("http://localhost:5173/signup", { username, password });
+      await axios.post("http://localhost:5000/signup", { username, password });
       alert("Signup successful, please login");
       navigate("/login");
     } catch (err) {

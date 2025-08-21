@@ -8,7 +8,7 @@ export default function Home() {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    axios.get("http://localhost:5173/home", {
+    axios.get("http://localhost:5000/home", {
       headers: { Authorization: `Bearer ${token}` }
     })
     .then(res => setMessage(res.data.message))
