@@ -8,9 +8,11 @@ export default defineConfig({
     resolve: { alias: { "@": path.resolve(__dirname, "./src"), } },
     server: {
       proxy: {
-        '/signup': 'http://localhost:5000',
-        '/login': 'http://localhost:5000',
-        '/users': 'http://localhost:5000',
+        "/api": {
+          target: "http://localhost:5000",
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/api/, ""), // strips /api
+        },
       },
     },
   })

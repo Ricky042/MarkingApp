@@ -10,7 +10,7 @@ export default function Signup() {
 
   const handleSignup = async () => {
     try {
-      const res = await axios.post("/signup", { username, password });
+      const res = await axios.post("/api/signup", { username, password });
       alert(res.data.message);
       navigate("/login");
     } catch (err) {

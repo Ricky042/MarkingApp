@@ -10,7 +10,7 @@ export default function Login() {
 
   const handleLogin = async () => {
     try {
-      const res = await axios.post("/login", { username, password });
+      const res = await axios.post("/api/login", { username, password });
       alert(res.data.message);
 
       if (res.data.token) {
