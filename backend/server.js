@@ -31,7 +31,7 @@ app.post("/send-code", (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email required" });
 
-  // Generate 6-digit code
+  // Generate 6-digit code (maybe hash or something in future?)
   const code = Math.floor(100000 + Math.random() * 900000).toString();
 
   // Save code with expiration (10 minutes)
@@ -42,14 +42,21 @@ app.post("/send-code", (req, res) => {
 
   // Send email
   const mailOptions = {
-    from: "your.email@gmail.com",
+    from: "markingapp3077@gmail.com",
     to: email,
     subject: "Your verification code",
-    text: `Your verification code is: ${code}`,
+    text: `Your verification code is: ${code}. This code will expire in 5 minutes`,
   };
 
   transporter.sendMail(mailOptions, (err, info) => {
-    if (err) return res.status(500).json({ message: "Error sending email", err });
+    if (err) {
+      console.error("Error sending email:", err)
+      return res.status(500).json({
+        message: "Error sending email",
+        error: err.message,
+        code: err.response?.status || null,
+      });
+    }
     res.json({ message: "Verification code sent" });
   });
 });
@@ -99,12 +106,39 @@ app.post("/login", (req, res) => {
   });
 });
 
-// Debug endpoint (remove in production)
-app.get("/users", (req, res) => {
-  db.all(`SELECT id, username FROM users`, [], (err, rows) => {
-    if (err) return res.status(500).json({ message: "DB error" });
-    res.json(rows);
-  });
+// Resend verification code
+app.post("/resend-code", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ message: "Email is required" });
+
+  // Check if a code already exists
+  const existing = verificationCodes[email];
+  if (existing && existing.expires > Date.now()) {
+    return res.status(400).json({ message: "Code already sent. Please wait until it expires." });
+  }
+
+  // Generate new code
+  const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit
+  verificationCodes[email] = {
+    code,
+    expires: Date.now() + 5 * 60 * 1000, // 5 min
+  };
+
+  // Send email
+  try {
+    await transporter.sendMail({
+      from: "markingapp3077@gmail.com",
+      to: email,
+      subject: "Your verification code",
+      text: `Your code is: ${code}. This code will expire in 5 minutes`,
+    });
+
+    res.json({ message: "Verification code resent" });
+  } catch (err) {
+    console.error("Resend code error:", err);
+    res.status(500).json({ message: "Failed to resend code" });
+  }
 });
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
