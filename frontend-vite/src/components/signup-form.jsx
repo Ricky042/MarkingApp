@@ -13,7 +13,7 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-export function LoginForm({
+export function SignupForm({
   className,
   ...props
 }) {
@@ -41,9 +41,9 @@ export function LoginForm({
           <img src="/Deakin_logo.png" alt="App Logo" className="h-15 w-auto" />
 
           <div className="flex flex-col gap-4 text-2xl font-bold">
-            Login
+            Sign up
           </div>
-          <div className="text-sm text-muted-foreground">Login to assignment marking portal</div>
+          <div className="text-sm text-muted-foreground">Create an account to assignment marking portal</div>
         </CardHeader>
         <CardContent>
           <form>
@@ -58,18 +58,15 @@ export function LoginForm({
                     <Label htmlFor="password">Password</Label>
                   </div>
                   <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}/>
-                  <a href="#" className="ml-auto text-xs text-muted-foreground underline-offset-4 hover:underline">
-                      Forgot your password?
-                    </a>
                 </div>
                 <Button type="submit" className="w-full" onClick={handleLogin}>
-                  Login
+                  Signup
                 </Button>
               </div>
-              <div className="text-center text-xs" onClick={() => navigate("/signup")}>
-                Don&apos;t have an account?{" "}
+              <div className="text-center text-xs" onClick={() => navigate("/login")}>
+                Already have an account?{" "}
                 <a href="#" className="underline underline-offset-4">
-                  Sign up
+                  Login
                 </a>
               </div>
             </div>
