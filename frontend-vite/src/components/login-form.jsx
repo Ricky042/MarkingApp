@@ -1,10 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
@@ -14,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 export function LoginForm({ className, ...props }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async () => {
@@ -42,9 +39,9 @@ export function LoginForm({ className, ...props }) {
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={async (e) => {
+            onSubmit={(e) => {
               e.preventDefault();
-              await handleLogin();
+              handleLogin();
             }}
           >
             <div className="grid gap-6">
@@ -59,26 +56,30 @@ export function LoginForm({ className, ...props }) {
                   onChange={(e) => setUsername(e.target.value)}
                 />
               </div>
-              <div className="grid gap-3">
-                <Label htmlFor="password">Password</Label>
+
+              <div className="relative">
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <a
-                  href="#"
-                  className="ml-auto text-xs text-muted-foreground underline-offset-4 hover:underline"
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 -translate-x-1 text-sm text-gray-500"
+                  onClick={() => setShowPassword(prev => !prev)}
                 >
-                  Forgot your password?
-                </a>
+                  {showPassword ? "Hide" : "Show"}
+                </button>
               </div>
+
+
               <Button type="submit" className="w-full">
                 Login
               </Button>
+
               <div
                 className="text-center text-xs cursor-pointer"
                 onClick={() => navigate("/signup")}

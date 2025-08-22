@@ -11,9 +11,10 @@ export function SignupForm({ className, ...props }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [code, setCode] = useState("");
-  const [sentCode, setSentCode] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   const navigate = useNavigate();
 
   // Live validation
@@ -25,8 +26,7 @@ export function SignupForm({ className, ...props }) {
     }
 
     if (password && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*[\d!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/.test(password)) {
-      newErrors.password =
-        "Password must be ≥6 chars, with uppercase, lowercase, and number/symbol.";
+      newErrors.password = "Password must be ≥6 chars, with uppercase, lowercase, and number/symbol.";
     }
 
     if (confirmPassword && password !== confirmPassword) {
@@ -36,33 +36,15 @@ export function SignupForm({ className, ...props }) {
     setErrors(newErrors);
   }, [email, password, confirmPassword]);
 
-  // Send verification code
-  const handleSendCode = async () => {
-    if (errors.email) return;
-
-    try {
-      await axios.post("/api/send-code", { email });
-      setSentCode(true);
-      alert("Verification code sent to your email.");
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to send code");
-    }
-  };
-
-  // Verify code and create account
-  const handleVerifyCode = async () => {
+  const handleSignup = async () => {
     if (Object.keys(errors).length > 0) return;
-    if (!code) {
-      alert("Please enter the verification code.");
-      return;
-    }
 
     try {
-      const res = await axios.post("/api/verify-code", { email, password, code });
+      const res = await axios.post("/api/signup", { username: email, password });
       alert(res.data.message);
       navigate("/login");
     } catch (err) {
-      alert(err.response?.data?.message || "Verification failed");
+      alert(err.response?.data?.message || "Signup failed");
     }
   };
 
@@ -77,95 +59,84 @@ export function SignupForm({ className, ...props }) {
           </div>
         </CardHeader>
         <CardContent>
-          <form className="grid gap-6">
-            {/* Email */}
-            <div className="grid gap-3">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={errors.email ? "border-red-500" : ""}
-                disabled={sentCode}
-              />
-              {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
-            </div>
+          <form onSubmit={e => { e.preventDefault(); handleSignup(); }}>
+            <div className="grid gap-6">
+              {/* Email */}
+              <div className="grid gap-3 relative">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className={errors.email ? "border-red-500" : ""}
+                />
+                {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
+              </div>
 
-            {/* Password */}
-            {!sentCode && (
-              <>
-                <div className="grid gap-3">
-                  <Label htmlFor="password">Password</Label>
+              {/* Password */}
+              <div className="grid gap-3 relative">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter password"
+                    required
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={e => setPassword(e.target.value)}
                     className={errors.password ? "border-red-500" : ""}
                   />
-                  {errors.password && (
-                    <p className="text-red-600 text-xs mt-1">{errors.password}</p>
-                  )}
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 -translate-x-1 text-sm text-gray-500"
+                    onClick={() => setShowPassword(prev => !prev)}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
                 </div>
+                {errors.password && <p className="text-red-600 text-xs mt-1">{errors.password}</p>}
+              </div>
 
-                <div className="grid gap-3">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
+              {/* Confirm Password */}
+              <div className="grid gap-3 relative">
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <div className="relative">
                   <Input
                     id="confirm-password"
-                    type="password"
+                    type={showConfirm ? "text" : "password"}
                     placeholder="Confirm password"
+                    required
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={e => setConfirmPassword(e.target.value)}
                     className={errors.confirmPassword ? "border-red-500" : ""}
                   />
-                  {errors.confirmPassword && (
-                    <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
-                  )}
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 -translate-x-1 text-sm text-gray-500"
+                    onClick={() => setShowConfirm(prev => !prev)}
+                  >
+                    {showConfirm ? "Hide" : "Show"}
+                  </button>
                 </div>
+                {errors.confirmPassword && (
+                  <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
+                )}
+              </div>
 
-                <Button
-                  type="button"
-                  className="w-full"
-                  onClick={handleSendCode}
-                  disabled={Object.keys(errors).length > 0 || !email || !password || !confirmPassword}
-                >
-                  Send Verification Code
-                </Button>
-              </>
-            )}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={Object.keys(errors).length > 0 || !email || !password || !confirmPassword}
+              >
+                Sign Up
+              </Button>
 
-            {/* Verification Code Input */}
-            {sentCode && (
-              <>
-                <div className="grid gap-3">
-                  <Label htmlFor="verification-code">Verification Code</Label>
-                  <Input
-                    id="verification-code"
-                    type="text"
-                    placeholder="Enter code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  className="w-full"
-                  onClick={handleVerifyCode}
-                  disabled={!code}
-                >
-                  Verify & Sign Up
-                </Button>
-              </>
-            )}
-
-            <div className="text-center text-xs mt-2" onClick={() => navigate("/login")}>
-              Already have an account?{" "}
-              <a href="#" className="underline underline-offset-4">
-                Login
-              </a>
+              <div className="text-center text-xs cursor-pointer" onClick={() => navigate("/login")}>
+                Already have an account? <span className="underline underline-offset-4">Login</span>
+              </div>
             </div>
           </form>
         </CardContent>
