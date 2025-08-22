@@ -31,3 +31,12 @@ Here's how to install most of the stuff to get it working
 ## Extra Notes for Team
 - If using VSCode, install some way to view .db files (I'm using SQLite viewer from the built in market thing)
 - The database is excluded in the .gitignore for now, it creates a new database on startup, so for now database stuff is local only
+
+## Quick List of current stack / reqs
+- React
+- Vite
+- Tailwind
+- Nodejs
+- Nodemailer
+- Shadcn
+- SQLite3
