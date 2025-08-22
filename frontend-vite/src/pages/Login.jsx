@@ -2,6 +2,8 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import backgroundImage from "../assets/background.jpg";
+import { LoginForm } from "@/components/login-form";
+
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -24,10 +26,13 @@ export default function Login() {
 
   return (
     <div
-      className="flex items-center justify-center min-h-screen bg-cover bg-center"
-      style={{ backgroundImage: `url(${backgroundImage})` }}
+      className="flex items-center justify-center min-h-screen bg-cover bg-center relative"
+      style={{ 
+        backgroundImage: `linear-gradient(to bottom, rgba(217, 217, 217, 0.2), rgba(115, 115, 115, 0.7)), url(/Deakin_background.jpg)` 
+      }}
     >
-      <div className="bg-white bg-opacity-90 p-8 rounded-lg shadow-md w-full max-w-md">
+      <LoginForm />
+      {/* <div className="bg-white bg-opacity-90 p-8 rounded-lg shadow-md w-full max-w-md">
         <h2 className="text-2xl font-bold text-center mb-6">Login</h2>
 
         <input
@@ -62,7 +67,7 @@ export default function Login() {
             Sign Up
           </span>
         </p>
-      </div>
+      </div> */}
     </div>
   );
 }
