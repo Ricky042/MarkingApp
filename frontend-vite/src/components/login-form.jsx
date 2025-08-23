@@ -75,6 +75,12 @@ export function LoginForm({ className, ...props }) {
                 </button>
               </div>
 
+              <div
+                className="text-center text-xs cursor-pointer underline underline-offset-4"
+                onClick={() => navigate("/forgetpassword")}
+              >
+                Forget your password?
+              </div>
 
               <Button type="submit" className="w-full">
                 Login

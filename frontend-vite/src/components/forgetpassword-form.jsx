@@ -3,9 +3,7 @@ import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,19 +15,91 @@ export function ForgetPasswordForm({
   className,
   ...props
 }) {
-  const [username, setUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [step, setStep] = useState(1); // 1 = enter credentials, 2 = enter code
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const [cooldown, setCooldown] = useState(0); // resend cooldown
   const navigate = useNavigate();
 
-  const handleResetPassword = async () => {
+  // Countdown timer for resend code
+  useEffect(() => {
+    let timer;
+    if (cooldown > 0) {
+      timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+  
+  // Live validation
+  useEffect(() => {
+    const newErrors = {};
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      newErrors.email = "Please enter a valid email address.";
+    }
+    if (password && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*[\d!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/.test(password)) {
+      newErrors.password = "Password must be ≥6 chars, with uppercase, lowercase, and number/symbol.";
+    }
+    if (confirmPassword && password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match.";
+    }
+    setErrors(newErrors);
+  }, [email, password, confirmPassword]);
+  
+
+  // Send verification code
+  const sendCode = async () => {
+    if (Object.keys(errors).length > 0 || !email || !password || !confirmPassword) return;
     try {
-      const res = await axios.put("/api/forgetpassword", { username, newPassword });
-      alert(res.data.message);
-      navigate("/login");
+      setLoading(true);
+      setServerError("");
+      await axios.post("/api/send-code", { email });
+      alert("Verification code sent to your email");
+      setStep(2);
+      setCooldown(30); // 30s before resend
     } catch (err) {
-      alert(err.response?.data?.message || "Password reset failed");
+      setServerError(err.response?.data?.message || "Failed to send code");
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleResetPassword = async () => {
+      try {
+        const res = await axios.put("/api/forgetpassword", { username, newPassword });
+        alert(res.data.message);
+        navigate("/login");
+      } catch (err) {
+        alert(err.response?.data?.message || "Password reset failed");
+      }
+    };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
 
 return (
     (<div className={cn("flex flex-col gap-6", className)} {...props}>
