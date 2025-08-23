@@ -71,7 +71,7 @@ export function ForgetPasswordForm({
   };
 
 
-
+  // Verify code
   const verifyEmail = async () => {
     if (!code) return;
     try {
@@ -83,14 +83,13 @@ export function ForgetPasswordForm({
     } catch (err) {
       const message = err.response?.data?.message || err.message || "Something went wrong";
       setServerError(message);
-      //setServerError(err.response?.data?.message);
     } finally {
       setLoading(false);
     }
   };
 
 
-
+  // Reset password
   const resetPassword = async () => {
     if (!code) return;
     try {
@@ -105,20 +104,6 @@ export function ForgetPasswordForm({
       setLoading(false);
     }
   };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   
 
