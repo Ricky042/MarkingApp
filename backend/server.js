@@ -107,8 +107,7 @@ app.post("/login", (req, res) => {
   );
 });
 
-
-
+// Verify code for forget password
 app.post("/verify-code-forgetpassword", async (req, res) => {
   const { email, code } = req.body;
   const record = verificationCodes[email];
@@ -120,13 +119,12 @@ app.post("/verify-code-forgetpassword", async (req, res) => {
 });
 
 
-
-
 // Password reset system
 app.post('/forgetpassword', async(req, res) => {
   const { email, password } = req.body;
-
-  const hashedPassword = await bcrypt.hash(password, 10);  
+  // Hash the new password
+  const hashedPassword = await bcrypt.hash(password, 10);
+  // Update the user's password in the database
   db.run(
     `UPDATE users SET password = ? WHERE username = ?`,
     [hashedPassword, email],
@@ -137,10 +135,6 @@ app.post('/forgetpassword', async(req, res) => {
     }
   );
 });
-
-
-
-
 
 // Debug: user list TO BE REMOVED
 app.get("/users", (req, res) => {

@@ -70,7 +70,6 @@ export function ForgetPasswordForm({
     }
   };
 
-
   // Verify code
   const verifyEmail = async () => {
     if (!code) return;
@@ -88,7 +87,6 @@ export function ForgetPasswordForm({
     }
   };
 
-
   // Reset password
   const resetPassword = async () => {
     if (!code) return;
@@ -104,8 +102,6 @@ export function ForgetPasswordForm({
       setLoading(false);
     }
   };
-
-  
 
 return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -123,7 +119,6 @@ return (
           {serverError && (
             <p className="text-red-600 text-sm mb-4">{serverError}</p>
           )}
-
           {step === 1 && (
             <form onSubmit={e => { e.preventDefault(); sendCode(); }}>
               <div className="grid gap-6">
@@ -141,7 +136,6 @@ return (
                   />
                   {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
                 </div>
-
                 <Button
                   type="submit"
                   className="w-full"
@@ -149,14 +143,12 @@ return (
                 >
                   {loading ? "Sending..." : "Send Verification Code"}
                 </Button>
-
                 <div className="text-center text-xs cursor-pointer" onClick={() => navigate("/login")}>
                   Recall your password? <span className="underline underline-offset-4">Login</span>
                 </div>
               </div>
             </form>
           )}
-
           {/* If up to entering code, display this stuff instead */}
           {step === 2 && (
             <div className="grid gap-6">
@@ -170,7 +162,6 @@ return (
                   onChange={e => setCode(e.target.value)}
                 />
               </div>
-
               <Button
                 type="button"
                 className="w-full"
@@ -179,7 +170,6 @@ return (
               >
                 {loading ? "Verifying..." : "Verify & Reset Password"}
               </Button>
-
               <Button
                 type="button"
                 variant="outline"
@@ -191,7 +181,6 @@ return (
               </Button>
             </div>
           )}
-
           {step === 3 && (
             <div>
               <div className="grid gap-3 relative">
@@ -216,7 +205,6 @@ return (
                 </div>
                 {errors.password && <p className="text-red-600 text-xs mt-1">{errors.password}</p>}
               </div>
-
               {/* Confirm Password */}
               <div className="grid gap-3 relative">
                 <Label htmlFor="confirm-password">Confirm Password</Label>
@@ -242,9 +230,6 @@ return (
                   <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
                 )}
               </div>
-
-
-
               <Button
                 type="button"
                 className="w-full"
@@ -253,7 +238,6 @@ return (
               >
                 {loading ? "Verifying..." : "Verify & Reset Password"}
               </Button>
-
               <Button
                 type="button"
                 variant="outline"
@@ -264,13 +248,9 @@ return (
                 {cooldown > 0 ? `Resend Code (${cooldown}s)` : "Resend Code"}
               </Button>
             </div>
-          )
-          
-          }
-
+          )}
         </CardContent>
       </Card>
-
       <div className="text-white text-center text-xs mt-4">
         By clicking continue, you agree to our <a href="#">Terms of Service</a> and{" "}
         <a href="#">Privacy Policy</a>.
