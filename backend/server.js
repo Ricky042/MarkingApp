@@ -109,37 +109,27 @@ app.post("/login", (req, res) => {
 
 
 
-// Password validation function
-function passwordValidation(password) {
-// Password must be at least 6 characters long, contain numbers and letters,
-// with at least one capital letter and one lowercase letter
-const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z0-9]{7,19}$/;
-return regex.test(password);
-}
+app.post("/verify-code-forgetpassword", async (req, res) => {
+  const { email, code } = req.body;
+  const record = verificationCodes[email];
+
+  if (!record) return res.status(400).json({ message: "No code sent to this email" });
+  if (record.expires < Date.now()) return res.status(400).json({ message: "Code expired" });
+  if (record.code !== code) return res.status(400).json({ message: "Invalid code" });
+  return res.json({ message: "Code verified, please reset your password." });
+});
+
 
 
 
 // Password reset system
-app.put('/forgetpassword', async(req, res) => {
-  const { username, newPassword} = req.body;
-  if (!username) {
-    return res.status(400).json({ message: "Username(E-mail) is required" });
-  }
+app.post('/forgetpassword', async(req, res) => {
+  const { email, password } = req.body;
 
-  // Validate new password
-  if (passwordValidation(newPassword) === false) {
-    return res.status(400).json({ message: "New password must be at least 6 characters long\n \
-      only including numbers and letters with at least one capital letter and one lowercase letter" });
-  }
-  
-  
-  // Hash new password for db
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  
+  const hashedPassword = await bcrypt.hash(password, 10);  
   db.run(
     `UPDATE users SET password = ? WHERE username = ?`,
-    [hashedPassword, username],
+    [hashedPassword, email],
     function (err) {
       if (err) return res.status(500).json({ message: "DB error" });
       if (this.changes === 0) return res.status(400).json({ message: "User not found" });

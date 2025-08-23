@@ -22,7 +22,7 @@ export function ForgetPasswordForm({
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [step, setStep] = useState(1); // 1 = enter credentials, 2 = enter code
+  const [step, setStep] = useState(1); // 1 = enter credentials, 2 = enter code 3 = reset password
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState("");
   const [cooldown, setCooldown] = useState(0); // resend cooldown
@@ -72,16 +72,18 @@ export function ForgetPasswordForm({
 
 
 
-  const verifyAndResetPassword = async () => {
+  const verifyEmail = async () => {
     if (!code) return;
     try {
       setLoading(true);
       setServerError("");
-      const res = await axios.post("/api/verify-code", { email, password, code });
+      const res = await axios.post("/api/verify-code-forgetpassword", { email, code });
       alert(res.data.message);
-      navigate("/login");
+      setStep(3);
     } catch (err) {
-      setServerError(err.response?.data?.message || "Signup failed");
+      const message = err.response?.data?.message || err.message || "Something went wrong";
+      setServerError(message);
+      //setServerError(err.response?.data?.message);
     } finally {
       setLoading(false);
     }
@@ -89,6 +91,20 @@ export function ForgetPasswordForm({
 
 
 
+  const resetPassword = async () => {
+    if (!code) return;
+    try {
+      setLoading(true);
+      setServerError("");
+      const res = await axios.post("/api/forgetpassword", { email, password});
+      alert(res.data.message);
+      navigate("/login");
+    } catch (err) {
+      setServerError(err.response?.data?.message || "Reset failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -173,7 +189,7 @@ return (
               <Button
                 type="button"
                 className="w-full"
-                onClick={verifyAndResetPassword}
+                onClick={verifyEmail}
                 disabled={loading || !code}
               >
                 {loading ? "Verifying..." : "Verify & Reset Password"}
@@ -190,6 +206,83 @@ return (
               </Button>
             </div>
           )}
+
+          {step === 3 && (
+            <div>
+              <div className="grid gap-3 relative">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className={errors.password ? "border-red-500" : ""}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500"
+                    onClick={() => setShowPassword(prev => !prev)}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                {errors.password && <p className="text-red-600 text-xs mt-1">{errors.password}</p>}
+              </div>
+
+              {/* Confirm Password */}
+              <div className="grid gap-3 relative">
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirm ? "text" : "password"}
+                    placeholder="Confirm password"
+                    required
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    className={errors.confirmPassword ? "border-red-500" : ""}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500"
+                    onClick={() => setShowConfirm(prev => !prev)}
+                  >
+                    {showConfirm ? "Hide" : "Show"}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
+                )}
+              </div>
+
+
+
+              <Button
+                type="button"
+                className="w-full"
+                onClick={resetPassword}
+                disabled={loading || !code}
+              >
+                {loading ? "Verifying..." : "Verify & Reset Password"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={sendCode}
+                disabled={cooldown > 0 || loading}
+              >
+                {cooldown > 0 ? `Resend Code (${cooldown}s)` : "Resend Code"}
+              </Button>
+            </div>
+          )
+          
+          }
+
         </CardContent>
       </Card>
 
