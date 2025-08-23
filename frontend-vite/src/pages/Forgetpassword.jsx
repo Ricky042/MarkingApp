@@ -10,7 +10,7 @@ export default function changePassword() {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleSignup = async () => {
+  const handleForgetpassword = async () => {
     try {
       await axios.post("http://localhost:5000/signup", { username, password });
       alert("Signup successful, please login");

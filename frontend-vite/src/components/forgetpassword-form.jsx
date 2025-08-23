@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -55,7 +55,7 @@ export function ForgetPasswordForm({
 
   // Send verification code
   const sendCode = async () => {
-    if (Object.keys(errors).length > 0 || !email || !password || !confirmPassword) return;
+    if (Object.keys(errors).length > 0 || !email) return;
     try {
       setLoading(true);
       setServerError("");
@@ -70,17 +70,22 @@ export function ForgetPasswordForm({
     }
   };
 
-  const handleResetPassword = async () => {
-      try {
-        const res = await axios.put("/api/forgetpassword", { username, newPassword });
-        alert(res.data.message);
-        navigate("/login");
-      } catch (err) {
-        alert(err.response?.data?.message || "Password reset failed");
-      }
-    };
 
 
+  const verifyAndResetPassword = async () => {
+    if (!code) return;
+    try {
+      setLoading(true);
+      setServerError("");
+      const res = await axios.post("/api/verify-code", { email, password, code });
+      alert(res.data.message);
+      navigate("/login");
+    } catch (err) {
+      setServerError(err.response?.data?.message || "Signup failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -102,55 +107,96 @@ export function ForgetPasswordForm({
   
 
 return (
-    (<div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader className="text-start">
           <img src="/Deakin_logo.png" alt="App Logo" className="h-15 w-auto" />
-
           <div className="flex flex-col gap-4 text-2xl font-bold">
             Reset Password
           </div>
-          <div className="text-sm text-muted-foreground">Reset your account password</div>
+          <div className="text-sm text-muted-foreground">
+            Change your password by entering your email and verification code
+          </div>
         </CardHeader>
         <CardContent>
-          <form>
-            <div className="grid gap-6">
+          {serverError && (
+            <p className="text-red-600 text-sm mb-4">{serverError}</p>
+          )}
+
+          {step === 1 && (
+            <form onSubmit={e => { e.preventDefault(); sendCode(); }}>
               <div className="grid gap-6">
-                <div className="grid gap-3">
+                {/* Email */}
+                <div className="grid gap-3 relative">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="m@example.com" required value={username} onChange={(e) => setUsername(e.target.value)}/>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className={errors.email ? "border-red-500" : ""}
+                  />
+                  {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
                 </div>
-                {/* <div className="grid gap-3">
-                  <div className="flex items-center">
-                    <Label htmlFor="password">Enter your Password</Label>
-                  </div>
-                  <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}/>
-                </div>
-                 <div className="grid gap-3">
-                  <div className="flex items-center">
-                    <Label htmlFor="password">Confirm your Password</Label>
-                  </div> -->
-                  <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}/>
-                </div>*/}
-                <Button type="submit" className="w-full" onClick={handleResetPassword}>
-                  Send 6 digits varification code through email
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading || Object.keys(errors).length > 0 || !email}
+                >
+                  {loading ? "Sending..." : "Send Verification Code"}
                 </Button>
+
+                <div className="text-center text-xs cursor-pointer" onClick={() => navigate("/login")}>
+                  Recall your password? <span className="underline underline-offset-4">Login</span>
+                </div>
               </div>
-              <div className="text-center text-xs" onClick={() => navigate("/login")}>
-                Recall your password?{" "}
-                <a href="#" className="underline underline-offset-4">
-                  Login
-                </a>
+            </form>
+          )}
+
+          {/* If up to entering code, display this stuff instead */}
+          {step === 2 && (
+            <div className="grid gap-6">
+              <div className="grid gap-3 relative">
+                <Label htmlFor="code">Verification Code</Label>
+                <Input
+                  id="code"
+                  type="text"
+                  placeholder="Enter code"
+                  value={code}
+                  onChange={e => setCode(e.target.value)}
+                />
               </div>
+
+              <Button
+                type="button"
+                className="w-full"
+                onClick={verifyAndResetPassword}
+                disabled={loading || !code}
+              >
+                {loading ? "Verifying..." : "Verify & Reset Password"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={sendCode}
+                disabled={cooldown > 0 || loading}
+              >
+                {cooldown > 0 ? `Resend Code (${cooldown}s)` : "Resend Code"}
+              </Button>
             </div>
-          </form>
+          )}
         </CardContent>
       </Card>
-      <div
-        className="text-white *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-        By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-        and <a href="#">Privacy Policy</a>.
+
+      <div className="text-white text-center text-xs mt-4">
+        By clicking continue, you agree to our <a href="#">Terms of Service</a> and{" "}
+        <a href="#">Privacy Policy</a>.
       </div>
-    </div>)
+    </div>
   );
 }
