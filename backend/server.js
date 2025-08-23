@@ -55,6 +55,51 @@ app.post("/login", (req, res) => {
   );
 });
 
+
+
+// Password validation function
+function passwordValidation(password) {
+// Password must be at least 6 characters long, contain numbers and letters,
+// with at least one capital letter and one lowercase letter
+const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z0-9]{7,19}$/;
+return regex.test(password);
+}
+
+
+
+// Password reset system
+app.put('/forgetpassword', async(req, res) => {
+  const { username, newPassword} = req.body;
+  if (!username) {
+    return res.status(400).json({ message: "Username(E-mail) is required" });
+  }
+
+  // Validate new password
+  if (passwordValidation(newPassword) === false) {
+    return res.status(400).json({ message: "New password must be at least 6 characters long\n \
+      only including numbers and letters with at least one capital letter and one lowercase letter" });
+  }
+  
+  
+  // Hash new password for db
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  
+  db.run(
+    `UPDATE users SET password = ? WHERE username = ?`,
+    [hashedPassword, username],
+    function (err) {
+      if (err) return res.status(500).json({ message: "DB error" });
+      if (this.changes === 0) return res.status(400).json({ message: "User not found" });
+      res.json({ message: "Password updated successfully" });
+    }
+  );
+});
+
+
+
+
+
 // Debug: user list TO BE REMOVED
 app.get("/users", (req, res) => {
   db.all(`SELECT id, username FROM users`, [], (err, rows) => {

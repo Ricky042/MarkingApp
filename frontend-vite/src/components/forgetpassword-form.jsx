@@ -13,37 +13,34 @@ import { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-export function LoginForm({
+export function ForgetPasswordForm({
   className,
   ...props
 }) {
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
+  const handleResetPassword = async () => {
     try {
-      const res = await axios.post("/api/login", { username, password });
+      const res = await axios.put("/api/forgetpassword", { username, newPassword });
       alert(res.data.message);
-
-      if (res.data.token) {
-        localStorage.setItem("token", res.data.token);
-        navigate("/home");
-      }
+      navigate("/login");
     } catch (err) {
-      alert(err.response?.data?.message || "Login failed");
+      alert(err.response?.data?.message || "Password reset failed");
     }
   };
-  return (
+
+return (
     (<div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader className="text-start">
           <img src="/Deakin_logo.png" alt="App Logo" className="h-15 w-auto" />
 
           <div className="flex flex-col gap-4 text-2xl font-bold">
-            Login
+            Reset Password
           </div>
-          <div className="text-sm text-muted-foreground">Login to assignment marking portal</div>
+          <div className="text-sm text-muted-foreground">Reset your account password</div>
         </CardHeader>
         <CardContent>
           <form>
@@ -53,26 +50,26 @@ export function LoginForm({
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" type="email" placeholder="m@example.com" required value={username} onChange={(e) => setUsername(e.target.value)}/>
                 </div>
-                <div className="grid gap-3">
+                {/* <div className="grid gap-3">
                   <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">Enter your Password</Label>
                   </div>
                   <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}/>
-                  <a 
-                    href="#" 
-                    className="ml-auto text-xs text-muted-foreground underline-offset-4 hover:underline" 
-                    onClick={() => navigate("/forgetpassword")}>
-                      Forget your password?
-                    </a>
                 </div>
-                <Button type="submit" className="w-full" onClick={handleLogin}>
-                  Login
+                 <div className="grid gap-3">
+                  <div className="flex items-center">
+                    <Label htmlFor="password">Confirm your Password</Label>
+                  </div> -->
+                  <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)}/>
+                </div>*/}
+                <Button type="submit" className="w-full" onClick={handleResetPassword}>
+                  Send 6 digits varification code through email
                 </Button>
               </div>
-              <div className="text-center text-xs" onClick={() => navigate("/signup")}>
-                Don&apos;t have an account?{" "}
+              <div className="text-center text-xs" onClick={() => navigate("/login")}>
+                Recall your password?{" "}
                 <a href="#" className="underline underline-offset-4">
-                  Sign up
+                  Login
                 </a>
               </div>
             </div>
