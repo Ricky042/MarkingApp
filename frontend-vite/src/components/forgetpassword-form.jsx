@@ -60,6 +60,7 @@ export function ForgetPasswordForm({
       setLoading(true);
       setServerError("");
 
+      // First check if user exists
       const checkRes = await axios.post("/api/check-user", { username: email });
       if (!checkRes.data.exists) {
         setServerError("User not found");
@@ -67,6 +68,7 @@ export function ForgetPasswordForm({
         return; 
       }
 
+      // Then send code
       await axios.post("/api/send-code", { email });
       alert("Verification code sent to your email");
       setStep(2);
