@@ -107,6 +107,19 @@ app.post("/login", (req, res) => {
   );
 });
 
+app.post("/check-user", (req, res) => {
+  const { email } = req.body;
+
+  db.get(`SELECT * FROM users WHERE username = ?`, [email], (err, user) => {
+    if (err) return res.status(500).json({ message: "DB error" });
+
+    if (!user) {
+      return res.json({ exists: false, message: "User not found" });
+    }
+    res.json({ exists: true, message: "User exists" });
+  });
+});
+
 // Verify code for forget password
 app.post("/verify-code-forgetpassword", async (req, res) => {
   const { email, code } = req.body;
