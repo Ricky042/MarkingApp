@@ -59,13 +59,25 @@ export function ForgetPasswordForm({
     try {
       setLoading(true);
       setServerError("");
+
+      // First check if user exists
+      const checkRes = await axios.post("/api/check-user", { username: email });
+      if (!checkRes.data.exists) {
+        setServerError("User not found");
+        setLoading(false);
+        return; 
+      }
+
+      // Then send code
       await axios.post("/api/send-code", { email });
       alert("Verification code sent to your email");
       setStep(2);
       setCooldown(30); // 30s before resend
-    } catch (err) {
+    } 
+    catch (err) {
       setServerError(err.response?.data?.message || "Failed to send code");
-    } finally {
+    } 
+    finally {
       setLoading(false);
     }
   };
