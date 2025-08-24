@@ -61,7 +61,7 @@ export function ForgetPasswordForm({
       setServerError("");
 
       // First check if user exists
-      const checkRes = await axios.post("/api/check-user", { username: email });
+      const checkRes = await axios.post("/api/check-user", { email });
       if (!checkRes.data.exists) {
         setServerError("User not found");
         setLoading(false);
@@ -194,14 +194,15 @@ return (
             </div>
           )}
           {step === 3 && (
-            <div>
+            <div className="grid gap-6">
+              {/* New Password */}
               <div className="grid gap-3 relative">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">New Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter password"
+                    placeholder="Enter new password"
                     required
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -217,6 +218,7 @@ return (
                 </div>
                 {errors.password && <p className="text-red-600 text-xs mt-1">{errors.password}</p>}
               </div>
+
               {/* Confirm Password */}
               <div className="grid gap-3 relative">
                 <Label htmlFor="confirm-password">Confirm Password</Label>
@@ -224,7 +226,7 @@ return (
                   <Input
                     id="confirm-password"
                     type={showConfirm ? "text" : "password"}
-                    placeholder="Confirm password"
+                    placeholder="Confirm new password"
                     required
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
@@ -242,25 +244,19 @@ return (
                   <p className="text-red-600 text-xs mt-1">{errors.confirmPassword}</p>
                 )}
               </div>
+
+              {/* Reset Button */}
               <Button
                 type="button"
                 className="w-full"
                 onClick={resetPassword}
-                disabled={loading || !code}
+                disabled={loading || !password || !confirmPassword}
               >
-                {loading ? "Verifying..." : "Verify & Reset Password"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={sendCode}
-                disabled={cooldown > 0 || loading}
-              >
-                {cooldown > 0 ? `Resend Code (${cooldown}s)` : "Resend Code"}
+                {loading ? "Resetting..." : "Reset Password"}
               </Button>
             </div>
           )}
+
         </CardContent>
       </Card>
       <div className="text-white text-center text-xs mt-4">
