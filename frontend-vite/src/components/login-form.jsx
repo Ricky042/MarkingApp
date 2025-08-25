@@ -11,31 +11,47 @@ export function LoginForm({ className, ...props }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    setIsLoading(true);
     try {
+      console.log("Attempting login..."); // Debug log
       const res = await axios.post("/api/login", { username, password });
+      
+      console.log("Login response:", res.data); // Debug log
 
       if (res.data.token) {
-        // ✅ Store JWT safely
+        // Store JWT safely
         localStorage.setItem("token", res.data.token);
+        console.log("Token stored:", localStorage.getItem("token")); // Debug log
 
-        // Optional: also store user info if backend sends it
+        // also store user info if backend sends it
         if (res.data.user) {
           localStorage.setItem("user", JSON.stringify(res.data.user));
         }
 
+        // Dispatch custom event to notify App.jsx of auth change
+        window.dispatchEvent(new Event('authChange'));
+        console.log("Auth change event dispatched"); // Debug log
+
         alert("Login successful!");
+        
+        // Navigate immediately - the App.jsx will handle the auth check
         navigate("/home");
+        console.log("Navigate to /home called"); // Debug log
+        
       } else {
         alert(res.data.message || "No token received");
       }
     } catch (err) {
+      console.error("Login error:", err); // Better error logging
       alert(err.response?.data?.message || "Login failed");
+    } finally {
+      setIsLoading(false);
     }
   };
-
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -64,6 +80,7 @@ export function LoginForm({ className, ...props }) {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
 
@@ -75,11 +92,13 @@ export function LoginForm({ className, ...props }) {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
                   className="absolute right-2 top-1/2 -translate-y-1/2 -translate-x-1 text-sm text-gray-500"
                   onClick={() => setShowPassword(prev => !prev)}
+                  disabled={isLoading}
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
@@ -92,8 +111,8 @@ export function LoginForm({ className, ...props }) {
                 Forget your password?
               </div>
 
-              <Button type="submit" className="w-full">
-                Login
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Logging in..." : "Login"}
               </Button>
 
               <div
