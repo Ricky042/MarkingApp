@@ -20,6 +20,7 @@ export function SignupForm({ className, ...props }) {
   const [serverError, setServerError] = useState("");
   const [cooldown, setCooldown] = useState(0); // resend cooldown
   const navigate = useNavigate();
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   // Countdown timer for resend code
   useEffect(() => {
@@ -33,16 +34,43 @@ export function SignupForm({ className, ...props }) {
   // Live validation
   useEffect(() => {
     const newErrors = {};
+
+    // 🔹 Local validation first
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = "Please enter a valid email address.";
     }
     if (password && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*[\d!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/.test(password)) {
-      newErrors.password = "Password must be ≥6 chars, with uppercase, lowercase, and number/symbol.";
+      newErrors.password =
+        "Password must be ≥6 chars, with uppercase, lowercase, and number/symbol.";
     }
     if (confirmPassword && password !== confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match.";
     }
+
     setErrors(newErrors);
+
+    // Checks for duplicate email in backend when tying the password in signup page
+    let delayDebounce;
+    if (email && !newErrors.email) {
+      delayDebounce = setTimeout(async () => {
+        try {
+          setCheckingEmail(true);
+          const res = await axios.post("/api/check-user", { email });
+          if (res.data.exists) {
+            setErrors(prev => ({ ...prev, email: "This email is already registered." }));
+          }
+        } catch (err) {
+          console.error("Email check failed:", err);
+        } finally {
+          setCheckingEmail(false);
+        }
+      }, 500); // debounce 500ms
+    }
+
+    // Cleanup function
+    return () => {
+      if (delayDebounce) clearTimeout(delayDebounce);
+    };
   }, [email, password, confirmPassword]);
 
   // Send verification code
