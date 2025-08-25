@@ -1,4 +1,13 @@
-// server.js
+//////////////////////////////////////////////////////////////////////
+//  server.js
+//  ------------------------
+//  Backend API for assignment marking portal
+//  - Handles user authentication (signup, login, logout)
+//  - Manages JWT token creation and verification
+//  - Sends email verification codes via Nodemailer
+//  - Supports password reset flow
+//////////////////////////////////////////////////////////////////////
+
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -9,35 +18,40 @@ const nodemailer = require("nodemailer");
 
 const app = express();
 const PORT = 5000;
-const SECRET = "supersecret"; // in production use .env file to store
+const SECRET = "supersecret"; // In production, store in .env
 
-// Temporary store for verification codes
+// Temporary in-memory store for email verification codes
 const verificationCodes = {};
 
+//  Middleware Setup
 app.use(cors());
 app.use(bodyParser.json());
 
-// Nodemailer config
+//  Nodemailer Configuration
 const transporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
     user: "markingapp3077@gmail.com",
-    pass: "mche wvuu wkbh nxbi",
+    pass: "mche wvuu wkbh nxbi", // ⚠️ Store in .env in production
   },
 });
 
-//////////////////////////
-//     JWT Helpers
-//////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  JWT Helpers
+//  -----------------
+//  generateToken(user): creates a signed JWT for user, payload as 'username' and 'id' w 1hr expiry
+//  authenticateToken(req,res,next): validates JWT from auth header, 'req.user' if valid, error if not
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function generateToken(user) {
   return jwt.sign(
-    { username: user.username, id: user.id }, // include id if available
+    { username: user.username, id: user.id },
     SECRET,
     { expiresIn: "1h" }
   );
 }
 
+// Not currently used, but might be needed if we're trying to hide specific pages for lecturers or tutors only
 function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -45,22 +59,23 @@ function authenticateToken(req, res, next) {
 
   jwt.verify(token, SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: "Invalid/expired token" });
-    req.user = user; // add user to request
+    req.user = user;
     next();
   });
 }
 
-//////////////////////////
-//      Signup Flow
-//////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//  Signup Flow
+//  ---------------------
+//  POST /send-code: generate 6 digit code, give 10m expiry, send via Nodemailer
+//  POST /verify-code: verify email + code, hash password + new user in db (errors for invalid code, expired or user already in db)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Send verification code
 app.post("/send-code", (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email required" });
 
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-
   verificationCodes[email] = {
     code,
     expires: Date.now() + 10 * 60 * 1000, // 10 min expiry
@@ -82,7 +97,6 @@ app.post("/send-code", (req, res) => {
   });
 });
 
-// Verify code + create user
 app.post("/verify-code", async (req, res) => {
   const { email, password, code } = req.body;
   const record = verificationCodes[email];
@@ -109,11 +123,12 @@ app.post("/verify-code", async (req, res) => {
   );
 });
 
-///////////////////////////////
-//      Login / Logout
-///////////////////////////////
+////////////////////////////////////////////////////////////////////
+//  Login / Logout Flow
+//  --------------------------
+//  POST /login: validate user, return JWT if successful
+////////////////////////////////////////////////////////////////////
 
-// Login
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
 
@@ -129,22 +144,14 @@ app.post("/login", (req, res) => {
   });
 });
 
-// Example of protected route
-app.get("/profile", authenticateToken, (req, res) => {
-  res.json({ message: "Welcome!", user: req.user });
-});
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+//  Forgot Password Flow
+//  -------------------------------
+//  POST /check-user: check if user email exists in db, return bool
+//  POST /verify-code-forgetpassword: verify code for password reset, return success if valid
+//  POST /forgetpassword: resets user's password, hashes new pass + db update
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Logout (client side just deletes token, but we can blacklist if needed)
-app.post("/logout", (req, res) => {
-  // In stateless JWT, logout is handled client-side
-  res.json({ message: "Logged out (client should discard token)" });
-});
-
-//////////////////////////////////////
-//      Forgot Password Flow
-//////////////////////////////////////
-
-// Check if user exists
 app.post("/check-user", (req, res) => {
   const { email } = req.body;
 
@@ -155,7 +162,6 @@ app.post("/check-user", (req, res) => {
   });
 });
 
-// Verify code for forgot password
 app.post("/verify-code-forgetpassword", (req, res) => {
   const { email, code } = req.body;
   const record = verificationCodes[email];
@@ -167,7 +173,6 @@ app.post("/verify-code-forgetpassword", (req, res) => {
   res.json({ message: "Code verified, please reset your password." });
 });
 
-// Reset password
 app.post("/forgetpassword", async (req, res) => {
   const { email, password } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -183,9 +188,11 @@ app.post("/forgetpassword", async (req, res) => {
   );
 });
 
-//////////////////////////////////////
-//      Resend Verification
-//////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+//  Resending validation codes
+//  -----------------------------
+//  POST /resend-code: resends verification code, prevents spam
+//////////////////////////////////////////////////////////////////////////
 
 app.post("/resend-code", async (req, res) => {
   const { email } = req.body;
@@ -213,8 +220,7 @@ app.post("/resend-code", async (req, res) => {
   }
 });
 
-////////////////////////////
-//      Start server
-////////////////////////////
-
+/////////////////////
+//  Start Server
+/////////////////////
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
