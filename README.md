@@ -40,3 +40,4 @@ Here's how to install most of the stuff to get it working
 - Nodemailer
 - Shadcn
 - SQLite3
+- JWTDecode
