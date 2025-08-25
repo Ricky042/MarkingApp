@@ -16,16 +16,26 @@ export function LoginForm({ className, ...props }) {
   const handleLogin = async () => {
     try {
       const res = await axios.post("/api/login", { username, password });
-      alert(res.data.message);
 
       if (res.data.token) {
+        // ✅ Store JWT safely
         localStorage.setItem("token", res.data.token);
+
+        // Optional: also store user info if backend sends it
+        if (res.data.user) {
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+        }
+
+        alert("Login successful!");
         navigate("/home");
+      } else {
+        alert(res.data.message || "No token received");
       }
     } catch (err) {
       alert(err.response?.data?.message || "Login failed");
     }
   };
+
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>

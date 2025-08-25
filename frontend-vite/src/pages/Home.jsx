@@ -1,24 +1,35 @@
-// Home, literally stores nothing at the moment, going to be the main page
-
+// frontend/src/pages/Home.jsx
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { jwtDecode } from "jwt-decode"; // ✅ correct import
 
 export default function Home() {
-  const [message, setMessage] = useState("");
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    axios.get("http://localhost:5000/home", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(res => setMessage(res.data.message))
-    .catch(() => setMessage("Not authorized"));
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setUser(decoded);
+      } catch (err) {
+        console.error("Invalid token", err);
+        localStorage.removeItem("token");
+      }
+    }
   }, []);
 
   return (
-    <div>
-      <h2>Home Page</h2>
-      <p>{message}</p>
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      {user ? (
+        <>
+          <h1 className="text-2xl font-bold mb-4">
+            Welcome back, {user.username || user.email}!
+          </h1>
+          <p className="text-gray-600">You are signed in.</p>
+        </>
+      ) : (
+        <h1 className="text-xl text-red-500">No user is currently signed in.</h1>
+      )}
     </div>
   );
 }
