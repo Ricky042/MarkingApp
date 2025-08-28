@@ -1,37 +1,66 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 export default function CreateTeam() {
-  const [teamName, setTeamName] = useState("");
+  const [name, setName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleCreate = async () => {
+  const handleCreateTeam = async () => {
+    if (!name.trim()) {
+      alert("Team name is required.");
+      return;
+    }
+
+    setIsLoading(true);
+    const token = localStorage.getItem("token");
+
     try {
-      const token = localStorage.getItem("token");
-      await axios.post("/api/create-team", { name: teamName }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      window.location.href = "/home"; // redirect after success
+      const res = await axios.post(
+        "/api/create-team",
+        { name },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("Team created:", res.data);
+
+      // Redirect to the new team's dashboard
+      const newTeamId = res.data.team.id;
+      navigate(`/team/${newTeamId}`);
     } catch (err) {
-      console.error("Team creation failed:", err);
+      console.error("Failed to create team:", err);
+      alert(err.response?.data?.message || "Failed to create team.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h1 className="text-2xl font-bold mb-4">Create Your Team</h1>
-      <input
-        type="text"
-        value={teamName}
-        onChange={(e) => setTeamName(e.target.value)}
-        placeholder="Team name"
-        className="border p-2 rounded mb-4"
-      />
-      <button
-        onClick={handleCreate}
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-      >
-        Create Team
-      </button>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Create a New Team</h1>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Team Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+        <button
+          onClick={handleCreateTeam}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          disabled={isLoading}
+        >
+          {isLoading ? "Creating..." : "Create Team"}
+        </button>
+      </div>
     </div>
   );
 }

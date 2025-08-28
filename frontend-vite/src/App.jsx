@@ -1,11 +1,13 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Home from "./pages/Home.jsx";
 import Forgetpassword from "./pages/Forgetpassword.jsx";
 import CreateTeam from "./pages/CreateTeam.jsx";
+import TeamDashboard from "./pages/TeamDashboard";
 import { jwtDecode } from "jwt-decode";
+import Navbar from "./components/Navbar";
 
 /////////////////////////////////////////////////////////////////
 //  App component
@@ -126,35 +128,52 @@ function App() {
 
   return (
     <Router>
-      <Routes>
-        {/* Root route: redirect to home if logged in, otherwise login */}
-        <Route
-          path="/"
-          element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />}
-        />
+      <ConditionalNavbarWrapper>
+        <Routes>
+          {/* Root route: redirect to home if logged in, otherwise login */}
+          <Route
+            path="/"
+            element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />}
+          />
 
-        {/* Public routes */}
-        <Route
-          path="/login"
-          element={!isLoggedIn ? <Login /> : <Navigate to="/home" replace />}
-        />
-        <Route
-          path="/signup"
-          element={!isLoggedIn ? <Signup /> : <Navigate to="/home" replace />}
-        />
-        <Route
-          path="/forgetpassword"
-          element={!isLoggedIn ? <Forgetpassword /> : <Navigate to="/home" replace />}
-        />
-        <Route path="/create-team" element={<CreateTeam />} />
+          {/* Public routes */}
+          <Route
+            path="/login"
+            element={!isLoggedIn ? <Login /> : <Navigate to="/home" replace />}
+          />
+          <Route
+            path="/signup"
+            element={!isLoggedIn ? <Signup /> : <Navigate to="/home" replace />}
+          />
+          <Route
+            path="/forgetpassword"
+            element={!isLoggedIn ? <Forgetpassword /> : <Navigate to="/home" replace />}
+          />
+          <Route path="/create-team" element={<CreateTeam />} />
 
-        {/* Protected routes */}
-        <Route
-          path="/home"
-          element={isLoggedIn ? <Home /> : <Navigate to="/login" replace />}
-        />
-      </Routes>
+          {/* Protected routes */}
+          <Route
+            path="/home"
+            element={isLoggedIn ? <Home /> : <Navigate to="/login" replace />}
+          />
+          <Route path="/team/:teamId" element={<TeamDashboard />} />
+        </Routes>
+      </ConditionalNavbarWrapper>
     </Router>
+  );
+}
+
+function ConditionalNavbarWrapper({ children }) {
+  const location = useLocation();
+
+  // Show Navbar only on team dashboard pages
+  const isTeamDashboard = location.pathname.startsWith("/team/");
+
+  return (
+    <div>
+      {isTeamDashboard && <Navbar />}
+      <div className="content">{children}</div>
+    </div>
   );
 }
 

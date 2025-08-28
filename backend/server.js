@@ -15,6 +15,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const db = require("./database");
 const nodemailer = require("nodemailer");
+const path = require("path");
 
 const app = express();
 const PORT = 5000;
@@ -26,6 +27,7 @@ const verificationCodes = {};
 //  Middleware Setup
 app.use(cors());
 app.use(bodyParser.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 //  Nodemailer Configuration
 const transporter = nodemailer.createTransport({
@@ -259,56 +261,114 @@ app.get("/my-team", authenticateToken, (req, res) => {
 });
 
 // --- TEAM CREATION ---
-app.post("/create-team", (req, res) => {
-  const { name, profile_picture } = req.body;
+app.post("/create-team", authenticateToken, (req, res) => {
+  const { name } = req.body;
+  const profilePicture = req.file ? `/uploads/${req.file.filename}` : null;
+  const userId = req.user.id;
 
-  // 1️⃣ Validate input
   if (!name || name.trim() === "") {
-    return res.status(400).json({ error: "Team name is required" });
+    return res.status(400).json({ error: "Team name is required." });
   }
 
-  // 2️⃣ Check auth header
-  const authHeader = req.headers["authorization"];
-  if (!authHeader) return res.status(401).json({ error: "No token provided" });
-
-  const token = authHeader.split(" ")[1];
-  let userId;
-
-  // 3️⃣ Verify JWT
-  try {
-    const decoded = jwt.verify(token, SECRET);
-    userId = decoded.id;
-  } catch (err) {
-    return res.status(403).json({ error: "Invalid token" });
-  }
-
-  // 4️⃣ Insert team
-  const insertTeam = `INSERT INTO teams (name, profile_picture, owner_id) VALUES (?, ?, ?)`;
-  db.run(insertTeam, [name.trim(), profile_picture || null, userId], function (err) {
-    if (err) {
-      console.error("Error creating team:", err.message);
-      return res.status(400).json({ error: "Team creation failed: " + err.message });
-    }
-
-    const teamId = this.lastID;
-
-    // 5️⃣ Add owner as admin member
-    const addMember = `INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, 'admin')`;
-    db.run(addMember, [teamId, userId], function (err2) {
-      if (err2) {
-        console.error("Error adding owner as member:", err2.message);
-        return res.status(500).json({ error: "Team created, but failed to add owner as member" });
+  db.run(
+    `INSERT INTO teams (name, profile_picture, owner_id) VALUES (?, ?, ?)`,
+    [name, profilePicture, userId],
+    function (err) {
+      if (err) {
+        console.error("Failed to create team:", err);
+        return res.status(500).json({ error: "Failed to create team." });
       }
 
-      // 6️⃣ Success response
-      res.json({
-        message: "Team created successfully",
-        team: { id: teamId, name: name.trim(), profile_picture, owner_id: userId },
-      });
-    });
-  });
+      const teamId = this.lastID;
+
+      // Add the creator as a team member with the "admin" role
+      db.run(
+        `INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, ?)`,
+        [teamId, userId, "admin"],
+        (err) => {
+          if (err) {
+            console.error("Failed to add team creator as member:", err);
+            return res.status(500).json({ error: "Failed to finalize team creation." });
+          }
+
+          res.status(201).json({
+            message: "Team created successfully.",
+            team: { id: teamId, name, profile_picture: profilePicture },
+          });
+        }
+      );
+    }
+  );
 });
 
+app.get("/team/:teamId", authenticateToken, (req, res) => {
+  const { teamId } = req.params;
+  const userId = req.user.id;
+
+  db.get(
+    `SELECT 
+       teams.id, 
+       teams.name, 
+       teams.profile_picture, 
+       teams.created_at, 
+       team_members.role AS user_role
+     FROM team_members
+     JOIN teams ON team_members.team_id = teams.id
+     WHERE teams.id = ? AND team_members.user_id = ?`,
+    [teamId, userId],
+    (err, row) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Failed to fetch team details" });
+      }
+
+      if (!row) {
+        return res.status(404).json({ error: "Team not found or access denied" });
+      }
+
+      res.json({
+        team: {
+          id: row.id,
+          name: row.name,
+          profile_picture: row.profile_picture,
+          created_at: row.created_at,
+          user_role: row.user_role,
+        },
+      });
+    }
+  );
+});
+
+app.get("/team/:teamId/members", authenticateToken, (req, res) => {
+  const { teamId } = req.params;
+
+  console.log("Fetching members for teamId:", teamId); // Debug log
+
+  db.all(
+    `SELECT 
+       users.id, 
+       users.username, 
+       team_members.role 
+     FROM team_members
+     JOIN users ON team_members.user_id = users.id
+     WHERE team_members.team_id = ?`,
+    [teamId],
+    (err, rows) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Failed to fetch team members" });
+      }
+
+      console.log("Team members found:", rows); // Debug log
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "No team members found" });
+      }
+
+      res.json({ members: rows });
+    }
+  );
+});
 
 /////////////////////
 //  Start Server

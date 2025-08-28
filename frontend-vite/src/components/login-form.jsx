@@ -48,15 +48,19 @@ export function LoginForm({ className, ...props }) {
         });
         console.log("Team check response:", teamRes.data);
 
-        if (teamRes.data.hasTeam) {
-          navigate("/home");
+        if (teamRes.data.hasTeams && teamRes.data.teams.length > 0) {
+          // Navigate to the first team's dashboard
+          const firstTeamId = teamRes.data.teams[0].id;
+          console.log("Logging into team:", firstTeamId);
+          navigate(`/team/${firstTeamId}`);
         } else {
+          // Navigate to create-team if no teams exist
           navigate("/create-team");
         }
       } catch (teamErr) {
         console.error("Error checking team:", teamErr);
-        alert("Failed to check team. Redirecting to home.");
-        navigate("/home"); // fallback
+        alert("Failed to check team. Redirecting to create-team.");
+        navigate("/create-team"); // fallback
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -110,7 +114,7 @@ export function LoginForm({ className, ...props }) {
                 <button
                   type="button"
                   className="absolute right-2 top-1/2 -translate-y-1/2 -translate-x-1 text-sm text-gray-500"
-                  onClick={() => setShowPassword(prev => !prev)}
+                  onClick={() => setShowPassword((prev) => !prev)}
                   disabled={isLoading}
                 >
                   {showPassword ? "Hide" : "Show"}
