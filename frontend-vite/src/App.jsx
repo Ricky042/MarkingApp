@@ -4,6 +4,7 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Home from "./pages/Home.jsx";
 import Forgetpassword from "./pages/Forgetpassword.jsx";
+import CreateTeam from "./pages/CreateTeam.jsx";
 import { jwtDecode } from "jwt-decode";
 
 /////////////////////////////////////////////////////////////////
@@ -145,6 +146,7 @@ function App() {
           path="/forgetpassword"
           element={!isLoggedIn ? <Forgetpassword /> : <Navigate to="/home" replace />}
         />
+        <Route path="/create-team" element={<CreateTeam />} />
 
         {/* Protected routes */}
         <Route

@@ -32,7 +32,7 @@ const transporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
     user: "markingapp3077@gmail.com",
-    pass: "mche wvuu wkbh nxbi", // ⚠️ Store in .env in production
+    pass: "mche wvuu wkbh nxbi", // Store in .env in production
   },
 });
 
@@ -219,6 +219,83 @@ app.post("/resend-code", async (req, res) => {
     res.status(500).json({ message: "Failed to resend code" });
   }
 });
+
+// --- Check if user has a team ---
+app.get("/my-team", authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  db.get(
+    `SELECT teams.* 
+     FROM team_members 
+     JOIN teams ON team_members.team_id = teams.id 
+     WHERE team_members.user_id = ?`,
+    [userId],
+    (err, row) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Failed to check team" });
+      }
+
+      if (!row) {
+        return res.json({ hasTeam: false });
+      }
+
+      res.json({ hasTeam: true, team: row });
+    }
+  );
+});
+
+// --- TEAM CREATION ---
+app.post("/create-team", (req, res) => {
+  const { name, profile_picture } = req.body;
+
+  // 1️⃣ Validate input
+  if (!name || name.trim() === "") {
+    return res.status(400).json({ error: "Team name is required" });
+  }
+
+  // 2️⃣ Check auth header
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) return res.status(401).json({ error: "No token provided" });
+
+  const token = authHeader.split(" ")[1];
+  let userId;
+
+  // 3️⃣ Verify JWT
+  try {
+    const decoded = jwt.verify(token, SECRET);
+    userId = decoded.id;
+  } catch (err) {
+    return res.status(403).json({ error: "Invalid token" });
+  }
+
+  // 4️⃣ Insert team
+  const insertTeam = `INSERT INTO teams (name, profile_picture, owner_id) VALUES (?, ?, ?)`;
+  db.run(insertTeam, [name.trim(), profile_picture || null, userId], function (err) {
+    if (err) {
+      console.error("Error creating team:", err.message);
+      return res.status(400).json({ error: "Team creation failed: " + err.message });
+    }
+
+    const teamId = this.lastID;
+
+    // 5️⃣ Add owner as admin member
+    const addMember = `INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, 'admin')`;
+    db.run(addMember, [teamId, userId], function (err2) {
+      if (err2) {
+        console.error("Error adding owner as member:", err2.message);
+        return res.status(500).json({ error: "Team created, but failed to add owner as member" });
+      }
+
+      // 6️⃣ Success response
+      res.json({
+        message: "Team created successfully",
+        team: { id: teamId, name: name.trim(), profile_picture, owner_id: userId },
+      });
+    });
+  });
+});
+
 
 /////////////////////
 //  Start Server

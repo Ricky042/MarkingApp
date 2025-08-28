@@ -23,6 +23,7 @@ const db = new sqlite3.Database("./users.db", (err) => {
       CREATE TABLE IF NOT EXISTS teams (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT UNIQUE NOT NULL,
+        profile_picture TEXT,
         owner_id INTEGER NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (owner_id) REFERENCES users(id)
@@ -107,6 +108,21 @@ const db = new sqlite3.Database("./users.db", (err) => {
         comments TEXT,
         FOREIGN KEY (submission_id) REFERENCES submissions(id),
         FOREIGN KEY (rubric_id) REFERENCES rubrics(id)
+      )
+    `);
+
+    // --- TEAM INVITES ---
+    db.run(`
+      CREATE TABLE IF NOT EXISTS team_invites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER NOT NULL,
+        inviter_id INTEGER NOT NULL,
+        invitee_email TEXT NOT NULL,
+        status TEXT DEFAULT 'pending', -- pending | accepted | declined
+        token TEXT UNIQUE NOT NULL, -- random string for invite link
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (team_id) REFERENCES teams(id),
+        FOREIGN KEY (inviter_id) REFERENCES users(id)
       )
     `);
 

@@ -17,36 +17,49 @@ export function LoginForm({ className, ...props }) {
   const handleLogin = async () => {
     setIsLoading(true);
     try {
-      console.log("Attempting login..."); // Debug log
+      console.log("Attempting login...");
+
+      // Login request
       const res = await axios.post("/api/login", { username, password });
-      
-      console.log("Login response:", res.data); // Debug log
+      console.log("Login response:", res.data);
 
-      if (res.data.token) {
-        // Store JWT safely
-        localStorage.setItem("token", res.data.token);
-        console.log("Token stored:", localStorage.getItem("token")); // Debug log
-
-        // also store user info if backend sends it
-        if (res.data.user) {
-          localStorage.setItem("user", JSON.stringify(res.data.user));
-        }
-
-        // Dispatch custom event to notify App.jsx of auth change
-        window.dispatchEvent(new Event('authChange'));
-        console.log("Auth change event dispatched"); // Debug log
-
-        alert("Login successful!");
-        
-        // Navigate immediately - the App.jsx will handle the auth check
-        navigate("/home");
-        console.log("Navigate to /home called"); // Debug log
-        
-      } else {
+      if (!res.data.token) {
         alert(res.data.message || "No token received");
+        return;
+      }
+
+      const token = res.data.token;
+      localStorage.setItem("token", token);
+      console.log("Token stored:", token);
+
+      if (res.data.user) {
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+      }
+
+      window.dispatchEvent(new Event("authChange"));
+      console.log("Auth change event dispatched");
+
+      alert("Login successful!");
+
+      // Check if user has a team
+      try {
+        const teamRes = await axios.get("/api/my-team", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log("Team check response:", teamRes.data);
+
+        if (teamRes.data.hasTeam) {
+          navigate("/home");
+        } else {
+          navigate("/create-team");
+        }
+      } catch (teamErr) {
+        console.error("Error checking team:", teamErr);
+        alert("Failed to check team. Redirecting to home.");
+        navigate("/home"); // fallback
       }
     } catch (err) {
-      console.error("Login error:", err); // Better error logging
+      console.error("Login error:", err);
       alert(err.response?.data?.message || "Login failed");
     } finally {
       setIsLoading(false);
