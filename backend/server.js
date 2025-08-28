@@ -220,27 +220,40 @@ app.post("/resend-code", async (req, res) => {
   }
 });
 
-// --- Check if user has a team ---
+// --- Check if user has teams ---
 app.get("/my-team", authenticateToken, (req, res) => {
   const userId = req.user.id;
 
-  db.get(
-    `SELECT teams.* 
-     FROM team_members 
-     JOIN teams ON team_members.team_id = teams.id 
+  db.all(
+    `SELECT 
+       teams.id, 
+       teams.name, 
+       teams.profile_picture, 
+       teams.created_at, 
+       team_members.role AS user_role
+     FROM team_members
+     JOIN teams ON team_members.team_id = teams.id
      WHERE team_members.user_id = ?`,
     [userId],
-    (err, row) => {
+    (err, rows) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: "Failed to check team" });
+        return res.status(500).json({ error: "Failed to check teams" });
       }
 
-      if (!row) {
-        return res.json({ hasTeam: false });
-      }
+      // Ensure the response includes the role
+      const teams = rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        profile_picture: row.profile_picture,
+        created_at: row.created_at,
+        user_role: row.user_role, // Include the role here
+      }));
 
-      res.json({ hasTeam: true, team: row });
+      res.json({
+        hasTeams: teams.length > 0,
+        teams: teams,
+      });
     }
   );
 });
