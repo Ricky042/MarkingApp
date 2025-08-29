@@ -133,7 +133,7 @@ function App() {
           {/* Root route: redirect to home if logged in, otherwise login */}
           <Route
             path="/"
-            element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/login" replace />}
+            element={isLoggedIn ? <Navigate to="/team/1" replace /> : <Navigate to="/login" replace />}
           />
 
           {/* Public routes */}
