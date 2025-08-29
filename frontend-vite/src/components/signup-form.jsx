@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/axios";
 import { useNavigate } from "react-router-dom";
 
 export function SignupForm({ className, ...props }) {
@@ -55,7 +55,7 @@ export function SignupForm({ className, ...props }) {
       delayDebounce = setTimeout(async () => {
         try {
           setCheckingEmail(true);
-          const res = await axios.post("/api/check-user", { email });
+          const res = await api.post("/check-user", { email });
           if (res.data.exists) {
             setErrors(prev => ({ ...prev, email: "This email is already registered." }));
           }
@@ -79,7 +79,7 @@ export function SignupForm({ className, ...props }) {
     try {
       setLoading(true);
       setServerError("");
-      await axios.post("/api/send-code", { email });
+      await api.post("/send-code", { email });
       alert("Verification code sent to your email");
       setStep(2);
       setCooldown(30); // 30s before resend
@@ -96,7 +96,7 @@ export function SignupForm({ className, ...props }) {
     try {
       setLoading(true);
       setServerError("");
-      const res = await axios.post("/api/verify-code", { email, password, code });
+      const res = await api.post("/verify-code", { email, password, code });
       alert(res.data.message);
       navigate("/login");
     } catch (err) {

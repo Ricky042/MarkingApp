@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../utils/axios";
 
 export default function TeamDashboard() {
   const { teamId } = useParams();
@@ -16,13 +16,13 @@ export default function TeamDashboard() {
 
       try {
         // Fetch team details
-        const teamRes = await axios.get(`/api/team/${teamId}`, {
+        const teamRes = await api.get(`team/${teamId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTeam(teamRes.data.team);
 
         // Fetch team members
-        const membersRes = await axios.get(`/api/team/${teamId}/members`, {
+        const membersRes = await api.get(`/team/${teamId}/members`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setMembers(membersRes.data.members);

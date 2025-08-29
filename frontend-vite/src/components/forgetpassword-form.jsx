@@ -8,7 +8,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../utils/axios";
 import { useNavigate } from "react-router-dom";
 
 export function ForgetPasswordForm({
@@ -61,7 +61,7 @@ export function ForgetPasswordForm({
       setServerError("");
 
       // First check if user exists
-      const checkRes = await axios.post("/api/check-user", { email });
+      const checkRes = await api.post("/check-user", { email });
       if (!checkRes.data.exists) {
         setServerError("User not found");
         setLoading(false);
@@ -69,7 +69,7 @@ export function ForgetPasswordForm({
       }
 
       // Then send code
-      await axios.post("/api/send-code", { email });
+      await api.post("/send-code", { email });
       alert("Verification code sent to your email");
       setStep(2);
       setCooldown(30); // 30s before resend
@@ -88,7 +88,7 @@ export function ForgetPasswordForm({
     try {
       setLoading(true);
       setServerError("");
-      const res = await axios.post("/api/verify-code-forgetpassword", { email, code });
+      const res = await api.post("/verify-code-forgetpassword", { email, code });
       alert(res.data.message);
       setStep(3);
     } catch (err) {
@@ -105,7 +105,7 @@ export function ForgetPasswordForm({
     try {
       setLoading(true);
       setServerError("");
-      const res = await axios.post("/api/forgetpassword", { email, password});
+      const res = await api.post("/forgetpassword", { email, password});
       alert(res.data.message);
       navigate("/login");
     } catch (err) {

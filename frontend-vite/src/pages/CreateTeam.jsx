@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/axios";
 
 export default function CreateTeam() {
   const [name, setName] = useState("");
@@ -17,8 +17,8 @@ export default function CreateTeam() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await axios.post(
-        "/api/create-team",
+      const res = await api.post(
+        "/create-team",
         { name },
         {
           headers: {
