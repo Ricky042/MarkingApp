@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/axios";
 
 export default function TeamSwitcher() {
   const [teams, setTeams] = useState([]);
@@ -12,7 +12,7 @@ export default function TeamSwitcher() {
       if (!token) return;
 
       try {
-        const res = await axios.get("/api/my-team", {
+        const res = await api.get("/my-team", {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.data.hasTeams) {

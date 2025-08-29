@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import axios from "axios";
+import api from "../utils/axios";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ export default function Home() {
         setUsername(decoded.username || "Unknown");
 
         // Fetch teams
-        const res = await axios.get("/api/my-team", {
+        const res = await api.get("/my-team", {
           headers: { Authorization: `Bearer ${token}` },
         });
 

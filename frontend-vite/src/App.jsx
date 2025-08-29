@@ -1,10 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import Login from "./pages/Login.jsx";
-import Signup from "./pages/Signup.jsx";
-import Home from "./pages/Home.jsx";
-import Forgetpassword from "./pages/Forgetpassword.jsx";
-import CreateTeam from "./pages/CreateTeam.jsx";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Home from "./pages/Home";
+import Forgetpassword from "./pages/Forgetpassword";
+import CreateTeam from "./pages/CreateTeam";
 import TeamDashboard from "./pages/TeamDashboard";
 import { jwtDecode } from "jwt-decode";
 import Navbar from "./components/Navbar";
