@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Navigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../utils/axios";
 
@@ -12,6 +12,7 @@ export default function TeamDashboard() {
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [emailsList, setEmailsList] = useState([]);
   const [inviteStatus, setInviteStatus] = useState(null);
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function TeamDashboard() {
       if (!token) return navigate("/login");
 
       try {
-        const teamRes = await api.get(`team/${teamId}`, {
+        const teamRes = await api.get(`/team/${teamId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTeam(teamRes.data.team);
@@ -40,21 +41,33 @@ export default function TeamDashboard() {
     fetchTeamData();
   }, [teamId, navigate]);
 
-  const handleInvite = async () => {
+  const handleAddEmail = () => {
+    if (!inviteEmail.trim()) return;
+    if (!emailsList.includes(inviteEmail.trim())) {
+      setEmailsList([...emailsList, inviteEmail.trim()]);
+      setInviteEmail("");
+    }
+  };
+
+  const handleRemoveEmail = (email) => {
+    setEmailsList(emailsList.filter((e) => e !== email));
+  };
+
+  const handleInviteMultiple = async () => {
     const token = localStorage.getItem("token");
-    if (!inviteEmail) return setInviteStatus("Please enter an email.");
+    if (emailsList.length === 0) return setInviteStatus("Add at least one email.");
 
     try {
       await api.post(
         `/team/${teamId}/invite`,
-        { email: inviteEmail },
+        { emails: emailsList },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setInviteStatus("Invitation sent successfully!");
-      setInviteEmail("");
+      setInviteStatus("Invitations sent successfully!");
+      setEmailsList([]);
     } catch (err) {
-      console.error("Failed to send invite:", err);
-      setInviteStatus("Failed to send invite.");
+      console.error("Failed to send invites:", err);
+      setInviteStatus("Failed to send invites.");
     }
   };
 
@@ -93,19 +106,46 @@ export default function TeamDashboard() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow-lg w-96">
-            <h2 className="text-lg font-semibold mb-4">Invite Member</h2>
-            <input
-              type="email"
-              placeholder="Enter email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              className="w-full border p-2 rounded mb-4"
-            />
-            {inviteStatus && (
-              <p className="text-sm mb-2">{inviteStatus}</p>
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* Blurred background */}
+          <div className="absolute inset-0 backdrop-blur-sm"></div>
+
+          {/* Modal content */}
+          <div className="relative bg-white p-6 rounded shadow-lg w-96 z-10">
+            <h2 className="text-lg font-semibold mb-4">Invite Members</h2>
+
+            <div className="flex gap-2 mb-2">
+              <input
+                type="email"
+                placeholder="Enter email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="flex-1 border p-2 rounded"
+              />
+              <button
+                onClick={handleAddEmail}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              >
+                Add
+              </button>
+            </div>
+
+            {emailsList.length > 0 && (
+              <ul className="mb-4">
+                {emailsList.map((email, idx) => (
+                  <li key={idx} className="text-sm flex justify-between items-center">
+                    <span>{email}</span>
+                    <button
+                      onClick={() => handleRemoveEmail(email)}
+                      className="text-red-500 ml-2"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
+
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setShowInviteModal(false)}
@@ -114,12 +154,14 @@ export default function TeamDashboard() {
                 Cancel
               </button>
               <button
-                onClick={handleInvite}
+                onClick={handleInviteMultiple}
                 className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
-                Send Invite
+                Send Invites
               </button>
             </div>
+
+            {inviteStatus && <p className="mt-2 text-sm">{inviteStatus}</p>}
           </div>
         </div>
       )}

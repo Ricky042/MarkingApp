@@ -137,7 +137,13 @@ app.post("/login", async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: "Invalid login" });
 
     const token = generateToken(user);
-    res.json({ message: "Login successful", token });
+
+    // Include minimal user info in the response
+    res.json({ 
+      message: "Login successful", 
+      token, 
+      user: { id: user.id, username: user.username } 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "DB error" });
@@ -311,6 +317,121 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Failed to fetch team members:", err);
     res.status(500).json({ error: "Failed to fetch team members" });
+  }
+});
+
+// Invite multiple users to a team
+app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const { emails } = req.body; // expects an array of emails
+  const inviterId = req.user.id;
+
+  if (!emails || !Array.isArray(emails) || emails.length === 0) {
+    return res.status(400).json({ error: "No emails provided." });
+  }
+
+  try {
+    const results = [];
+
+    for (const email of emails) {
+      // Generate a unique token for the invitation
+      const inviteToken = require("crypto").randomBytes(32).toString("hex");
+
+      // Insert invitation into team_invites table
+      await pool.query(
+        `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status)
+         VALUES ($1, $2, $3, $4, 'pending')`,
+        [teamId, inviterId, email, inviteToken]
+      );
+
+      // Send email via Nodemailer
+      const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "You're invited to join a team!",
+        html: `<p>You have been invited to join a team.</p>
+               <p>Click below to accept the invitation:</p>
+               <a href="${inviteUrl}">Join Team</a>`,
+      });
+
+      results.push({ email, status: "sent" });
+    }
+
+    res.json({ message: "Invitations sent", results });
+  } catch (err) {
+    console.error("Error sending invites:", err);
+    res.status(500).json({ error: "Failed to send invites" });
+  }
+});
+
+// Accept or deny an invite
+app.post("/team/invite/:token/respond", authenticateToken, async (req, res) => {
+  const { token } = req.params;
+  const { action } = req.body; // 'accept' or 'deny'
+  const userId = req.user.id;
+
+  try {
+    const inviteRes = await pool.query(
+      "SELECT * FROM team_invites WHERE token=$1 AND status='pending'",
+      [token]
+    );
+    const invite = inviteRes.rows[0];
+    if (!invite) return res.status(404).json({ error: "Invite not found or already responded" });
+
+    if (action === "accept") {
+      // Add user to team_members
+      await pool.query(
+        "INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'tutor')",
+        [invite.team_id, userId]
+      );
+      await pool.query(
+        "UPDATE team_invites SET status='accepted' WHERE id=$1",
+        [invite.id]
+      );
+      res.json({ message: "Invite accepted" });
+    } else if (action === "deny") {
+      await pool.query(
+        "UPDATE team_invites SET status='denied' WHERE id=$1",
+        [invite.id]
+      );
+      res.json({ message: "Invite denied" });
+    } else {
+      res.status(400).json({ error: "Invalid action" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to respond to invite" });
+  }
+});
+
+// Get invite details by token
+app.get("/team/invite/:token", async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const inviteRes = await pool.query(
+      `SELECT 
+         ti.id, 
+         ti.team_id, 
+         ti.invitee_email, 
+         ti.status, 
+         t.name AS team_name,
+         u.username AS inviter_email
+       FROM team_invites ti
+       JOIN teams t ON ti.team_id = t.id
+       JOIN users u ON ti.inviter_id = u.id
+       WHERE ti.token = $1`,
+      [token]
+    );
+
+    const invite = inviteRes.rows[0];
+    if (!invite) return res.status(404).json({ error: "Invite not found" });
+
+    res.json(invite);
+  } catch (err) {
+    console.error("Error fetching invite:", err);
+    res.status(500).json({ error: "Failed to fetch invite" });
   }
 });
 

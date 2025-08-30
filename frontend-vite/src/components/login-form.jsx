@@ -17,56 +17,66 @@ export function LoginForm({ className, ...props }) {
   const handleLogin = async () => {
     setIsLoading(true);
     try {
-      console.log("Attempting login...");
+      console.log("=== Login started ===");
+      console.log("Current localStorage token:", localStorage.getItem("token"));
+      console.log("Current localStorage user:", localStorage.getItem("user"));
 
       // Login request
       const res = await api.post("/login", { username, password });
       console.log("Login response:", res.data);
 
       if (!res.data.token) {
+        console.warn("No token received in login response.");
         alert(res.data.message || "No token received");
         return;
       }
 
       const token = res.data.token;
+      console.log("Storing token in localStorage:", token);
       localStorage.setItem("token", token);
-      console.log("Token stored:", token);
 
       if (res.data.user) {
+        console.log("Storing user in localStorage:", res.data.user);
         localStorage.setItem("user", JSON.stringify(res.data.user));
+      } else {
+        console.warn("No user object received from login response.");
+        localStorage.removeItem("user");
       }
 
       window.dispatchEvent(new Event("authChange"));
-      console.log("Auth change event dispatched");
+      console.log("Auth change event dispatched.");
 
-      alert("Login successful!");
+      // Check for pending invite
+      const pendingInviteToken = sessionStorage.getItem("pendingInviteToken");
+      console.log("Pending invite token in sessionStorage:", pendingInviteToken);
 
-      // Check if user has a team
-      try {
-        const teamRes = await api.get("/my-team", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        console.log("Team check response:", teamRes.data);
+      if (pendingInviteToken) {
+        console.log("Redirecting to join-team page for pending invite.");
+        navigate(`/join-team?token=${pendingInviteToken}`);
+        return; // stop here
+      }
 
-        if (teamRes.data.hasTeams && teamRes.data.teams.length > 0) {
-          // Navigate to the first team's dashboard
-          const firstTeamId = teamRes.data.teams[0].id;
-          console.log("Logging into team:", firstTeamId);
-          navigate(`/team/${firstTeamId}`);
-        } else {
-          // Navigate to create-team if no teams exist
-          navigate("/create-team");
-        }
-      } catch (teamErr) {
-        console.error("Error checking team:", teamErr);
-        alert("Failed to check team. Redirecting to create-team.");
-        navigate("/create-team"); // fallback
+      // If no pending invite, check if user has a team
+      console.log("No pending invite. Checking user's teams...");
+      const teamRes = await api.get("/my-team", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log("Team check response:", teamRes.data);
+
+      if (teamRes.data.hasTeams && teamRes.data.teams.length > 0) {
+        const firstTeamId = teamRes.data.teams[0].id;
+        console.log("Navigating to first team dashboard:", firstTeamId);
+        navigate(`/team/${firstTeamId}`);
+      } else {
+        console.log("No teams found. Navigating to create-team page.");
+        navigate("/create-team");
       }
     } catch (err) {
       console.error("Login error:", err);
       alert(err.response?.data?.message || "Login failed");
     } finally {
       setIsLoading(false);
+      console.log("=== Login finished ===");
     }
   };
 

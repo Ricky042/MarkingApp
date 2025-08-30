@@ -6,6 +6,7 @@ export default function Navbar() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     window.dispatchEvent(new Event("authChange")); // sync with App.jsx
     navigate("/login");
   };
