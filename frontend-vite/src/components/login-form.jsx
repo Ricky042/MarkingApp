@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import axios from "axios";
+import api from "../utils/axios";
 import { useNavigate } from "react-router-dom";
 
 export function LoginForm({ className, ...props }) {
@@ -17,39 +17,66 @@ export function LoginForm({ className, ...props }) {
   const handleLogin = async () => {
     setIsLoading(true);
     try {
-      console.log("Attempting login..."); // Debug log
-      const res = await axios.post("/api/login", { username, password });
-      
-      console.log("Login response:", res.data); // Debug log
+      console.log("=== Login started ===");
+      console.log("Current localStorage token:", localStorage.getItem("token"));
+      console.log("Current localStorage user:", localStorage.getItem("user"));
 
-      if (res.data.token) {
-        // Store JWT safely
-        localStorage.setItem("token", res.data.token);
-        console.log("Token stored:", localStorage.getItem("token")); // Debug log
+      // Login request
+      const res = await api.post("/login", { username, password });
+      console.log("Login response:", res.data);
 
-        // also store user info if backend sends it
-        if (res.data.user) {
-          localStorage.setItem("user", JSON.stringify(res.data.user));
-        }
-
-        // Dispatch custom event to notify App.jsx of auth change
-        window.dispatchEvent(new Event('authChange'));
-        console.log("Auth change event dispatched"); // Debug log
-
-        alert("Login successful!");
-        
-        // Navigate immediately - the App.jsx will handle the auth check
-        navigate("/home");
-        console.log("Navigate to /home called"); // Debug log
-        
-      } else {
+      if (!res.data.token) {
+        console.warn("No token received in login response.");
         alert(res.data.message || "No token received");
+        return;
+      }
+
+      const token = res.data.token;
+      console.log("Storing token in localStorage:", token);
+      localStorage.setItem("token", token);
+
+      if (res.data.user) {
+        console.log("Storing user in localStorage:", res.data.user);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+      } else {
+        console.warn("No user object received from login response.");
+        localStorage.removeItem("user");
+      }
+
+      window.dispatchEvent(new Event("authChange"));
+      console.log("Auth change event dispatched.");
+
+      // Check for pending invite
+      const pendingInviteToken = sessionStorage.getItem("pendingInviteToken");
+      console.log("Pending invite token in sessionStorage:", pendingInviteToken);
+
+      if (pendingInviteToken) {
+        console.log("Redirecting to join-team page for pending invite.");
+        navigate(`/join-team?token=${pendingInviteToken}`);
+        return; // stop here
+      }
+
+      // If no pending invite, check if user has a team
+      console.log("No pending invite. Checking user's teams...");
+      const teamRes = await api.get("/my-team", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log("Team check response:", teamRes.data);
+
+      if (teamRes.data.hasTeams && teamRes.data.teams.length > 0) {
+        const firstTeamId = teamRes.data.teams[0].id;
+        console.log("Navigating to first team dashboard:", firstTeamId);
+        navigate(`/team/${firstTeamId}`);
+      } else {
+        console.log("No teams found. Navigating to create-team page.");
+        navigate("/create-team");
       }
     } catch (err) {
-      console.error("Login error:", err); // Better error logging
+      console.error("Login error:", err);
       alert(err.response?.data?.message || "Login failed");
     } finally {
       setIsLoading(false);
+      console.log("=== Login finished ===");
     }
   };
 
@@ -97,7 +124,7 @@ export function LoginForm({ className, ...props }) {
                 <button
                   type="button"
                   className="absolute right-2 top-1/2 -translate-y-1/2 -translate-x-1 text-sm text-gray-500"
-                  onClick={() => setShowPassword(prev => !prev)}
+                  onClick={() => setShowPassword((prev) => !prev)}
                   disabled={isLoading}
                 >
                   {showPassword ? "Hide" : "Show"}
