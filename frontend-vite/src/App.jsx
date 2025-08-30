@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "r
 import { useState, useEffect } from "react";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import Home from "./pages/Home";
 import Forgetpassword from "./pages/Forgetpassword";
 import CreateTeam from "./pages/CreateTeam";
 import TeamDashboard from "./pages/TeamDashboard";
@@ -139,23 +138,17 @@ function App() {
           {/* Public routes */}
           <Route
             path="/login"
-            element={!isLoggedIn ? <Login /> : <Navigate to="/home" replace />}
+            element={!isLoggedIn ? <Login /> : <Navigate to="/team/1" replace />}
           />
           <Route
             path="/signup"
-            element={!isLoggedIn ? <Signup /> : <Navigate to="/home" replace />}
+            element={!isLoggedIn ? <Signup /> : <Navigate to="/team/1" replace />}
           />
           <Route
             path="/forgetpassword"
-            element={!isLoggedIn ? <Forgetpassword /> : <Navigate to="/home" replace />}
+            element={!isLoggedIn ? <Forgetpassword /> : <Navigate to="/team/1" replace />}
           />
           <Route path="/create-team" element={<CreateTeam />} />
-
-          {/* Protected routes */}
-          <Route
-            path="/home"
-            element={isLoggedIn ? <Home /> : <Navigate to="/login" replace />}
-          />
           <Route path="/team/:teamId" element={<TeamDashboard />} />
         </Routes>
       </ConditionalNavbarWrapper>
