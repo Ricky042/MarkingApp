@@ -92,16 +92,20 @@ export default function TeamDashboard() {
                   <p className="text-lg font-semibold">{member.username}</p>
                   <p className="text-sm text-gray-600">Role: {member.role}</p>
                 </div>
-                <button
-                  onClick={() => setShowInviteModal(true)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Invite
-                </button>
               </div>
             </li>
           ))}
         </ul>
+
+        {/* Single Invite Button */}
+        <div className="mt-4 flex justify-left">
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Invite Members
+          </button>
+        </div>
       </div>
 
       {/* Invite Modal */}
