@@ -108,11 +108,9 @@ function App() {
           <Route
             path="/signup"
             element={
-              pendingInviteToken
-                ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
-                : !isLoggedIn
-                  ? <Signup />
-                  : (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}`} replace /> : <Navigate to="/create-team" replace />)
+              isLoggedIn
+                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}`} replace /> : <Navigate to="/create-team" replace />)
+                : <Login />
             }
           />
 
