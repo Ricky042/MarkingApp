@@ -110,7 +110,7 @@ function App() {
             element={
               isLoggedIn
                 ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}`} replace /> : <Navigate to="/create-team" replace />)
-                : <Login />
+                : <Signup />
             }
           />
 
