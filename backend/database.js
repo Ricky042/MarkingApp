@@ -92,6 +92,18 @@ async function initDB() {
       );
     `);
 
+    // RUBRIC TIERS (new table)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rubric_tiers (
+        id SERIAL PRIMARY KEY,
+        rubric_id INTEGER NOT NULL REFERENCES rubrics(id) ON DELETE CASCADE,
+        tier_name TEXT NOT NULL,
+        description TEXT,
+        marks INTEGER NOT NULL
+      );
+    `);
+    console.log("✅ Rubric tiers table checked/created.");
+
     // MARKS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS marks (

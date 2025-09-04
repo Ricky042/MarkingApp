@@ -455,13 +455,14 @@ app.get("/team/:teamId/assignments", authenticateToken, async (req, res) => {
   }
 });
 
+// Create assignment with multi-tier rubric
 app.post("/team/:teamId/assignments", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
-  const { title, description, due_date, rubric } = req.body; // rubric is an array of {section_name, description, max_marks}
+  const { title, description, due_date, rubric } = req.body;
   const userId = req.user.id;
 
   try {
-    // Check admin role
+    // Verify admin role
     const memberRes = await pool.query(
       "SELECT role FROM team_members WHERE team_id=$1 AND user_id=$2",
       [teamId, userId]
@@ -470,19 +471,19 @@ app.post("/team/:teamId/assignments", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Only admins can create assignments" });
     }
 
-    // Create assignment
+    // Insert assignment
     const assignmentRes = await pool.query(
-      "INSERT INTO assignments (title, description, team_id, created_by, due_date) VALUES ($1,$2,$3,$4,$5) RETURNING id, title, description, due_date, created_at",
-      [title, description, teamId, userId, due_date]
+      `INSERT INTO assignments (title, description, team_id, created_by, due_date)
+       VALUES ($1,$2,$3,$4,$5) RETURNING id, title, description, due_date, created_at`,
+      [title, description, teamId, userId, due_date || null]
     );
-
     const assignmentId = assignmentRes.rows[0].id;
 
     // Insert rubrics
-    for (const r of rubric) {
+    for (const r of rubric || []) {
       await pool.query(
         "INSERT INTO rubrics (assignment_id, section_name, description, max_marks) VALUES ($1,$2,$3,$4)",
-        [assignmentId, r.section_name, r.description, r.max_marks]
+        [assignmentId, r.section_name, JSON.stringify(r.tiers || []), r.max_marks]
       );
     }
 
@@ -495,42 +496,24 @@ app.post("/team/:teamId/assignments", authenticateToken, async (req, res) => {
 
 // Get single assignment with rubrics
 app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req, res) => {
-  const { teamId, assignmentId } = req.params;
-  const userId = req.user.id;
-
+  const { assignmentId } = req.params;
   try {
-    // Check if user is part of the team
-    const memberRes = await pool.query(
-      "SELECT role FROM team_members WHERE team_id=$1 AND user_id=$2",
-      [teamId, userId]
-    );
-    if (memberRes.rows.length === 0) {
-      return res.status(403).json({ error: "Access denied" });
-    }
+    const assignmentRes = await pool.query("SELECT * FROM assignments WHERE id=$1", [assignmentId]);
+    if (!assignmentRes.rows[0]) return res.status(404).json({ error: "Assignment not found" });
 
-    const assignmentRes = await pool.query(
-      "SELECT id, title, description, due_date, created_by, team_id, created_at FROM assignments WHERE id=$1 AND team_id=$2",
-      [assignmentId, teamId]
-    );
+    const rubricsRes = await pool.query("SELECT * FROM rubrics WHERE assignment_id=$1", [assignmentId]);
+    const rubrics = rubricsRes.rows.map(r => ({
+      ...r,
+      tiers: r.description ? JSON.parse(r.description) : [],
+    }));
 
-    if (assignmentRes.rows.length === 0) {
-      return res.status(404).json({ error: "Assignment not found" });
-    }
-
-    const rubricsRes = await pool.query(
-      "SELECT id, section_name, description, max_marks FROM rubrics WHERE assignment_id=$1",
-      [assignmentId]
-    );
-
-    res.json({
-      assignment: assignmentRes.rows[0],
-      rubrics: rubricsRes.rows
-    });
+    res.json({ assignment: assignmentRes.rows[0], rubrics });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to fetch assignment details" });
+    res.status(500).json({ error: "Failed to fetch assignment" });
   }
 });
+
 
 // Delete assignment (admin only)
 app.delete("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req, res) => {
@@ -542,22 +525,19 @@ app.delete("/team/:teamId/assignments/:assignmentId", authenticateToken, async (
       "SELECT role FROM team_members WHERE team_id=$1 AND user_id=$2",
       [teamId, userId]
     );
-
-    if (memberRes.rows.length === 0 || memberRes.rows[0].role !== "admin") {
+    if (!memberRes.rows[0] || memberRes.rows[0].role !== "admin") {
       return res.status(403).json({ error: "Only admins can delete assignments" });
     }
 
     await pool.query("DELETE FROM rubrics WHERE assignment_id=$1", [assignmentId]);
-    await pool.query("DELETE FROM assignments WHERE id=$1 AND team_id=$2", [assignmentId, teamId]);
+    await pool.query("DELETE FROM assignments WHERE id=$1", [assignmentId]);
 
-    res.json({ message: "Assignment deleted successfully" });
+    res.json({ message: "Assignment deleted" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to delete assignment" });
   }
 });
-
-
 
 /////////////////////
 // Start Server
