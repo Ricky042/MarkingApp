@@ -7,12 +7,40 @@ export default function AssignmentsTab({ assignments, setAssignments, team, user
     title: "",
     description: "",
     due_date: "",
+    rubric: [],
   });
   const [statusMessage, setStatusMessage] = useState("");
 
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [rubrics, setRubrics] = useState([]);
+
+  // Handle input change for assignment
+  const handleChange = (field, value) => {
+    setNewAssignment({ ...newAssignment, [field]: value });
+  };
+
+  // Handle adding a new rubric section
+  const addRubric = () => {
+    setNewAssignment({
+      ...newAssignment,
+      rubric: [...newAssignment.rubric, { section_name: "", description: "", max_marks: 0 }],
+    });
+  };
+
+  // Handle changing a rubric field
+  const updateRubric = (index, field, value) => {
+    const updatedRubrics = [...newAssignment.rubric];
+    updatedRubrics[index][field] = field === "max_marks" ? parseInt(value) : value;
+    setNewAssignment({ ...newAssignment, rubric: updatedRubrics });
+  };
+
+  // Remove a rubric section
+  const removeRubric = (index) => {
+    const updatedRubrics = [...newAssignment.rubric];
+    updatedRubrics.splice(index, 1);
+    setNewAssignment({ ...newAssignment, rubric: updatedRubrics });
+  };
 
   // Create assignment
   const handleCreateAssignment = async () => {
@@ -30,11 +58,8 @@ export default function AssignmentsTab({ assignments, setAssignments, team, user
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Refresh assignments list
       setAssignments([...assignments, res.data.assignment]);
-
-      // Reset modal
-      setNewAssignment({ title: "", description: "", due_date: "" });
+      setNewAssignment({ title: "", description: "", due_date: "", rubric: [] });
       setStatusMessage("");
       setShowCreateModal(false);
     } catch (err) {
@@ -43,7 +68,7 @@ export default function AssignmentsTab({ assignments, setAssignments, team, user
     }
   };
 
-  // Fetch assignment details + rubrics
+  // Fetch assignment details
   const fetchAssignmentDetails = async (assignmentId) => {
     try {
       const token = localStorage.getItem("token");
@@ -123,40 +148,75 @@ export default function AssignmentsTab({ assignments, setAssignments, team, user
       {showCreateModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 backdrop-blur-sm"></div>
-          <div className="relative bg-white p-6 rounded shadow-lg w-96 z-10">
+          <div className="relative bg-white p-6 rounded shadow-lg w-96 z-10 max-h-[90vh] overflow-auto">
             <h2 className="text-lg font-semibold mb-4">Create Assignment</h2>
 
-            {statusMessage && (
-              <p className="mb-2 text-sm text-red-500">{statusMessage}</p>
-            )}
+            {statusMessage && <p className="mb-2 text-sm text-red-500">{statusMessage}</p>}
 
             <input
               type="text"
               placeholder="Title"
               value={newAssignment.title}
-              onChange={(e) =>
-                setNewAssignment({ ...newAssignment, title: e.target.value })
-              }
+              onChange={(e) => handleChange("title", e.target.value)}
               className="mb-2 border p-2 w-full rounded"
             />
             <textarea
               placeholder="Description"
               value={newAssignment.description}
-              onChange={(e) =>
-                setNewAssignment({ ...newAssignment, description: e.target.value })
-              }
+              onChange={(e) => handleChange("description", e.target.value)}
               className="mb-2 border p-2 w-full rounded"
             />
             <input
               type="datetime-local"
               value={newAssignment.due_date}
-              onChange={(e) =>
-                setNewAssignment({ ...newAssignment, due_date: e.target.value })
-              }
+              onChange={(e) => handleChange("due_date", e.target.value)}
               className="mb-2 border p-2 w-full rounded"
             />
 
-            <div className="flex justify-end space-x-2">
+            {/* Rubric Sections */}
+            <div className="mb-2">
+              <h3 className="font-semibold mb-1">Rubrics</h3>
+              {newAssignment.rubric.map((r, idx) => (
+                <div key={idx} className="border p-2 rounded mb-2 space-y-1">
+                  <input
+                    type="text"
+                    placeholder="Section Name"
+                    value={r.section_name}
+                    onChange={(e) => updateRubric(idx, "section_name", e.target.value)}
+                    className="border p-1 w-full rounded"
+                  />
+                  <textarea
+                    placeholder="Description"
+                    value={r.description}
+                    onChange={(e) => updateRubric(idx, "description", e.target.value)}
+                    className="border p-1 w-full rounded"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max Marks"
+                    value={r.max_marks}
+                    onChange={(e) => updateRubric(idx, "max_marks", e.target.value)}
+                    className="border p-1 w-full rounded"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeRubric(idx)}
+                    className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 mt-1"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addRubric}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Add Rubric Section
+              </button>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-2">
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
