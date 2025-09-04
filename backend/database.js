@@ -58,9 +58,17 @@ async function initDB() {
         description TEXT,
         created_by INTEGER NOT NULL REFERENCES users(id),
         team_id INTEGER REFERENCES teams(id),
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        due_date TIMESTAMPTZ
       );
     `);
+
+    // Ensure due_date exists for older DBs
+    await pool.query(`
+      ALTER TABLE assignments
+      ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+    `);
+    console.log("✅ Checked assignments table: due_date column exists or was added.");
 
     // SUBMISSIONS
     await pool.query(`
@@ -83,6 +91,18 @@ async function initDB() {
         max_marks INTEGER NOT NULL
       );
     `);
+
+    // RUBRIC TIERS (new table)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rubric_tiers (
+        id SERIAL PRIMARY KEY,
+        rubric_id INTEGER NOT NULL REFERENCES rubrics(id) ON DELETE CASCADE,
+        tier_name TEXT NOT NULL,
+        description TEXT,
+        marks INTEGER NOT NULL
+      );
+    `);
+    console.log("✅ Rubric tiers table checked/created.");
 
     // MARKS
     await pool.query(`
