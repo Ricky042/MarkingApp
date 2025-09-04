@@ -435,6 +435,65 @@ app.get("/team/invite/:token", async (req, res) => {
   }
 });
 
+// Get all assignments for a team
+app.get("/team/:teamId/assignments", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    const assignmentsRes = await pool.query(
+      `SELECT id, title, due_date, created_by 
+       FROM assignments 
+       WHERE team_id=$1
+       ORDER BY due_date ASC`,
+      [teamId]
+    );
+
+    res.json({ assignments: assignmentsRes.rows });
+  } catch (err) {
+    console.error("Failed to fetch assignments:", err);
+    res.status(500).json({ error: "Failed to fetch assignments" });
+  }
+});
+
+app.post("/team/:teamId/assignments", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const { title, description, due_date, rubric } = req.body; // rubric is an array of {section_name, description, max_marks}
+  const userId = req.user.id;
+
+  try {
+    // Check admin role
+    const memberRes = await pool.query(
+      "SELECT role FROM team_members WHERE team_id=$1 AND user_id=$2",
+      [teamId, userId]
+    );
+    if (memberRes.rows.length === 0 || memberRes.rows[0].role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create assignments" });
+    }
+
+    // Create assignment
+    const assignmentRes = await pool.query(
+      "INSERT INTO assignments (title, description, team_id, created_by, due_date) VALUES ($1,$2,$3,$4,$5) RETURNING id, title, description, due_date, created_at",
+      [title, description, teamId, userId, due_date]
+    );
+
+    const assignmentId = assignmentRes.rows[0].id;
+
+    // Insert rubrics
+    for (const r of rubric) {
+      await pool.query(
+        "INSERT INTO rubrics (assignment_id, section_name, description, max_marks) VALUES ($1,$2,$3,$4)",
+        [assignmentId, r.section_name, r.description, r.max_marks]
+      );
+    }
+
+    res.status(201).json({ message: "Assignment created", assignment: assignmentRes.rows[0] });
+  } catch (err) {
+    console.error("Failed to create assignment:", err);
+    res.status(500).json({ error: "Failed to create assignment" });
+  }
+});
+
+
 /////////////////////
 // Start Server
 /////////////////////

@@ -58,9 +58,17 @@ async function initDB() {
         description TEXT,
         created_by INTEGER NOT NULL REFERENCES users(id),
         team_id INTEGER REFERENCES teams(id),
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        due_date TIMESTAMPTZ
       );
     `);
+
+    // Ensure due_date exists for older DBs
+    await pool.query(`
+      ALTER TABLE assignments
+      ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+    `);
+    console.log("✅ Checked assignments table: due_date column exists or was added.");
 
     // SUBMISSIONS
     await pool.query(`
