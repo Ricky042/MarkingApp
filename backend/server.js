@@ -493,6 +493,71 @@ app.post("/team/:teamId/assignments", authenticateToken, async (req, res) => {
   }
 });
 
+// Get single assignment with rubrics
+app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req, res) => {
+  const { teamId, assignmentId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // Check if user is part of the team
+    const memberRes = await pool.query(
+      "SELECT role FROM team_members WHERE team_id=$1 AND user_id=$2",
+      [teamId, userId]
+    );
+    if (memberRes.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const assignmentRes = await pool.query(
+      "SELECT id, title, description, due_date, created_by, team_id, created_at FROM assignments WHERE id=$1 AND team_id=$2",
+      [assignmentId, teamId]
+    );
+
+    if (assignmentRes.rows.length === 0) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+
+    const rubricsRes = await pool.query(
+      "SELECT id, section_name, description, max_marks FROM rubrics WHERE assignment_id=$1",
+      [assignmentId]
+    );
+
+    res.json({
+      assignment: assignmentRes.rows[0],
+      rubrics: rubricsRes.rows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch assignment details" });
+  }
+});
+
+// Delete assignment (admin only)
+app.delete("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req, res) => {
+  const { teamId, assignmentId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const memberRes = await pool.query(
+      "SELECT role FROM team_members WHERE team_id=$1 AND user_id=$2",
+      [teamId, userId]
+    );
+
+    if (memberRes.rows.length === 0 || memberRes.rows[0].role !== "admin") {
+      return res.status(403).json({ error: "Only admins can delete assignments" });
+    }
+
+    await pool.query("DELETE FROM rubrics WHERE assignment_id=$1", [assignmentId]);
+    await pool.query("DELETE FROM assignments WHERE id=$1 AND team_id=$2", [assignmentId, teamId]);
+
+    res.json({ message: "Assignment deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete assignment" });
+  }
+});
+
+
 
 /////////////////////
 // Start Server

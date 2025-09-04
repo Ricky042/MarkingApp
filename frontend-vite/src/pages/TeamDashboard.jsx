@@ -123,8 +123,9 @@ export default function TeamDashboard() {
       {activeTab === "assignments" && (
         <AssignmentsTab
           assignments={assignments}
+          setAssignments={setAssignments}
           team={team}
-          onCreateAssignment={() => alert("Open create assignment modal")}
+          userRole={team.user_role}
         />
       )}
 
