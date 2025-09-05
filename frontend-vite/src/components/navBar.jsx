@@ -62,11 +62,7 @@ export default function NavBar() {
                         </span>
                     </div>
                 </div>
-                <span className="text-slate-900
-                                text-sm
-                                font-semibold
-                                font-['Inter']
-                                leading-normal">
+                <span className="text-slate-900 text-sm font-semibold font-['Inter'] leading-normal">          
                     {username}
                 </span>
             </div>
