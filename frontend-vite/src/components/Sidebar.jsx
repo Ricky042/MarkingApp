@@ -1,17 +1,25 @@
 // Sidebar.jsx
 import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 const navItems = [
-  { label: "Dashboard", icon: "/Sidebar/icon/layout.svg" },
-  { label: "Assignments", icon: "/Sidebar/icon/clipboard-signature.svg" },
-  { label: "Markers", icon: "/Sidebar/icon/users.svg" },
-  { label: "Flags", icon: "/Sidebar/icon/flag.svg" },
-  { label: "Reports / Exports", icon: "/Sidebar/icon/file-output.svg" },
-  { label: "Settings", icon: "/Sidebar/icon/settings.svg" },
+  { label: "Dashboard", icon: "/Sidebar/icon/layout.svg", path: "dashboard" },
+  { label: "Assignments", icon: "/Sidebar/icon/clipboard-signature.svg", path: "assignments" },
+  { label: "Markers", icon: "/Sidebar/icon/users.svg", path: "markers" },
+  { label: "Flags", icon: "/Sidebar/icon/flag.svg", path: "flags" },
+  { label: "Reports / Exports", icon: "/Sidebar/icon/file-output.svg", path: "reports" },
+  { label: "Settings", icon: "/Sidebar/icon/settings.svg", path: "settings" },
 ];
 
 export default function Sidebar() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const navigate = useNavigate();
+  const { teamId } = useParams();
+
+  const handleNav = (i, path) => {
+    setActiveIndex(i);
+    navigate(`/team/${teamId}/${path}`);
+  };
 
   return (
     <div className="w-56 h-screen bg-zinc-800 flex flex-col p-4 font-inter">
@@ -30,7 +38,7 @@ export default function Sidebar() {
         {navItems.map((item, i) => (
           <button
             key={i}
-            onClick={() => setActiveIndex(i)}
+            onClick={() => handleNav(i, item.path)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition
               ${activeIndex === i ? "bg-neutral-700" : ""}
               hover:bg-[#434343]`}
@@ -40,9 +48,9 @@ export default function Sidebar() {
               alt={item.label + " icon"}
               className="w-5 h-5"
             />
-            <span className="text-[#F7F7F7] text-sm font-medium leading-6 font-inter">
+            <div className="justify-start text-Official-White text-xs font-medium font-['Inter'] leading-7">
               {item.label}
-            </span>
+            </div>
           </button>
         ))}
       </nav>
