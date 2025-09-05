@@ -1,35 +1,48 @@
 // Sidebar.jsx
-import { Home, FileText, Users, Flag, BarChart, Settings } from "lucide-react";
+import { useState } from "react";
 
 const navItems = [
-  { label: "Dashboard", icon: <Home size={16} /> },
-  { label: "Assignments", icon: <FileText size={16} /> },
-  { label: "Markers", icon: <Users size={16} /> },
-  { label: "Flags", icon: <Flag size={16} /> },
-  { label: "Reports / Exports", icon: <BarChart size={16} /> },
-  { label: "Settings", icon: <Settings size={16} /> },
+  { label: "Dashboard", icon: "/Sidebar/icon/layout.svg" },
+  { label: "Assignments", icon: "/Sidebar/icon/clipboard-signature.svg" },
+  { label: "Markers", icon: "/Sidebar/icon/users.svg" },
+  { label: "Flags", icon: "/Sidebar/icon/flag.svg" },
+  { label: "Reports / Exports", icon: "/Sidebar/icon/file-output.svg" },
+  { label: "Settings", icon: "/Sidebar/icon/settings.svg" },
 ];
 
 export default function Sidebar() {
+  const [activeIndex, setActiveIndex] = useState(0);
+
   return (
-    <div className="w-52 h-screen bg-[#2C2C2C] flex flex-col p-4 text-[#F7F7F7]">
+    <div className="w-56 h-screen bg-zinc-800 flex flex-col p-4 font-inter">
       {/* Logo / Title */}
-      <div className="flex items-center gap-3 mb-10">
-        <div className="w-6 h-6 flex items-center justify-center bg-slate-200 rounded-full text-[10px] text-slate-900 font-inter">
+      <div className="flex items-center gap-2 mb-6">
+        <div className="w-7 h-7 flex items-center justify-center bg-slate-200 rounded-full text-[12px] text-slate-900 font-normal leading-none font-inter">
           CE
         </div>
-        <span className="text-sm font-bold">Assignment</span>
+        <span className="text-neutral-100 text-base font-bold leading-normal font-inter">
+          Assignment
+        </span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex flex-col gap-2">
+      <nav className="flex flex-col gap-[2px]">
         {navItems.map((item, i) => (
           <button
             key={i}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#434343] transition"
+            onClick={() => setActiveIndex(i)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition
+              ${activeIndex === i ? "bg-neutral-700" : ""}
+              hover:bg-[#434343]`}
           >
-            {item.icon}
-            <span className="text-xs font-medium">{item.label}</span>
+            <img
+              src={item.icon}
+              alt={item.label + " icon"}
+              className="w-5 h-5"
+            />
+            <span className="text-[#F7F7F7] text-sm font-medium leading-6 font-inter">
+              {item.label}
+            </span>
           </button>
         ))}
       </nav>
