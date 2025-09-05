@@ -1,12 +1,16 @@
+/* Import Tailwind first */
 @import "tailwindcss";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Optional animations plugin */
 @import "tw-animate-css";
 
+/* Custom dark variant if needed */
 @custom-variant dark (&:is(.dark *));
 
+/* App styles */
 .App {
   text-align: center;
 }
@@ -46,6 +50,7 @@
   }
 }
 
+/* Theme variables */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -84,6 +89,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Root variables (colors, radii, etc.) */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -119,6 +125,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* Dark mode overrides */
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -151,13 +158,4 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
 }
