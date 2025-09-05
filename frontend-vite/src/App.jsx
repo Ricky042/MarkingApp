@@ -6,7 +6,6 @@ import Forgetpassword from "./pages/Forgetpassword";
 import CreateTeam from "./pages/CreateTeam";
 import TeamDashboard from "./pages/TeamDashboard";
 import JoinTeam from "./pages/JoinTeam";
-import Navbar from "./components/Navbar";
 import api from "./utils/axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -83,7 +82,7 @@ function App() {
 
   return (
     <Router>
-      <ConditionalNavbarWrapper>
+
         <Routes>
           <Route
             path="/"
@@ -129,19 +128,7 @@ function App() {
           <Route path="/team/:teamId" element={<TeamDashboard />} />
           <Route path="/join-team" element={<JoinTeam />} />
         </Routes>
-      </ConditionalNavbarWrapper>
     </Router>
-  );
-}
-
-function ConditionalNavbarWrapper({ children }) {
-  const location = useLocation();
-  const isTeamDashboard = location.pathname.startsWith("/team/");
-  return (
-    <div>
-      {isTeamDashboard && <Navbar />}
-      <div className="content">{children}</div>
-    </div>
   );
 }
 
