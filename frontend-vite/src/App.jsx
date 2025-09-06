@@ -84,7 +84,7 @@ function App() {
               pendingInviteToken
                 ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
                 : isLoggedIn
-                  ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}`} replace /> : <Navigate to="/create-team" replace />)
+                  ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
                   : <Navigate to="/login" replace />
             }
           />
@@ -93,7 +93,7 @@ function App() {
             path="/login"
             element={
               isLoggedIn
-                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}`} replace /> : <Navigate to="/create-team" replace />)
+                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
                 : <Login />
             }
           />
@@ -102,7 +102,7 @@ function App() {
             path="/signup"
             element={
               isLoggedIn
-                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}`} replace /> : <Navigate to="/create-team" replace />)
+                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
                 : <Signup />
             }
           />
@@ -114,7 +114,7 @@ function App() {
                 ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
                 : !isLoggedIn
                   ? <Forgetpassword />
-                  : (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}`} replace /> : <Navigate to="/create-team" replace />)
+                  : (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
             }
           />
 
