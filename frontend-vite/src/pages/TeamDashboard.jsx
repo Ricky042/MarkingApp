@@ -90,9 +90,7 @@ export default function TeamDashboard() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar fixed to the left */}
-      <div className="w-64 flex-shrink-0">
-        <Sidebar />
-      </div>
+      <Sidebar />
       {/* Navbar to the right of Sidebar */}
       <div className="flex-1 flex flex-col">
         <Navbar />
