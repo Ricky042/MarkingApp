@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
+import Navbar from "../components/navBar";
 import MembersTab from "../components/TeamDashboard/MembersTab";
 import AssignmentsTab from "../components/TeamDashboard/AssignmentsTab";
 
@@ -92,110 +93,103 @@ export default function TeamDashboard() {
       <div className="w-64 flex-shrink-0">
         <Sidebar />
       </div>
-      {/* Main content */}
-      <div className="flex-1 p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">{team.name} Dashboard</h1>
-        </div>
-
-        <p>Your Role: {team.user_role}</p>
-        <p>Created At: {new Date(team.created_at).toLocaleDateString()}</p>
-
-        {/* Tabs */}
-        <div className="mt-6 border-b flex space-x-4">
-          <button
-            className={`pb-2 ${activeTab === "members" ? "border-b-2 border-blue-500 font-semibold" : ""}`}
-            onClick={() => setActiveTab("members")}
-          >
-            Members
-          </button>
-          <button
-            className={`pb-2 ${activeTab === "assignments" ? "border-b-2 border-blue-500 font-semibold" : ""}`}
-            onClick={() => setActiveTab("assignments")}
-          >
-            Assignments
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === "members" && (
-          <MembersTab
-            members={members}
-            team={team}
-            onInviteClick={() => setShowInviteModal(true)}
-          />
-        )}
-
-        {activeTab === "assignments" && (
-          <AssignmentsTab
-            assignments={assignments}
-            setAssignments={setAssignments}
-            team={team}
-            userRole={team.user_role}
-          />
-        )}
-
-        {/* Invite Modal */}
-        {showInviteModal && (
-          <div className="fixed inset-0 flex items-center justify-center z-50">
-            {/* Blurred background */}
-            <div className="absolute inset-0 backdrop-blur-sm"></div>
-
-            {/* Modal content */}
-            <div className="relative bg-white p-6 rounded shadow-lg w-96 z-10">
-              <h2 className="text-lg font-semibold mb-4">Invite Members</h2>
-
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="email"
-                  placeholder="Enter email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="flex-1 border p-2 rounded"
-                />
-                <button
-                  onClick={handleAddEmail}
-                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  Add
-                </button>
-              </div>
-
-              {emailsList.length > 0 && (
-                <ul className="mb-4">
-                  {emailsList.map((email, idx) => (
-                    <li key={idx} className="text-sm flex justify-between items-center">
-                      <span>{email}</span>
-                      <button
-                        onClick={() => handleRemoveEmail(email)}
-                        className="text-red-500 ml-2"
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => setShowInviteModal(false)}
-                  className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleInviteMultiple}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Send Invites
-                </button>
-              </div>
-
-              {inviteStatus && <p className="mt-2 text-sm">{inviteStatus}</p>}
-            </div>
+      {/* Navbar to the right of Sidebar */}
+      <div className="flex-1 flex flex-col">
+        <Navbar />
+        <div className="p-6 flex-1">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold">{team.name} Dashboard</h1>
           </div>
-        )}
+          <p>Your Role: {team.user_role}</p>
+          <p>Created At: {new Date(team.created_at).toLocaleDateString()}</p>
+          {/* Tabs */}
+          <div className="mt-6 border-b flex space-x-4">
+            <button
+              className={`pb-2 ${activeTab === "members" ? "border-b-2 border-blue-500 font-semibold" : ""}`}
+              onClick={() => setActiveTab("members")}
+            >
+              Members
+            </button>
+            <button
+              className={`pb-2 ${activeTab === "assignments" ? "border-b-2 border-blue-500 font-semibold" : ""}`}
+              onClick={() => setActiveTab("assignments")}
+            >
+              Assignments
+            </button>
+          </div>
+          {/* Tab Content */}
+          {activeTab === "members" && (
+            <MembersTab
+              members={members}
+              team={team}
+              onInviteClick={() => setShowInviteModal(true)}
+            />
+          )}
+          {activeTab === "assignments" && (
+            <AssignmentsTab
+              assignments={assignments}
+              setAssignments={setAssignments}
+              team={team}
+              userRole={team.user_role}
+            />
+          )}
+          {/* Invite Modal */}
+          {showInviteModal && (
+            <div className="fixed inset-0 flex items-center justify-center z-50">
+              {/* Blurred background */}
+              <div className="absolute inset-0 backdrop-blur-sm"></div>
+              {/* Modal content */}
+              <div className="relative bg-white p-6 rounded shadow-lg w-96 z-10">
+                <h2 className="text-lg font-semibold mb-4">Invite Members</h2>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="email"
+                    placeholder="Enter email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="flex-1 border p-2 rounded"
+                  />
+                  <button
+                    onClick={handleAddEmail}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                  >
+                    Add
+                  </button>
+                </div>
+                {emailsList.length > 0 && (
+                  <ul className="mb-4">
+                    {emailsList.map((email, idx) => (
+                      <li key={idx} className="text-sm flex justify-between items-center">
+                        <span>{email}</span>
+                        <button
+                          onClick={() => handleRemoveEmail(email)}
+                          className="text-red-500 ml-2"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setShowInviteModal(false)}
+                    className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleInviteMultiple}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Send Invites
+                  </button>
+                </div>
+                {inviteStatus && <p className="mt-2 text-sm">{inviteStatus}</p>}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
