@@ -27,7 +27,7 @@ export default function TeamSwitcher() {
   }, []);
 
   const handleTeamChange = (teamId) => {
-    navigate(`/team/${teamId}`);
+    navigate(`/team/${teamId}/dashboard`);
   };
 
   return (

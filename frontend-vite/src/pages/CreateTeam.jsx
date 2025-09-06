@@ -31,7 +31,7 @@ export default function CreateTeam() {
 
       // Redirect to the new team's dashboard
       const newTeamId = res.data.team.id;
-      navigate(`/team/${newTeamId}`);
+      navigate(`/team/${newTeamId}/dashboard`);
     } catch (err) {
       console.error("Failed to create team:", err);
       alert(err.response?.data?.message || "Failed to create team.");
