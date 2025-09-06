@@ -66,7 +66,7 @@ export function LoginForm({ className, ...props }) {
       if (teamRes.data.hasTeams && teamRes.data.teams.length > 0) {
         const firstTeamId = teamRes.data.teams[0].id;
         console.log("Navigating to first team dashboard:", firstTeamId);
-        navigate(`/team/${firstTeamId}`);
+        navigate(`/team/${firstTeamId}/dashboard`);
       } else {
         console.log("No teams found. Navigating to create-team page.");
         navigate("/create-team");
