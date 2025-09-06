@@ -105,7 +105,7 @@ export default function JoinTeam() {
           headers: { Authorization: `Bearer ${storedJWT}` },
         });
         if (teamRes.data.hasTeams && teamRes.data.teams.length > 0) {
-          navigate(`/team/${teamRes.data.teams[0].id}`);
+          navigate(`/team/${teamRes.data.teams[0].id}/dashboard`);
         } else {
           navigate("/create-team");
         }

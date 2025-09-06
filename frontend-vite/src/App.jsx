@@ -74,12 +74,6 @@ function App() {
 
   const pendingInviteToken = sessionStorage.getItem("pendingInviteToken");
 
-  console.log("=== App render ===");
-  console.log("isLoggedIn:", isLoggedIn);
-  console.log("isLoading:", isLoading);
-  console.log("userTeams:", userTeams);
-  console.log("pendingInviteToken:", pendingInviteToken);
-
   return (
     <Router>
 
@@ -125,7 +119,7 @@ function App() {
           />
 
           <Route path="/create-team" element={<CreateTeam />} />
-          <Route path="/team/:teamId" element={<TeamDashboard />} />
+          <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
           <Route path="/join-team" element={<JoinTeam />} />
         </Routes>
     </Router>
