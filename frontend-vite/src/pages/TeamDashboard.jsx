@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
@@ -181,12 +181,20 @@ export default function TeamDashboard() {
 
                 <div className="flex flex-col justify-between flex-1 w-full">
                   {/* Invite Markers */}
-                  <div className="inline-flex justify-start items-center gap-1.5">
-                    <img src="/Dashboard/icon/layout.svg" alt="Invite Markers" className="w-4 h-4" />
+                  <Link 
+                    to={`/team/${teamId}/invite`} 
+                    className="inline-flex justify-start items-center gap-1.5 cursor-pointer hover:opacity-80"
+                  >
+                    <img
+                      src="/Dashboard/icon/layout.svg"
+                      alt="Invite Markers"
+                      className="w-4 h-4"
+                    />
                     <div className="text-offical-black text-xs font-medium font-['Inter'] leading-7">
                       Invite Markers
                     </div>
-                  </div>
+                  </Link>
+
 
                   {/* Email Markers */}
                   <div className="inline-flex justify-start items-center gap-1.5">
