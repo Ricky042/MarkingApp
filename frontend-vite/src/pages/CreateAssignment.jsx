@@ -7,6 +7,7 @@ import api from "../utils/axios";
 export default function CreateAssignment() {
   const { teamId } = useParams();
 
+  // Step tracker
   const [step, setStep] = useState(1);
 
   // MARKERS
@@ -25,10 +26,8 @@ export default function CreateAssignment() {
     {
       id: crypto.randomUUID(),
       criteria: "",
-      points: 0,
-      deviation: 5,
-      ratings: [
-        { id: crypto.randomUUID(), description: "" },
+      tiers: [
+        { id: crypto.randomUUID(), description: "", points: 0, deviation: 5 },
       ],
     },
   ]);
@@ -53,16 +52,15 @@ export default function CreateAssignment() {
     fetchMembers();
   }, [teamId]);
 
+  // MARKERS
   const addMarker = (member) => {
     if (!markers.find((m) => m.id === member.id)) {
       setMarkers([...markers, member]);
     }
   };
-
   const removeMarker = (id) => {
     setMarkers(markers.filter((m) => m.id !== id));
   };
-
   const availableMembers = teamMembers.filter(
     (member) => !markers.find((m) => m.id === member.id)
   );
@@ -74,66 +72,56 @@ export default function CreateAssignment() {
       {
         id: crypto.randomUUID(),
         criteria: "",
-        points: 0,
-        deviation: 5,
-        ratings: rubric[0].ratings.map((r) => ({
-          ...r,
-          id: crypto.randomUUID(),
-          description: "",
-        })),
+        tiers: [
+          { id: crypto.randomUUID(), description: "", points: 0, deviation: 5 },
+        ],
       },
     ]);
   };
 
-  const removeCriterion = (id) => {
-    setRubric(rubric.filter((r) => r.id !== id));
+  const removeCriterion = (criterionId) => {
+    setRubric(rubric.filter((c) => c.id !== criterionId));
   };
 
-  const updateCriterion = (id, value) => {
+  const updateCriterion = (criterionId, value) => {
     setRubric(
-      rubric.map((r) => (r.id === id ? { ...r, criteria: value } : r))
+      rubric.map((c) => (c.id === criterionId ? { ...c, criteria: value } : c))
+    );
+  };
+
+  const updateTier = (criterionId, tierId, field, value) => {
+    setRubric(
+      rubric.map((c) =>
+        c.id === criterionId
+          ? {
+              ...c,
+              tiers: c.tiers.map((t) =>
+                t.id === tierId ? { ...t, [field]: value } : t
+              ),
+            }
+          : c
+      )
     );
   };
 
   const addRatingColumn = () => {
-    const newRating = { id: crypto.randomUUID(), description: "" };
-    setRubric(rubric.map((r) => ({ ...r, ratings: [...r.ratings, newRating] })));
-  };
-
-  const removeRatingColumn = (index) => {
     setRubric(
-      rubric.map((r) => ({
-        ...r,
-        ratings: r.ratings.filter((_, i) => i !== index),
+      rubric.map((criterion) => ({
+        ...criterion,
+        tiers: [
+          ...criterion.tiers,
+          { id: crypto.randomUUID(), description: "", points: 0, deviation: 5 },
+        ],
       }))
     );
   };
 
-  const updateRating = (rowId, ratingId, value) => {
+  const removeRatingColumn = (tierId) => {
     setRubric(
-      rubric.map((r) => {
-        if (r.id === rowId) {
-          return {
-            ...r,
-            ratings: r.ratings.map((rt) =>
-              rt.id === ratingId ? { ...rt, description: value } : rt
-            ),
-          };
-        }
-        return r;
-      })
-    );
-  };
-
-  const updatePoints = (id, value) => {
-    setRubric(
-      rubric.map((r) => (r.id === id ? { ...r, points: value } : r))
-    );
-  };
-
-  const updateDeviation = (id, value) => {
-    setRubric(
-      rubric.map((r) => (r.id === id ? { ...r, deviation: value } : r))
+      rubric.map((c) => ({
+        ...c,
+        tiers: c.tiers.filter((t) => t.id !== tierId),
+      }))
     );
   };
 
@@ -236,7 +224,7 @@ export default function CreateAssignment() {
 
                   {/* Add Marker Button */}
                   <div
-                    className="w-56 h-28 px-4 pt-2.5 pb-1.5 bg-slate-50 rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 flex justify-center items-center cursor-pointer hover:bg-slate-100 transition"
+                    className="w-56 h-28 px-4 pt-2.5 pb-1.5 bg-slate-50 rounded-md outline outline-1 outline-offset-[-0.67px] outline-slate-300 flex justify-center items-center cursor-pointer hover:bg-slate-100 transition"
                     onClick={() => setShowMarkerList(!showMarkerList)}
                   >
                     <div className="text-3xl font-bold text-zinc-600">+</div>
@@ -289,7 +277,7 @@ export default function CreateAssignment() {
 
           {step === 2 && (
             <>
-              {/* === STEP 2: Rubric Builder === */}
+              {/* === STEP 2: Rubric Builder (Figma Version) === */}
               <div className="w-72 justify-start mb-6">
                 <span className="text-offical-black text-2xl font-semibold leading-7">
                   Create New Assignment/<br />
@@ -300,110 +288,147 @@ export default function CreateAssignment() {
               </div>
 
               {/* Rubric Table */}
-              <div className="overflow-auto bg-white rounded-lg border border-slate-300 p-4">
-                {/* Header Row */}
-                <div className="flex border-b border-zinc-400">
-                  <div className="w-64 px-2 py-2 border-r border-zinc-400 font-semibold text-xs">
-                    Criteria
-                  </div>
-                  {rubric[0].ratings.map((rating, idx) => (
-                    <div
-                      key={rating.id}
-                      className="flex-1 px-2 py-2 border-r border-zinc-400 font-semibold text-xs"
-                    >
-                      <div className="flex justify-between items-center">
+              <div className="relative overflow-auto bg-white rounded-lg border border-slate-300 p-4">
+                <div className="w-[1025px] bg-white rounded outline outline-1 outline-offset-[-1px] outline-zinc-400 inline-flex flex-col overflow-hidden relative">
+                  {/* Header Row */}
+                  <div className="flex self-stretch">
+                    <div className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5">
+                      <div className="text-black text-xs font-semibold font-['Inter'] leading-none">
+                        Criteria
+                      </div>
+                    </div>
+                    {rubric[0].tiers.map((tier, idx) => (
+                      <div
+                        key={tier.id}
+                        className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5 relative"
+                      >
                         <input
-                          className="w-full px-1 py-1 border-b border-gray-300 text-center focus:outline-none text-xs"
+                          type="text"
+                          className="w-full text-center text-black text-xs font-semibold font-['Inter'] focus:outline-none"
                           placeholder={`Rating ${idx + 1}`}
-                          value={rating.description}
-                          onChange={(e) => removeRatingColumn(idx)} // update description
-                        />
-                        <button
-                          className="text-red-500 text-xs ml-1"
-                          onClick={() => removeRatingColumn(idx)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  <div className="w-24 px-2 py-2 border-r border-zinc-400 font-semibold text-xs">
-                    Points
-                  </div>
-                  <div className="w-32 px-2 py-2 font-semibold text-xs">Deviation</div>
-                </div>
-
-                {/* Rubric Rows */}
-                {rubric.map((row) => (
-                  <div key={row.id} className="flex border-b border-zinc-300">
-                    <div className="w-64 px-2 py-2 border-r border-zinc-400">
-                      <div className="flex justify-between items-center">
-                        <input
-                          className="w-full px-1 py-1 border border-slate-300 rounded-md text-xs"
-                          placeholder="Criterion description"
-                          value={row.criteria}
-                          onChange={(e) => updateCriterion(row.id, e.target.value)}
-                        />
-                        <button
-                          className="text-red-500 text-xs ml-1"
-                          onClick={() => removeCriterion(row.id)}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-
-                    {row.ratings.map((rating) => (
-                      <div key={rating.id} className="flex-1 px-2 py-2 border-r border-zinc-400">
-                        <input
-                          className="w-full px-1 py-1 border border-slate-300 rounded-md text-xs text-center"
-                          placeholder="Rating description"
-                          value={rating.description}
-                          onChange={(e) => updateRating(row.id, rating.id, e.target.value)}
+                          value={tier.description}
+                          onChange={(e) =>
+                            updateTier(rubric[0].id, tier.id, "description", e.target.value)
+                          }
                         />
                       </div>
                     ))}
-
-                    <div className="w-24 px-2 py-2 border-r border-zinc-400">
-                      <input
-                        type="number"
-                        className="w-full px-1 py-1 border border-slate-300 rounded-md text-xs text-center"
-                        value={row.points}
-                        onChange={(e) => updatePoints(row.id, e.target.value)}
-                      />
+                    <div className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5">
+                      <div className="text-black text-xs font-semibold font-['Inter'] leading-none">
+                        Pts
+                      </div>
                     </div>
-                    <div className="w-32 px-2 py-2">
-                      <input
-                        type="number"
-                        className="w-full px-1 py-1 border border-slate-300 rounded-md text-xs text-center"
-                        value={row.deviation}
-                        onChange={(e) => updateDeviation(row.id, e.target.value)}
-                      />
+                    <div className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5">
+                      <div className="text-black text-xs font-semibold font-['Inter'] leading-none">
+                        Deviation Threshold
+                      </div>
                     </div>
                   </div>
-                ))}
 
-                {/* Add Buttons */}
-                <div className="mt-2 flex justify-start gap-4">
-                  <button
-                    className="text-blue-500 font-medium"
-                    onClick={addCriterion}
-                  >
+                  {/* Data Rows */}
+                  {rubric.map((criterion) => (
+                    <div key={criterion.id} className="flex self-stretch border-t border-zinc-400 relative">
+                      {/* Criterion Name */}
+                      <div
+                        className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5"
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (window.confirm("Delete this row?")) removeCriterion(criterion.id);
+                        }}
+                      >
+                        <input
+                          type="text"
+                          className="w-full text-black text-xs font-normal font-['Inter'] focus:outline-none"
+                          placeholder="Criterion"
+                          value={criterion.criteria}
+                          onChange={(e) => updateCriterion(criterion.id, e.target.value)}
+                        />
+                      </div>
+
+                      {/* Rating Columns */}
+                      {criterion.tiers.map((tier) => (
+                        <div
+                          key={tier.id}
+                          className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 relative"
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            if (window.confirm("Delete this rating column?"))
+                              removeRatingColumn(tier.id, criterion.id);
+                          }}
+                        >
+                          <input
+                            type="text"
+                            className="w-full text-center text-black text-xs font-normal font-['Inter'] focus:outline-none"
+                            placeholder="Rating Text"
+                            value={tier.description}
+                            onChange={(e) =>
+                              updateTier(criterion.id, tier.id, "description", e.target.value)
+                            }
+                          />
+                        </div>
+                      ))}
+
+                      {/* Points Box with Add Rating Button */}
+                      <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 relative">
+                        {/* Add Rating Button */}
+                        <button
+                          className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-teal-500 rounded-full flex justify-center items-center text-white text-[10px] font-bold border border-white shadow"
+                          onClick={() => addRatingColumn(criterion.id)}
+                        >
+                          +
+                        </button>
+
+                        <input
+                          type="number"
+                          min={0}
+                          className="h-10 w-full px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-black text-xs font-normal font-['Geist'] focus:outline-none"
+                          placeholder="Points Available"
+                          value={criterion.points || ""}
+                          onChange={(e) =>
+                            updateCriterionPoints(criterion.id, e.target.value)
+                          }
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            if (window.confirm("Delete this row?")) removeCriterion(criterion.id);
+                          }}
+                        />
+                      </div>
+
+                      {/* Deviation Box */}
+                      <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          className="h-10 w-full px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-black text-xs font-normal font-['Geist'] focus:outline-none"
+                          placeholder="Deviation %"
+                          value={criterion.deviation || ""}
+                          onChange={(e) =>
+                            updateCriterionDeviation(criterion.id, e.target.value)
+                          }
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            if (window.confirm("Delete this row?")) removeCriterion(criterion.id);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add Criterion */}
+                <div className="mt-2 flex justify-start">
+                  <button className="text-blue-500 font-medium" onClick={addCriterion}>
                     + Add Criterion
-                  </button>
-                  <button
-                    className="text-blue-500 font-medium"
-                    onClick={addRatingColumn}
-                  >
-                    + Add Rating Column
                   </button>
                 </div>
               </div>
             </>
           )}
 
+
           {/* Footer Actions */}
-          <div className="flex justify-end gap-4 px-6 pt-6">
+          <div className="flex justify-end gap-4 px-6 pt-29">
             <button className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-zinc-900 hover:bg-gray-50">
               Save as Draft
             </button>
