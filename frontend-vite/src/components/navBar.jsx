@@ -34,7 +34,7 @@ export default function NavBar() {
     return (
         <header className="w-full bg-white/90 backdrop-blur border-b border-slate-200">
         {/* Top bar */}
-        <div className="px-4 w-full">
+        <div className="px-6 w-full">
             <div className="h-16 flex items-center justify-between">
             {/* Menu Button */}
             <div className="flex-shrink-1 flex items-center gap-3 min-w-0">
@@ -68,12 +68,12 @@ export default function NavBar() {
             </div>
 
             {/* Search */}
-            <div className="flex-grow flex max-w-md">
+            <div className="flex-grow flex max-w-72">
                 <div className="w-full min-h-8 px-3 py-1.5 bg-neutral-100 rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
                 <img
                     src="/navBarIcon/navBar_searchIcon.svg"
                     alt="Menu Icon"
-                    className="h-6 w-6"
+                    className="h-3 w-3"
                 />
                 <input
                     className="bg-transparent outline-none placeholder-zinc-500 text-sm w-full"
