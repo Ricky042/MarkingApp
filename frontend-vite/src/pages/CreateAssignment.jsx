@@ -7,8 +7,10 @@ import api from "../utils/axios";
 export default function CreateAssignment() {
   const { teamId } = useParams();
 
-  // Step tracker
   const [step, setStep] = useState(1);
+
+  // SEMESTER
+  const [selectedSemester, setSelectedSemester] = useState("");
 
   // MARKERS
   const [markers, setMarkers] = useState([]);
@@ -17,20 +19,6 @@ export default function CreateAssignment() {
   // Team members
   const [teamMembers, setTeamMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
-
-  // SEMESTER
-  const [selectedSemester, setSelectedSemester] = useState("");
-
-  // RUBRIC
-  const [rubric, setRubric] = useState([
-    {
-      id: crypto.randomUUID(),
-      criteria: "",
-      tiers: [
-        { id: crypto.randomUUID(), description: "", points: 0, deviation: 5 },
-      ],
-    },
-  ]);
 
   // FETCH TEAM MEMBERS
   useEffect(() => {
@@ -65,64 +53,117 @@ export default function CreateAssignment() {
     (member) => !markers.find((m) => m.id === member.id)
   );
 
-  // RUBRIC FUNCTIONS
-  const addCriterion = () => {
-    setRubric([
-      ...rubric,
-      {
-        id: crypto.randomUUID(),
-        criteria: "",
-        tiers: [
-          { id: crypto.randomUUID(), description: "", points: 0, deviation: 5 },
-        ],
-      },
-    ]);
-  };
+  const [assignmentDetails, setAssignmentDetails] = useState({
+    title: "",
+    description: "",
+    dueDate: "",
+  });
 
-  const removeCriterion = (criterionId) => {
-    setRubric(rubric.filter((c) => c.id !== criterionId));
-  };
+  const [rubric, setRubric] = useState([
+    {
+      id: crypto.randomUUID(),
+      criteria: "",
+      tiers: [{ id: crypto.randomUUID(), value: "" }],
+      points: 0,
+      deviation: 0,
+    },
+  ]);
 
-  const updateCriterion = (criterionId, value) => {
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, type, criterionId, tierIndex }
+
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  const handleStepChange = (nextStep) => setStep(nextStep);
+
+  const updateAssignment = (field, value) =>
+    setAssignmentDetails({ ...assignmentDetails, [field]: value });
+
+  const updateCriterionText = (criterionId, value) =>
     setRubric(
       rubric.map((c) => (c.id === criterionId ? { ...c, criteria: value } : c))
     );
-  };
 
-  const updateTier = (criterionId, tierId, field, value) => {
+  const updateTierText = (criterionId, tierIndex, value) =>
     setRubric(
       rubric.map((c) =>
         c.id === criterionId
           ? {
               ...c,
-              tiers: c.tiers.map((t) =>
-                t.id === tierId ? { ...t, [field]: value } : t
-              ),
+              tiers: c.tiers.map((t, i) => (i === tierIndex ? { ...t, value } : t)),
             }
           : c
       )
     );
+
+  const updatePoints = (criterionId, value) =>
+    setRubric(
+      rubric.map((c) => (c.id === criterionId ? { ...c, points: value } : c))
+    );
+
+  const updateDeviation = (criterionId, value) =>
+    setRubric(
+      rubric.map((c) => (c.id === criterionId ? { ...c, deviation: value } : c))
+    );
+
+  const addCriterion = () =>
+    setRubric([
+      ...rubric,
+      {
+        id: crypto.randomUUID(),
+        criteria: "",
+        tiers: [{ id: crypto.randomUUID(), value: "" }],
+        points: 0,
+        deviation: 0,
+      },
+    ]);
+
+  const addRatingColumn = (criterionId) =>
+    setRubric(
+      rubric.map((c) =>
+        c.id === criterionId
+          ? { ...c, tiers: [...c.tiers, { id: crypto.randomUUID(), value: "" }] }
+          : c
+      )
+    );
+
+  const deleteTier = (criterionId, tierIndex) =>
+    setRubric(
+      rubric.map((c) =>
+        c.id === criterionId
+          ? { ...c, tiers: c.tiers.filter((_, i) => i !== tierIndex) }
+          : c
+      )
+    );
+
+  const deleteColumn = (tierIndex) =>
+    setRubric(rubric.map((c) => ({ ...c, tiers: c.tiers.filter((_, i) => i !== tierIndex) })));
+
+  const deleteRow = (criterionId) => setRubric(rubric.filter((c) => c.id !== criterionId));
+
+  const handleRightClick = (e, type, criterionId, tierIndex = null) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.pageX,
+      y: e.pageY,
+      type,
+      criterionId,
+      tierIndex,
+    });
   };
 
-  const addRatingColumn = () => {
-    setRubric(
-      rubric.map((criterion) => ({
-        ...criterion,
-        tiers: [
-          ...criterion.tiers,
-          { id: crypto.randomUUID(), description: "", points: 0, deviation: 5 },
-        ],
-      }))
-    );
-  };
+  const handleContextMenuAction = (action) => {
+    if (!contextMenu) return;
+    const { type, criterionId, tierIndex } = contextMenu;
 
-  const removeRatingColumn = (tierId) => {
-    setRubric(
-      rubric.map((c) => ({
-        ...c,
-        tiers: c.tiers.filter((t) => t.id !== tierId),
-      }))
-    );
+    if (action === "delete-box" && type === "rating") deleteTier(criterionId, tierIndex);
+    if (action === "delete-column" && type === "rating") deleteColumn(tierIndex);
+    if (action === "delete-row") deleteRow(criterionId);
+
+    setContextMenu(null);
   };
 
   return (
@@ -131,6 +172,7 @@ export default function CreateAssignment() {
       <div className="ml-56 flex flex-col min-h-screen">
         <Navbar />
         <div className="px-6 py-6 flex-1 overflow-auto">
+          {/* Step 1: Assignment Details */}
           {step === 1 && (
             <>
               {/* === STEP 1: Assignment Info === */}
@@ -275,9 +317,9 @@ export default function CreateAssignment() {
             </>
           )}
 
+          {/* Step 2: Rubric Builder */}
           {step === 2 && (
             <>
-              {/* === STEP 2: Rubric Builder (Figma Version) === */}
               <div className="w-72 justify-start mb-6">
                 <span className="text-offical-black text-2xl font-semibold leading-7">
                   Create New Assignment/<br />
@@ -287,110 +329,78 @@ export default function CreateAssignment() {
                 </span>
               </div>
 
-              {/* Rubric Table */}
               <div className="relative overflow-auto bg-white rounded-lg border border-slate-300 p-4">
                 <div className="w-[1025px] bg-white rounded outline outline-1 outline-offset-[-1px] outline-zinc-400 inline-flex flex-col overflow-hidden relative">
                   {/* Header Row */}
-                  <div className="flex self-stretch">
-                    <div className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5">
-                      <div className="text-black text-xs font-semibold font-['Inter'] leading-none">
-                        Criteria
-                      </div>
+                  <div className="flex self-stretch bg-black/5 border-t border-l border-zinc-400">
+                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold">
+                      Criteria
                     </div>
-                    {rubric[0].tiers.map((tier, idx) => (
-                      <div
-                        key={tier.id}
-                        className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5 relative"
-                      >
-                        <input
-                          type="text"
-                          className="w-full text-center text-black text-xs font-semibold font-['Inter'] focus:outline-none"
-                          placeholder={`Rating ${idx + 1}`}
-                          value={tier.description}
-                          onChange={(e) =>
-                            updateTier(rubric[0].id, tier.id, "description", e.target.value)
-                          }
-                        />
-                      </div>
-                    ))}
-                    <div className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5">
-                      <div className="text-black text-xs font-semibold font-['Inter'] leading-none">
-                        Pts
-                      </div>
+                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold text-center">
+                      Ratings
                     </div>
-                    <div className="flex-1 border-t border-l border-zinc-400 bg-black/5 px-3 py-2.5">
-                      <div className="text-black text-xs font-semibold font-['Inter'] leading-none">
-                        Deviation Threshold
-                      </div>
+                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold text-center">
+                      Pts
+                    </div>
+                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold text-center">
+                      Deviation Threshold
                     </div>
                   </div>
 
                   {/* Data Rows */}
                   {rubric.map((criterion) => (
-                    <div key={criterion.id} className="flex self-stretch border-t border-zinc-400 relative">
-                      {/* Criterion Name */}
+                    <div
+                      key={criterion.id}
+                      className="flex self-stretch border-t border-zinc-400 relative"
+                    >
+                      {/* Criterion Box */}
                       <div
                         className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5"
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          if (window.confirm("Delete this row?")) removeCriterion(criterion.id);
-                        }}
+                        onContextMenu={(e) => handleRightClick(e, "criterion", criterion.id)}
                       >
                         <input
-                          type="text"
                           className="w-full text-black text-xs font-normal font-['Inter'] focus:outline-none"
                           placeholder="Criterion"
                           value={criterion.criteria}
-                          onChange={(e) => updateCriterion(criterion.id, e.target.value)}
+                          onChange={(e) => updateCriterionText(criterion.id, e.target.value)}
                         />
                       </div>
 
-                      {/* Rating Columns */}
-                      {criterion.tiers.map((tier) => (
+                      {/* Rating Boxes */}
+                      {criterion.tiers.map((tier, idx) => (
                         <div
                           key={tier.id}
-                          className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 relative"
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            if (window.confirm("Delete this rating column?"))
-                              removeRatingColumn(tier.id, criterion.id);
-                          }}
+                          className={`flex-1 border-l border-t border-zinc-400 px-3 py-2.5 relative ${
+                            contextMenu?.type === "rating" &&
+                            contextMenu.tierIndex === idx
+                              ? "bg-gray-200"
+                              : ""
+                          }`}
+                          onContextMenu={(e) => handleRightClick(e, "rating", criterion.id, idx)}
                         >
                           <input
-                            type="text"
-                            className="w-full text-center text-black text-xs font-normal font-['Inter'] focus:outline-none"
-                            placeholder="Rating Text"
-                            value={tier.description}
-                            onChange={(e) =>
-                              updateTier(criterion.id, tier.id, "description", e.target.value)
-                            }
+                            className="w-full text-center text-black text-xs font-normal focus:outline-none"
+                            placeholder={`Rating ${idx + 1}`}
+                            value={tier.value}
+                            onChange={(e) => updateTierText(criterion.id, idx, e.target.value)}
                           />
                         </div>
                       ))}
 
                       {/* Points Box with Add Rating Button */}
                       <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 relative">
-                        {/* Add Rating Button */}
                         <button
                           className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-teal-500 rounded-full flex justify-center items-center text-white text-[10px] font-bold border border-white shadow"
                           onClick={() => addRatingColumn(criterion.id)}
                         >
                           +
                         </button>
-
                         <input
                           type="number"
-                          min={0}
-                          className="h-10 w-full px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-black text-xs font-normal font-['Geist'] focus:outline-none"
-                          placeholder="Points Available"
-                          value={criterion.points || ""}
-                          onChange={(e) =>
-                            updateCriterionPoints(criterion.id, e.target.value)
-                          }
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            if (window.confirm("Delete this row?")) removeCriterion(criterion.id);
-                          }}
+                          className="w-full h-10 px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-center text-xs font-normal focus:outline-none"
+                          placeholder="Pts"
+                          value={criterion.points}
+                          onChange={(e) => updatePoints(criterion.id, e.target.value)}
                         />
                       </div>
 
@@ -400,34 +410,52 @@ export default function CreateAssignment() {
                           type="number"
                           min={0}
                           max={100}
-                          className="h-10 w-full px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-black text-xs font-normal font-['Geist'] focus:outline-none"
+                          className="w-full h-10 px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-center text-xs font-normal focus:outline-none"
                           placeholder="Deviation %"
-                          value={criterion.deviation || ""}
-                          onChange={(e) =>
-                            updateCriterionDeviation(criterion.id, e.target.value)
-                          }
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            if (window.confirm("Delete this row?")) removeCriterion(criterion.id);
-                          }}
+                          value={criterion.deviation}
+                          onChange={(e) => updateDeviation(criterion.id, e.target.value)}
                         />
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Add Criterion */}
                 <div className="mt-2 flex justify-start">
                   <button className="text-blue-500 font-medium" onClick={addCriterion}>
                     + Add Criterion
                   </button>
                 </div>
               </div>
+
+              {/* Context Menu */}
+              {contextMenu && (
+                <div
+                  className="absolute bg-white border border-gray-300 rounded shadow-md z-50"
+                  style={{ top: contextMenu.y, left: contextMenu.x }}
+                >
+                  <div
+                    className="px-3 py-1 text-xs hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleContextMenuAction("delete-box")}
+                  >
+                    Delete Box
+                  </div>
+                  <div
+                    className="px-3 py-1 text-xs hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleContextMenuAction("delete-column")}
+                  >
+                    Delete Column
+                  </div>
+                  <div
+                    className="px-3 py-1 text-xs hover:bg-gray-100 cursor-pointer"
+                    onClick={() => handleContextMenuAction("delete-row")}
+                  >
+                    Delete Row
+                  </div>
+                </div>
+              )}
             </>
           )}
-
-
-          {/* Footer Actions */}
+        {/* Footer Actions */}
           <div className="flex justify-end gap-4 px-6 pt-29">
             <button className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-zinc-900 hover:bg-gray-50">
               Save as Draft
