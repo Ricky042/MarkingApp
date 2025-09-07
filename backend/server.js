@@ -332,19 +332,42 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
 
   try {
     const results = [];
-
     for (const email of emails) {
-      // Generate a unique token for the invitation
+      // 1. Check if user with this email is already in the team
+      const memberCheck = await pool.query(
+        `SELECT u.id
+         FROM users u
+         JOIN team_members tm ON u.id = tm.user_id
+         WHERE tm.team_id = $1 AND u.username = $2`,
+        [teamId, email]
+      );
+
+      if (memberCheck.rows.length > 0) {
+        results.push({ email, status: "already_member" });
+        continue; // skip to next email
+      }
+
+      // 2. Check if invite already exists and is still pending
+      const inviteCheck = await pool.query(
+        `SELECT id FROM team_invites
+         WHERE team_id=$1 AND invitee_email=$2 AND status='pending'`,
+        [teamId, email]
+      );
+
+      if (inviteCheck.rows.length > 0) {
+        results.push({ email, status: "already_invited" });
+        continue; // skip to next email
+      }
+
+      // 3. Create invite + send mail
       const inviteToken = require("crypto").randomBytes(32).toString("hex");
 
-      // Insert invitation into team_invites table
       await pool.query(
         `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status)
          VALUES ($1, $2, $3, $4, 'pending')`,
         [teamId, inviterId, email, inviteToken]
       );
 
-      // Send email via Nodemailer
       const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
@@ -358,12 +381,13 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
       results.push({ email, status: "sent" });
     }
 
-    res.json({ message: "Invitations sent", results });
+    res.json({ message: "Invitation process complete", results });
   } catch (err) {
     console.error("Error sending invites:", err);
     res.status(500).json({ error: "Failed to send invites" });
   }
 });
+
 
 // Accept or deny an invite
 app.post("/team/invite/:token/respond", authenticateToken, async (req, res) => {

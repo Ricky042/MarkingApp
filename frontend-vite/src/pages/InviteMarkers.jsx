@@ -1,24 +1,48 @@
 // src/pages/InviteMarkers.jsx
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 
 export default function InviteMarkers() {
   const { teamId } = useParams();
-  const navigate = useNavigate();
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [emailsList, setEmailsList] = useState([]);
   const [inviteStatus, setInviteStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  // Fetch current team members (so we don’t invite existing users)
+  useEffect(() => {
+    async function fetchMembers() {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await api.get(`/team/${teamId}/members`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setTeamMembers(res.data.members.map((m) => m.username.toLowerCase()));
+      } catch (err) {
+        console.error("Error fetching team members:", err);
+      }
+    }
+    fetchMembers();
+  }, [teamId]);
 
   const handleAddEmail = () => {
-    if (!inviteEmail.trim()) return;
-    if (!emailsList.includes(inviteEmail.trim())) {
-      setEmailsList([...emailsList, inviteEmail.trim()]);
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) return;
+
+    if (teamMembers.includes(email)) {
+      setInviteStatus(`⚠️ ${email} is already a team member.`);
+      return;
+    }
+
+    if (!emailsList.includes(email)) {
+      setEmailsList([...emailsList, email]);
       setInviteEmail("");
+      setInviteStatus(null);
     }
   };
 
@@ -28,20 +52,23 @@ export default function InviteMarkers() {
 
   const handleInviteMultiple = async () => {
     const token = localStorage.getItem("token");
-    if (emailsList.length === 0) return setInviteStatus("Add at least one email.");
-    setLoading(true);
+    if (emailsList.length === 0) {
+      setInviteStatus("Add at least one email.");
+      return;
+    }
 
+    setLoading(true);
     try {
       await api.post(
         `/team/${teamId}/invite`,
         { emails: emailsList },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setInviteStatus("Invitations sent successfully!");
+      setInviteStatus("✅ Invitations sent successfully!");
       setEmailsList([]);
     } catch (err) {
       console.error("Failed to send invites:", err);
-      setInviteStatus("Failed to send invites.");
+      setInviteStatus("❌ Failed to send invites.");
     } finally {
       setLoading(false);
     }
