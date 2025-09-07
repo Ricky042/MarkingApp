@@ -57,7 +57,7 @@ const transporter = nodemailer.createTransport({
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function generateToken(user) {
-  return jwt.sign({ username: user.username, id: user.id }, SECRET, { expiresIn: "1h" });
+  return jwt.sign({ username: user.username, id: user.id }, SECRET, { expiresIn: "24h" });
 }
 
 function authenticateToken(req, res, next) {
