@@ -91,7 +91,7 @@ export default function TeamDashboard() {
       <Sidebar />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col bg-neutral-100">
+      <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
         {/* Navbar sits on top */}
         <Navbar />
 

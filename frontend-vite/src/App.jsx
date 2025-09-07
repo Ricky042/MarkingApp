@@ -5,6 +5,7 @@ import Signup from "./pages/Signup";
 import Forgetpassword from "./pages/Forgetpassword";
 import CreateTeam from "./pages/CreateTeam";
 import TeamDashboard from "./pages/TeamDashboard";
+import CreateAssignment from "./pages/CreateAssignment";
 import JoinTeam from "./pages/JoinTeam";
 import api from "./utils/axios";
 import { jwtDecode } from "jwt-decode";
@@ -121,6 +122,7 @@ function App() {
           <Route path="/create-team" element={<CreateTeam />} />
           <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
           <Route path="/join-team" element={<JoinTeam />} />
+          <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
         </Routes>
     </Router>
   );

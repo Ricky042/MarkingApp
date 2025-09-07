@@ -33,7 +33,7 @@ export default function Sidebar() {
       }, [])
     
   return (
-    <div className="w-56 h-screen bg-zinc-800 flex flex-col p-4 font-['Inter']">
+    <div className="w-56 min-h-screen bg-zinc-800 flex flex-col p-4 font-['Inter'] fixed top-0 left-0">
       {/* Logo / Title */}
       <div className="flex items-center gap-2 mb-6 justify-start">
         <div className="relative w-7 h-7 flex items-center justify-center">
