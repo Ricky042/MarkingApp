@@ -312,6 +312,12 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
        WHERE tm.team_id=$1`,
       [teamId]
     );
+
+    // --- DEBUG LINES ---
+    console.log("Requested teamId:", teamId);
+    console.log("Query result rows:", result.rows);
+    // -------------------
+    
     if (result.rows.length === 0) return res.status(404).json({ error: "No team members found" });
     res.json({ members: result.rows });
   } catch (err) {
