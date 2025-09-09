@@ -1,0 +1,46 @@
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import api from "../utils/axios";
+import Sidebar from "../components/Sidebar";
+import Navbar from "../components/navBar";
+
+export default function Assignments() {
+    const { teamId } = useParams();
+    const [assignments, setAssignments] = useState([]);
+    const navigate = useNavigate();
+    return (
+        <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
+                <Navbar />
+                <div className="flex justify-between items-center mb-0 px-6 py-6">
+                    {/* Left: Page Title */}
+                    <div className="w-28 text-offical-black text-2xl font-semibold font-['Inter'] leading-7">
+                        Assignments
+                    </div>
+                </div>
+
+                {/* Select and Search form */}
+                <div className="w-[1023px] inline-flex justify-between items-center">
+                    <div className="flex justify-start items-center gap-1.5">
+                        <div className="w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 flex justify-start items-center gap-2.5">
+                            <div className="flex-1 justify-start text-slate-900 text-sm font-normal font-['Inter'] leading-normal">Select status</div>
+                            <div className="w-4 h-4 relative overflow-hidden">
+                                <div className="w-2 h-1 left-[4px] top-[6px] absolute outline outline-[1.33px] outline-offset-[-0.67px] outline-slate-400" />
+                            </div>
+                        </div>
+                        <div className="w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 flex justify-start items-center gap-2.5">
+                            <div className="flex-1 justify-start text-slate-900 text-sm font-normal font-['Inter'] leading-normal">Select semester</div>
+                            <div className="w-4 h-4 relative overflow-hidden">
+                                <div className="w-2 h-1 left-[4px] top-[6px] absolute outline outline-[1.33px] outline-offset-[-0.67px] outline-slate-400" />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="w-72 min-h-8 px-3 py-1.5 bg-neutral-100 rounded-lg flex justify-start items-center gap-1.5">
+                        <div className="text-center justify-center text-zinc-500 text-sm font-normal font-['Inter'] leading-tight tracking-tight">Search Assignments</div>
+                    </div>
+            </div>
+            </div>
+        </div>
+
+    )};

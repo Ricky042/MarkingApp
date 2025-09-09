@@ -374,7 +374,7 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
         [teamId, inviterId, email, inviteToken]
       );
 
-      const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
+      const inviteUrl = `${process.env.FRONTEND_URL}join-team?token=${inviteToken}`;
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: email,
