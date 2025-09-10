@@ -10,8 +10,23 @@ export default function Assignments() {
     const [assignments, setAssignments] = useState([]);
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
+    const [isLoading, setIsLoading] = useState(true);
 
+    useEffect(() => {
+        const fetchAssignments = async () => {
+            try {
+                const response = await api.get(`/teams/${teamId}/assignments`);
+                setAssignments(response.data);
+            } catch (error) {
+                console.error("Error fetching assignments:", error);
+                navigate("/error");
+            } finally {
+                setIsLoading(false);
+            }
 
+        };
+        fetchAssignments();
+    }, [teamId, navigate]);
 
     return (
     <div className="flex min-h-screen">
