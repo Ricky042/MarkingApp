@@ -177,10 +177,10 @@ export default function CreateAssignment() {
             <>
               {/* === STEP 1: Assignment Info === */}
               <div className="w-72 justify-start mb-6">
-                <span className="text-offical-black text-2xl font-semibold leading-7">
+                <span className="text-bg-[#0F172A] text-2xl font-semibold leading-7">
                   Create New Assignment/<br />
                 </span>
-                <span className="text-offical-black text-2xl font-medium leading-7">
+                <span className="text-bg-[#0F172A] text-2xl font-medium leading-7">
                   Assignment Info<br />
                 </span>
               </div>
@@ -190,7 +190,7 @@ export default function CreateAssignment() {
                 <div className="flex flex-col gap-4">
                   {/* Course Code */}
                   <div className="flex flex-col">
-                    <div className="text-offical-black text-base font-semibold mb-2">
+                    <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
                       Course Code
                     </div>
                     <input
@@ -202,7 +202,7 @@ export default function CreateAssignment() {
 
                   {/* Semester */}
                   <div className="flex flex-col">
-                    <div className="text-offical-black text-base font-semibold mb-2">
+                    <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
                       Semester
                     </div>
                     <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
@@ -232,7 +232,7 @@ export default function CreateAssignment() {
 
               {/* Markers Section */}
               <div className="flex flex-col gap-2 mt-6">
-                <div className="text-offical-black text-base font-semibold mb-2">
+                <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
                   Markers
                 </div>
 
@@ -257,7 +257,7 @@ export default function CreateAssignment() {
 
                       <div className="flex items-center gap-3.5">
                         <div className="w-9 h-9 bg-black rounded-full flex-shrink-0" />
-                        <div className="text-offical-black text-base font-medium truncate">
+                        <div className="text-bg-[#0F172A] text-base font-medium truncate">
                           {marker.username}
                         </div>
                       </div>
@@ -317,144 +317,147 @@ export default function CreateAssignment() {
             </>
           )}
 
-          {/* Step 2: Rubric Builder */}
+          {/* ================= Step 2: Rubric Builder (Static Figma Layout) ================= */}
           {step === 2 && (
-            <>
-              <div className="w-72 justify-start mb-6">
-                <span className="text-offical-black text-2xl font-semibold leading-7">
-                  Create New Assignment/<br />
-                </span>
-                <span className="text-offical-black text-2xl font-medium leading-7">
-                  Rubric Setup<br />
-                </span>
-              </div>
+            <div className="w-full mb-6">
+              <span className="text-bg-[#0F172A] text-2xl font-semibold leading-7">
+                Create New Assignment/<br />
+              </span>
+              <span className="text-bg-[#0F172A] text-2xl font-medium leading-7">
+                Rubric Setup<br />
+              </span>
 
-              <div className="relative overflow-auto bg-white rounded-lg border border-slate-300 p-4">
-                <div className="w-[1025px] bg-white rounded outline outline-1 outline-offset-[-1px] outline-zinc-400 inline-flex flex-col overflow-hidden relative">
-                  {/* Header Row */}
-                  <div className="flex self-stretch bg-black/5 border-t border-l border-zinc-400">
-                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold">
+              <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Assignment Criteria</div>
+            
+              {/* ================= Rubric Table ================= */}
+              <div className="w-full bg-white rounded outline outline-1 outline-offset-[-1px] outline-zinc-400 inline-flex flex-col overflow-hidden">
+
+                {/* ---- Header Row ---- */}
+                <div className="self-stretch bg-black/5 inline-flex">
+                  {/* Criteria Header */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start">
+                    <div className="px-3 py-2.5 text-black text-xs font-semibold font-['Inter'] leading-none">
                       Criteria
                     </div>
-                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold text-center">
+                  </div>
+
+                  {/* Ratings Header (spans rating columns) */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start">
+                    <div className="px-3 py-2.5 text-black text-xs font-semibold font-['Inter'] leading-none">
                       Ratings
                     </div>
-                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold text-center">
+                  </div>
+
+                  {/* Empty placeholders for visual alignment of rating columns */}
+                  <div className="flex-1 border-t border-zinc-400" />
+                  <div className="flex-1 border-t border-zinc-400" />
+                  <div className="flex-1 border-t border-zinc-400" />
+
+                  {/* Points Header */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start">
+                    <div className="px-3 py-2.5 text-black text-xs font-semibold font-['Inter'] leading-none">
                       Pts
                     </div>
-                    <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 text-xs font-semibold text-center">
+                  </div>
+
+                  {/* Deviation Header */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start">
+                    <div className="px-3 py-2.5 text-black text-xs font-semibold font-['Inter'] leading-none">
                       Deviation Threshold
                     </div>
                   </div>
-
-                  {/* Data Rows */}
-                  {rubric.map((criterion) => (
-                    <div
-                      key={criterion.id}
-                      className="flex self-stretch border-t border-zinc-400 relative"
-                    >
-                      {/* Criterion Box */}
-                      <div
-                        className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5"
-                        onContextMenu={(e) => handleRightClick(e, "criterion", criterion.id)}
-                      >
-                        <input
-                          className="w-full text-black text-xs font-normal font-['Inter'] focus:outline-none"
-                          placeholder="Criterion"
-                          value={criterion.criteria}
-                          onChange={(e) => updateCriterionText(criterion.id, e.target.value)}
-                        />
-                      </div>
-
-                      {/* Rating Boxes */}
-                      {criterion.tiers.map((tier, idx) => (
-                        <div
-                          key={tier.id}
-                          className={`flex-1 border-l border-t border-zinc-400 px-3 py-2.5 relative ${
-                            contextMenu?.type === "rating" &&
-                            contextMenu.tierIndex === idx
-                              ? "bg-gray-200"
-                              : ""
-                          }`}
-                          onContextMenu={(e) => handleRightClick(e, "rating", criterion.id, idx)}
-                        >
-                          <input
-                            className="w-full text-center text-black text-xs font-normal focus:outline-none"
-                            placeholder={`Rating ${idx + 1}`}
-                            value={tier.value}
-                            onChange={(e) => updateTierText(criterion.id, idx, e.target.value)}
-                          />
-                        </div>
-                      ))}
-
-                      {/* Points Box with Add Rating Button */}
-                      <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5 relative">
-                        <button
-                          className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-teal-500 rounded-full flex justify-center items-center text-white text-[10px] font-bold border border-white shadow"
-                          onClick={() => addRatingColumn(criterion.id)}
-                        >
-                          +
-                        </button>
-                        <input
-                          type="number"
-                          className="w-full h-10 px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-center text-xs font-normal focus:outline-none"
-                          placeholder="Pts"
-                          value={criterion.points}
-                          onChange={(e) => updatePoints(criterion.id, e.target.value)}
-                        />
-                      </div>
-
-                      {/* Deviation Box */}
-                      <div className="flex-1 border-l border-t border-zinc-400 px-3 py-2.5">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          className="w-full h-10 px-4 py-2 bg-Background rounded-md outline outline-1 outline-Input text-center text-xs font-normal focus:outline-none"
-                          placeholder="Deviation %"
-                          value={criterion.deviation}
-                          onChange={(e) => updateDeviation(criterion.id, e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  ))}
                 </div>
 
-                <div className="mt-2 flex justify-start">
-                  <button className="text-blue-500 font-medium" onClick={addCriterion}>
-                    + Add Criterion
-                  </button>
+                {/* ---- Data Row ---- */}
+                <div className="self-stretch bg-white inline-flex">
+                  {/* Criterion Cell */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start">
+                    <div className="px-3 py-2.5 text-black text-xs font-normal font-['Inter'] leading-none">
+                      Introduction: Applies theoretical framework
+                    </div>
+                  </div>
+
+                  {/* Rating 1 */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start bg-white/40">
+                    <div className="px-3 py-2.5 text-black text-xs font-normal font-['Inter'] leading-none">
+                      The introduction demonstrates a comprehensive and insightful application of theoretical frameworks, showing strong alignment with the research.
+                    </div>
+                  </div>
+
+                  {/* Rating 2 */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start bg-white/40">
+                    <div className="px-3 py-2.5 text-black text-xs font-normal font-['Inter'] leading-none">
+                      The theoretical framework is clearly applied and integrated, though with minor gaps in depth or precision.
+                    </div>
+                  </div>
+
+                  {/* Rating 3 */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start bg-white/40">
+                    <div className="px-3 py-2.5 text-black text-xs font-normal font-['Inter'] leading-none">
+                      Some attempt is made to apply relevant frameworks, but the use is limited, inconsistent, or lacks clarity.
+                    </div>
+                  </div>
+
+                  {/* Rating 4 */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex justify-start items-start bg-white/40">
+                    <div className="px-3 py-2.5 text-black text-xs font-normal font-['Inter'] leading-none">
+                      Minimal or no application of theoretical frameworks; relevance to the assignment is unclear.
+                    </div>
+                  </div>
+
+                  {/* Points Cell */}
+                  <div className="flex-1 border-l border-t border-zinc-400 relative bg-white/40">
+                    {/* Add Ratings Button (Icon Version) */}
+                      <div className="absolute left-0 top-5 -translate-x-1/2 cursor-pointer flex items-center justify-center">
+                        <img
+                          src="/CreateAssignment/icon/Ellipse 3.svg"
+                          alt="button background"
+                          className="w-5 h-5"
+                        />
+                        <img
+                          src="/CreateAssignment/icon/plus-1.svg"
+                          alt="plus sign"
+                          className="w-3.5 h-3.5 absolute left-[3px] top-[3px]"
+                        />
+                      </div>
+                    <div className="w-full max-w-[calc(100%-16px)] px-4 h-10 bg-[#FFFFFF] rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] flex justify-center items-center mx-auto mt-2">
+                      <div className="text-[#71717A] text-xs font-normal font-['Geist'] leading-tight">
+                        Pts Available
+                      </div>
+
+                      
+                    </div>
+                  </div>
+
+
+                  {/* Deviation Cell */}
+                  <div className="flex-1 border-l border-t border-zinc-400 flex flex-col items-center justify-start bg-white/40 pt-2.5">
+                    <div className="w-full max-w-[calc(100%-16px)] px-4 h-10 bg-[#FFFFFF] rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] flex items-center gap-4">
+                      <span className="text-[#0F172A] text-base font-normal font-['Geist'] leading-none">±</span>
+                      <div className="flex-1 text-[#71717A] text-xs font-normal font-['Geist'] leading-none">
+                        Deviation
+                      </div>
+                    </div>
+                  </div>
+
+
                 </div>
               </div>
 
-              {/* Context Menu */}
-              {contextMenu && (
-                <div
-                  className="absolute bg-white border border-gray-300 rounded shadow-md z-50"
-                  style={{ top: contextMenu.y, left: contextMenu.x }}
-                >
-                  <div
-                    className="px-3 py-1 text-xs hover:bg-gray-100 cursor-pointer"
-                    onClick={() => handleContextMenuAction("delete-box")}
-                  >
-                    Delete Box
-                  </div>
-                  <div
-                    className="px-3 py-1 text-xs hover:bg-gray-100 cursor-pointer"
-                    onClick={() => handleContextMenuAction("delete-column")}
-                  >
-                    Delete Column
-                  </div>
-                  <div
-                    className="px-3 py-1 text-xs hover:bg-gray-100 cursor-pointer"
-                    onClick={() => handleContextMenuAction("delete-row")}
-                  >
-                    Delete Row
-                  </div>
+              <div className="w-36 h-36 bg-slate-500/20 outline outline-1 outline-offset-[-1px] outline-zinc-400 inline-flex flex-col justify-start items-start mt-5">
+                <div className="self-stretch flex-1 px-3 py-2.5 inline-flex justify-center items-center overflow-hidden">
+                    <div className="w-10 h-10 relative overflow-hidden">
+                        <img
+                          src="/CreateAssignment/icon/plus.svg"
+                          alt="plus sign"
+                          className="w-10 h-10"
+                        />
+                    </div>
                 </div>
-              )}
-            </>
+              </div>
+            </div>
           )}
+
         {/* Footer Actions */}
           <div className="flex justify-end gap-4 px-6 pt-29">
             <button className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-zinc-900 hover:bg-gray-50">

@@ -53,7 +53,8 @@ export function LoginForm({ className, ...props }) {
       if (pendingInviteToken) {
         console.log("Redirecting to join-team page for pending invite.");
         navigate(`/join-team?token=${pendingInviteToken}`);
-        return; // stop here
+        sessionStorage.removeItem("pendingInviteToken"); // ✅ prevent router from overriding
+        return;
       }
 
       // If no pending invite, check if user has a team
