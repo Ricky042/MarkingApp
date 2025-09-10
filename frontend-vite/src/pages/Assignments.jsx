@@ -14,12 +14,16 @@ export default function Assignments() {
 
     useEffect(() => {
         const fetchAssignments = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) return navigate("/login");
             try {
-                const response = await api.get(`/teams/${teamId}/assignments`);
-                setAssignments(response.data);
-            } catch (error) {
-                console.error("Error fetching assignments:", error);
-                navigate("/error");
+                const response = await api.get(`/team/${teamId}/assignments`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                setAssignments(response.data.assignments || []);
+            } catch (err) {
+                console.error("Error fetching assignments:", err);
+                navigate("/");
             } finally {
                 setIsLoading(false);
             }
