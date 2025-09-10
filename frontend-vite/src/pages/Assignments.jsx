@@ -11,6 +11,8 @@ export default function Assignments() {
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
     const [isLoading, setIsLoading] = useState(true);
+    const [status, setStatus] = useState("");
+    const [selectedSemester, setSelectedSemester] = useState("");
 
     useEffect(() => {
         const fetchAssignments = async () => {
@@ -32,6 +34,10 @@ export default function Assignments() {
         fetchAssignments();
     }, [teamId, navigate]);
 
+    if (isLoading) {
+        return <div>Loading...</div>;
+    }
+
     return (
     <div className="flex min-h-screen">
         {/* Sidebar fixed to the left */}
@@ -45,11 +51,11 @@ export default function Assignments() {
             <Navbar onBurgerClick = {() => setMenuOpen(v => !v)}/>
 
             <div className={`fixed inset-0 ${menuOpen ? '' : 'pointer-events-none'}`}>
-            <div className="absolute inset-0" onClick={() => setMenuOpen(false)} />
-                <MenuItem 
-                menuOpen={menuOpen}
-                onClose={() => setMenuOpen(false)}
-                />
+                <div className="absolute inset-0" onClick={() => setMenuOpen(false)} />
+                    <MenuItem 
+                    menuOpen={menuOpen}
+                    onClose={() => setMenuOpen(false)}
+                    />
             </div>
             <div
             className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100
@@ -66,44 +72,72 @@ export default function Assignments() {
                 </div>
 
                 {/* Select and Search form */}
-                <div className="w-[1023px] inline-flex justify-between items-center">
-                    <div className="flex justify-start items-center gap-1.5">
-                        <div className="w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 flex justify-start items-center gap-2.5">
-                            <div className="flex-1 justify-start text-slate-900 text-sm font-normal font-['Inter'] leading-normal">Select status</div>
-                            <div className="w-4 h-4 relative overflow-hidden">
-                                <div className="w-2 h-1 left-[4px] top-[6px] absolute outline outline-[1.33px] outline-offset-[-0.67px] outline-slate-400" />
-                            </div>
-                        </div>
-                        <div className="w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 flex justify-start items-center gap-2.5">
-                            <div className="flex-1 justify-start text-slate-900 text-sm font-normal font-['Inter'] leading-normal">Select semester</div>
-                            <div className="w-4 h-4 relative overflow-hidden">
-                                <div className="w-2 h-1 left-[4px] top-[6px] absolute outline outline-[1.33px] outline-offset-[-0.67px] outline-slate-400" />
-                            </div>
-                        </div>
+                <div className="flex items-center gap-4 px-6 mb-4">
+                    <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
+                        <span className="flex-1 text-zinc-600 text-sm font-normal">
+                        {selectedSemester || "Select semester"}
+                        </span>
+                        <img
+                        src="/AssignmentIcon/chevron-down.svg"
+                        alt="Dropdown arrow"
+                        className="w-4 h-4"
+                        />
+                        <select
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        value={selectedSemester}
+                        onChange={(e) => setSelectedSemester(e.target.value)}
+                        >
+                        <option value="" disabled>
+                            Select semester
+                        </option>
+                        <option value="1">Semester 1</option>
+                        <option value="2">Semester 2</option>
+                        </select>
                     </div>
-                    <div className="w-72 min-h-8 px-3 py-1.5 bg-neutral-100 rounded-lg flex justify-start items-center gap-1.5">
-                        <div className="text-center justify-center text-zinc-500 text-sm font-normal font-['Inter'] leading-tight tracking-tight">Search Assignments</div>
+
+                    <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
+                        <span className="flex-1 text-zinc-600 text-sm font-normal">
+                        {selectedSemester || "Select semester"}
+                        </span>
+                        <img
+                        src="/AssignmentIcon/chevron-down.svg"
+                        alt="Dropdown arrow"
+                        className="w-4 h-4"
+                        />
+                        <select
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        value={selectedSemester}
+                        onChange={(e) => setSelectedSemester(e.target.value)}
+                        >
+                        <option value="" disabled>
+                            Select semester
+                        </option>
+                        <option value="1">Semester 1</option>
+                        <option value="2">Semester 2</option>
+                        </select>
                     </div>
-            </div>
-            <div className="flex gap-4 px-6 py-4">
-              {assignments.map((assignment) => (
-                <button
-                  key={assignment.id}
-                  className="px-6 py-4 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 transition-colors text-left"
-                >
-                  <div className="text-lg font-semibold mb-2">{assignment.title}</div>
-                  <div className="text-sm text-gray-500 mb-1">
-                    {assignment.semester} &nbsp;|&nbsp; {assignment.status}
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    {assignment.gradedCount} / {assignment.totalCount} graded ({assignment.percentage}%)
-                  </div>
-                  <div className="mt-2 text-xs text-gray-400">
-                    Due in {assignment.dueInDays} days
-                  </div>
-                </button>
-              ))}
-            </div>
+                </div>
+
+
+                <div className="flex gap-4 px-6 py-4">
+                {assignments.map((assignment) => (
+                    <button
+                    key={assignment.id}
+                    className="px-6 py-4 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 transition-colors text-left"
+                    >
+                    <div className="text-lg font-semibold mb-2">{assignment.title}</div>
+                    <div className="text-sm text-gray-500 mb-1">
+                        {assignment.semester} &nbsp;|&nbsp; {assignment.status}
+                    </div>
+                    <div className="text-sm text-gray-700">
+                        {assignment.gradedCount} / {assignment.totalCount} graded ({assignment.percentage}%)
+                    </div>
+                    <div className="mt-2 text-xs text-gray-400">
+                        Due in {assignment.dueInDays} days
+                    </div>
+                    </button>
+                ))}
+                </div>
             </div>
         </div>
     </div>
