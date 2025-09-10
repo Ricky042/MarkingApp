@@ -2,17 +2,43 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
-import Navbar from "../components/navBar";
+import Navbar from "../components/Navbar";
+import MenuItem from "../components/NavbarMenu";
 
 export default function Assignments() {
     const { teamId } = useParams();
     const [assignments, setAssignments] = useState([]);
     const navigate = useNavigate();
+    const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
+
+
+
     return (
-        <div className="flex min-h-screen">
+    <div className="flex min-h-screen">
+        {/* Sidebar fixed to the left */}
+        <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
             <Sidebar />
-            <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
-                <Navbar />
+        </aside>
+
+        {/* Main content area */}
+        <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
+            {/* Navbar sits on top */}
+            <Navbar onBurgerClick = {() => setMenuOpen(v => !v)}/>
+
+            <div className={`fixed inset-0 ${menuOpen ? '' : 'pointer-events-none'}`}>
+            <div className="absolute inset-0" onClick={() => setMenuOpen(false)} />
+                <MenuItem 
+                menuOpen={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                />
+            </div>
+            <div
+            className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100
+                        ${menuOpen ? "ml-64" : "mr-0"}`}
+            >
+
+
+
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
                     {/* Left: Page Title */}
                     <div className="w-28 text-offical-black text-2xl font-semibold font-['Inter'] leading-7">
@@ -42,5 +68,5 @@ export default function Assignments() {
             </div>
             </div>
         </div>
-
+    </div>
     )};
