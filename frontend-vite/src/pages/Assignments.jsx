@@ -85,6 +85,25 @@ export default function Assignments() {
                         <div className="text-center justify-center text-zinc-500 text-sm font-normal font-['Inter'] leading-tight tracking-tight">Search Assignments</div>
                     </div>
             </div>
+            <div className="flex gap-4 px-6 py-4">
+              {assignments.map((assignment) => (
+                <button
+                  key={assignment.id}
+                  className="px-6 py-4 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 transition-colors text-left"
+                >
+                  <div className="text-lg font-semibold mb-2">{assignment.title}</div>
+                  <div className="text-sm text-gray-500 mb-1">
+                    {assignment.semester} &nbsp;|&nbsp; {assignment.status}
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {assignment.gradedCount} / {assignment.totalCount} graded ({assignment.percentage}%)
+                  </div>
+                  <div className="mt-2 text-xs text-gray-400">
+                    Due in {assignment.dueInDays} days
+                  </div>
+                </button>
+              ))}
+            </div>
             </div>
         </div>
     </div>
