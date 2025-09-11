@@ -131,7 +131,6 @@ function App() {
 
           <Route path="/create-team" element={<CreateTeam />} />
           <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
-          {/* Use the new JoinTeamRoute component to protect the route */}
           <Route path="/join-team" element={<JoinTeamRoute />} />
           <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
           <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
