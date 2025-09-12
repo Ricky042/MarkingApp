@@ -21,7 +21,7 @@ export default function AssignmentDetails() {
                 const response = await api.get(`/team/${teamId}/assignments/${assignmentId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                setAssignment(response.data.assignment);
+                setAssignment(response.data.assignment[0]);
                 console.log(response.data.assignment);
             } catch (err) {
                 console.error("Error fetching assignments:", err);
@@ -33,6 +33,10 @@ export default function AssignmentDetails() {
         };
         fetchAssignments();
     }, [teamId, assignmentId, navigate]);
+
+    if (isLoading) {
+        return <div>Loading...</div>;
+    }
 
     return (
     <div className="flex min-h-screen">
@@ -58,11 +62,14 @@ export default function AssignmentDetails() {
                           ${menuOpen ? "ml-64" : "mr-0"}`}
             >
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
-                    {/* Left: Page Title */}
-                    <div className="w-28 text-offical-black text-2xl font-semibold font-['Inter'] leading-7">
-                        {assignment?.title}
+                    <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">2025 Semester 2</div>
+                </div>
+                <div className="flex justify-between items-center mb-0 px-6 py-6">
+                    <div className="justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">
+                        {assignment.title}
                     </div>
-                </div>  
+                </div>
+                    
             </div>
           </div>
         </div>

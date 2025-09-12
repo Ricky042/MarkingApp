@@ -501,7 +501,6 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
        ORDER BY due_date ASC`,
       [teamId, assignmentId]
     );
-
     res.json({ assignment: assignmentsRes.rows });
     console.log(assignmentsRes.rows);
   } catch (err) {
