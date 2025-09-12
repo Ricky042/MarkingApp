@@ -11,8 +11,8 @@ export default function Assignments() {
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
     const [isLoading, setIsLoading] = useState(true);
-    const [status, setStatus] = useState("");
     const [selectedSemester, setSelectedSemester] = useState("");
+    const [selectedStatus, setSelectedStatus] = useState("");
 
     useEffect(() => {
         const fetchAssignments = async () => {
@@ -37,6 +37,10 @@ export default function Assignments() {
     if (isLoading) {
         return <div>Loading...</div>;
     }
+
+    const handleNav = (path) => {
+        navigate(`/team/${teamId}/${path}`);
+    };
 
     return (
     <div className="flex min-h-screen">
@@ -90,14 +94,14 @@ export default function Assignments() {
                         <option value="" disabled>
                             Select semester
                         </option>
-                        <option value="1">Semester 1</option>
-                        <option value="2">Semester 2</option>
+                        <option value="Semester 1">Semester 1</option>
+                        <option value="Semester 2">Semester 2</option>
                         </select>
                     </div>
 
                     <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
                         <span className="flex-1 text-zinc-600 text-sm font-normal">
-                        {selectedSemester || "Select semester"}
+                        {selectedStatus || "Select status"}
                         </span>
                         <img
                         src="/AssignmentIcon/chevron-down.svg"
@@ -106,14 +110,14 @@ export default function Assignments() {
                         />
                         <select
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        value={selectedSemester}
-                        onChange={(e) => setSelectedSemester(e.target.value)}
+                        value={selectedStatus}
+                        onChange={(e) => setSelectedStatus(e.target.value)}
                         >
                         <option value="" disabled>
-                            Select semester
+                            Select status
                         </option>
-                        <option value="1">Semester 1</option>
-                        <option value="2">Semester 2</option>
+                        <option value="In progress">In progress</option>
+                        <option value="Completed">Completed</option>
                         </select>
                     </div>
                 </div>
@@ -122,19 +126,20 @@ export default function Assignments() {
                 <div className="flex gap-4 px-6 py-4">
                 {assignments.map((assignment) => (
                     <button
-                    key={assignment.id}
-                    className="px-6 py-4 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 transition-colors text-left"
-                    >
-                    <div className="text-lg font-semibold mb-2">{assignment.title}</div>
-                    <div className="text-sm text-gray-500 mb-1">
-                        {assignment.semester} &nbsp;|&nbsp; {assignment.status}
-                    </div>
-                    <div className="text-sm text-gray-700">
-                        {assignment.gradedCount} / {assignment.totalCount} graded ({assignment.percentage}%)
-                    </div>
-                    <div className="mt-2 text-xs text-gray-400">
-                        Due in {assignment.dueInDays} days
-                    </div>
+                        key={assignment.id}
+                        onClick={() => handleNav(`assignment/${assignment.id}`)}
+                        className="px-6 py-4 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 transition-colors text-left"
+                        >
+                        <div className="text-lg font-semibold mb-2">{assignment.title}</div>
+                        <div className="text-sm text-gray-500 mb-1">
+                            {assignment.semester} &nbsp;|&nbsp; {assignment.status}
+                        </div>
+                        <div className="text-sm text-gray-700">
+                            {assignment.gradedCount} / {assignment.totalCount} graded ({assignment.percentage}%)
+                        </div>
+                        <div className="mt-2 text-xs text-gray-400">
+                            Due in {assignment.dueInDays} days
+                        </div>
                     </button>
                 ))}
                 </div>

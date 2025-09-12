@@ -489,6 +489,26 @@ app.get("/team/:teamId/assignments", authenticateToken, async (req, res) => {
   }
 });
 
+app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req, res) => {
+  const { teamId, assignmentId } = req.params;
+
+  try {
+    const assignmentsRes = await pool.query(
+      `SELECT id, title, due_date, created_by 
+       FROM assignments 
+       WHERE team_id=$1
+       AND id=$2
+       ORDER BY due_date ASC`,
+      [teamId, assignmentId]
+    );
+
+    res.json({ assignment: assignmentsRes.rows });
+  } catch (err) {
+    console.error("Failed to fetch particular assignments:", err);
+    res.status(500).json({ error: "Failed to fetch particular assignments" });
+  }
+});
+
 /////////////////////
 // Start Server
 /////////////////////

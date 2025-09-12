@@ -9,6 +9,7 @@ import CreateAssignment from "./pages/CreateAssignment";
 import InviteMarkers from "./pages/InviteMarkers";
 import JoinTeam from "./pages/JoinTeam";
 import Assignments from "./pages/Assignments";
+import AssignmentDetails from "./pages/AssignmentDetails";
 import api from "./utils/axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -136,6 +137,7 @@ function App() {
           <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
           <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
           <Route path="/team/:teamId/assignments" element={<Assignments />} />
+          <Route path="/team/:teamId/assignment/:assignmentId" element={<AssignmentDetails />} />
         </Routes>
     </Router>
   );
