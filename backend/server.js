@@ -464,13 +464,12 @@ app.get("/team/invite/:token", async (req, res) => {
   }
 });
 
-// Get all assignments for a team
 app.get("/team/:teamId/assignments", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
 
   try {
     const assignmentsRes = await pool.query(
-      `SELECT id, title, due_date, created_by 
+      `SELECT id, course_code, course_name, semester, due_date, created_by 
        FROM assignments 
        WHERE team_id=$1
        ORDER BY due_date ASC`,
@@ -484,22 +483,92 @@ app.get("/team/:teamId/assignments", authenticateToken, async (req, res) => {
   }
 });
 
+// Get a SINGLE, detailed assignment with its full rubric and markers (COMPLETELY REWRITTEN)
+// This endpoint now fetches data from multiple tables and assembles a complete object.
 app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req, res) => {
-  const { teamId, assignmentId } = req.params;
+  const { assignmentId, teamId } = req.params;
+  const userId = req.user.id; // from authenticateToken
 
   try {
-    const assignmentsRes = await pool.query(
-      `SELECT id, title, due_date, created_by 
-       FROM assignments 
-       WHERE team_id=$1
-       AND id=$2
-       ORDER BY due_date ASC`,
-      [teamId, assignmentId]
+    // Step 1: Fetch the main assignment details.
+    // We also verify that the user is a member of the team that owns the assignment.
+    const assignmentQuery = pool.query(
+      `SELECT a.id, a.course_code, a.course_name, a.semester, a.due_date, a.created_by
+       FROM assignments a
+       JOIN team_members tm ON a.team_id = tm.team_id
+       WHERE a.id = $1 AND a.team_id = $2 AND tm.user_id = $3`,
+      [assignmentId, teamId, userId]
     );
-    res.json({ assignment: assignmentsRes.rows });
+
+    // Step 2: Fetch the assigned markers for this assignment.
+    const markersQuery = pool.query(
+      `SELECT u.id, u.username
+       FROM assignment_markers am
+       JOIN users u ON am.user_id = u.id
+       WHERE am.assignment_id = $1`,
+      [assignmentId]
+    );
+
+    // Step 3: Fetch all rubric criteria for this assignment.
+    const criteriaQuery = pool.query(
+      `SELECT id, criterion_description, points, deviation_threshold
+       FROM rubric_criteria
+       WHERE assignment_id = $1
+       ORDER BY id ASC`, // Keep a consistent order
+      [assignmentId]
+    );
+
+    // Step 4: Fetch all rubric tiers for all criteria in this assignment.
+    const tiersQuery = pool.query(
+      `SELECT T.id, T.criterion_id, T.tier_name, T.description, T.lower_bound, T.upper_bound
+       FROM rubric_tiers T
+       JOIN rubric_criteria C ON T.criterion_id = C.id
+       WHERE C.assignment_id = $1
+       ORDER BY T.criterion_id ASC, T.upper_bound DESC`, // Order is important for assembly
+      [assignmentId]
+    );
+    
+    // Run all queries in parallel for better performance
+    const [assignmentRes, markersRes, criteriaRes, tiersRes] = await Promise.all([
+      assignmentQuery,
+      markersQuery,
+      criteriaQuery,
+      tiersQuery
+    ]);
+
+    // Check if assignment exists and if user has access
+    if (assignmentRes.rows.length === 0) {
+      return res.status(404).json({ error: "Assignment not found or you do not have access." });
+    }
+
+    // Step 5: Assemble the final JSON object.
+    const criteriaMap = new Map();
+    // Initialize each criterion with an empty tiers array
+    criteriaRes.rows.forEach(criterion => {
+      criterion.tiers = [];
+      criteriaMap.set(criterion.id, criterion);
+    });
+
+    // Populate the tiers for each criterion
+    tiersRes.rows.forEach(tier => {
+      if (criteriaMap.has(tier.criterion_id)) {
+        criteriaMap.get(tier.criterion_id).tiers.push(tier);
+      }
+    });
+
+    const finalRubric = Array.from(criteriaMap.values());
+
+    const finalResponse = {
+      assignment: assignmentRes.rows[0],
+      markers: markersRes.rows,
+      rubric: finalRubric,
+    };
+    
+    res.json(finalResponse);
+
   } catch (err) {
-    console.error("Failed to fetch particular assignments:", err);
-    res.status(500).json({ error: "Failed to fetch particular assignments" });
+    console.error(`Failed to fetch details for assignment ${assignmentId}:`, err);
+    res.status(500).json({ error: "Failed to fetch assignment details" });
   }
 });
 
