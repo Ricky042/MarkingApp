@@ -98,7 +98,7 @@ export default function JoinTeam() {
       sessionStorage.removeItem("pendingInviteToken");
 
       if (action === "accept") {
-        navigate(`/team/${invite.team_id}`);
+        navigate(`/team/${invite.team_id}/dashboard`);
       } else {
         // Check if user has other teams
         const teamRes = await api.get("/my-team", {
