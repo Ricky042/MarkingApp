@@ -96,6 +96,7 @@ export default function Assignments() {
                         </option>
                         <option value="Semester 1">Semester 1</option>
                         <option value="Semester 2">Semester 2</option>
+                        <option value="All Semesters">All Semesters</option>
                         </select>
                     </div>
 
@@ -118,6 +119,7 @@ export default function Assignments() {
                         </option>
                         <option value="In progress">In progress</option>
                         <option value="Completed">Completed</option>
+                        <option value="All Status">All Status</option>
                         </select>
                     </div>
                 </div>
