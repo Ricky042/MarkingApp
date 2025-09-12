@@ -316,11 +316,6 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
        WHERE tm.team_id=$1`,
       [teamId]
     );
-
-    // --- DEBUG LINES ---
-    console.log("Requested teamId:", teamId);
-    console.log("Query result rows:", result.rows);
-    // -------------------
     
     if (result.rows.length === 0) return res.status(404).json({ error: "No team members found" });
     res.json({ members: result.rows });
@@ -502,10 +497,111 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
       [teamId, assignmentId]
     );
     res.json({ assignment: assignmentsRes.rows });
-    console.log(assignmentsRes.rows);
   } catch (err) {
     console.error("Failed to fetch particular assignments:", err);
     res.status(500).json({ error: "Failed to fetch particular assignments" });
+  }
+});
+
+////////////////////////////////////////////////////////////////////
+//  Assignments - NEW SECTION
+////////////////////////////////////////////////////////////////////
+
+// This is the new endpoint to handle the creation of a full assignment with its rubric.
+app.post("/assignments", authenticateToken, async (req, res) => {
+  // Use a client from the pool to run a transaction. This ensures that if any part
+  // of the process fails, the entire operation is undone (rolled back).
+  const client = await pool.connect();
+
+  try {
+    // 1. Destructure the payload from the frontend request body.
+    const { assignmentDetails, markers, rubric } = req.body;
+    
+    // 2. The user's ID is available from the 'authenticateToken' middleware.
+    const createdById = req.user.id; 
+
+    // --- BEGIN DATABASE TRANSACTION ---
+    await client.query('BEGIN');
+
+    // 3. Insert the main assignment details into the 'assignments' table.
+    //    We use 'RETURNING id' to immediately get the ID of the new assignment.
+    const assignmentSql = `
+      INSERT INTO assignments (team_id, created_by, course_code, course_name, semester, due_date)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id;
+    `;
+    const assignmentValues = [
+      assignmentDetails.teamId,
+      createdById,
+      assignmentDetails.courseCode,
+      assignmentDetails.courseName,
+      assignmentDetails.semester,
+      assignmentDetails.dueDate,
+    ];
+    const newAssignment = await client.query(assignmentSql, assignmentValues);
+    const newAssignmentId = newAssignment.rows[0].id;
+
+    // 4. Loop through the marker IDs and insert them into the 'assignment_markers' join table.
+    if (markers && markers.length > 0) {
+      const markerSql = 'INSERT INTO assignment_markers (assignment_id, user_id) VALUES ($1, $2);';
+      for (const markerId of markers) {
+        await client.query(markerSql, [newAssignmentId, markerId]);
+      }
+    }
+
+    // 5. Loop through the rubric criteria. For each criterion, insert it, then insert its tiers.
+    const criteriaSql = `
+      INSERT INTO rubric_criteria (assignment_id, criterion_description, points, deviation_threshold)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id;
+    `;
+    const tierSql = `
+      INSERT INTO rubric_tiers (criterion_id, tier_name, description, lower_bound, upper_bound)
+      VALUES ($1, $2, $3, $4, $5);
+    `;
+
+    for (const criterion of rubric) {
+      // Insert the criterion row and get its new ID.
+      const criteriaValues = [
+        newAssignmentId,
+        criterion.criteria,
+        criterion.points,
+        criterion.deviation,
+      ];
+      const newCriterion = await client.query(criteriaSql, criteriaValues);
+      const newCriterionId = newCriterion.rows[0].id;
+
+      // Loop through the 5 tiers and insert them, linking them to the criterion ID we just got.
+      for (const tier of criterion.tiers) {
+        const tierValues = [
+          newCriterionId,
+          tier.name,
+          tier.description,
+          tier.lowerBound,
+          tier.upperBound,
+        ];
+        await client.query(tierSql, tierValues);
+      }
+    }
+
+    // --- COMMIT THE TRANSACTION ---
+    // If all the above queries succeeded without errors, permanently save the changes.
+    await client.query('COMMIT');
+
+    // Send a success response back to the frontend.
+    res.status(201).json({ 
+      message: 'Assignment created successfully!',
+      assignmentId: newAssignmentId 
+    });
+
+  } catch (error) {
+    // If any error occurred in the 'try' block, undo all the changes.
+    await client.query('ROLLBACK');
+    console.error('Error creating assignment:', error);
+    res.status(500).json({ message: 'Failed to create assignment due to a server error.' });
+  } finally {
+    // Crucially, release the database client back to the pool so it can be reused.
+    client.release();
   }
 });
 

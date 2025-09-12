@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate  } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import api from "../utils/axios";
@@ -55,9 +55,9 @@ const generateTiersWithPercentages = (points) => {
     ];
 };
 
-
 export default function CreateAssignment() {
   const { teamId } = useParams();
+  const navigate = useNavigate(); // Add this line
   const [step, setStep] = useState(1);
 
   // --- STEP 1: ASSIGNMENT DETAILS STATE ---
@@ -217,13 +217,49 @@ export default function CreateAssignment() {
     }
   };
 
-  const handleCreate = () => {
-    alert("Assignment Created! (Simulation)");
-    console.log("Final Assignment Data:", {
-        details: assignmentDetails,
-        markers: markers,
-        rubric: rubric,
-    });
+  const handleCreate = async () => {
+    // 1. Assemble the complete data payload from the component's state.
+    // This structure must match what the backend controller expects.
+    const payload = {
+      assignmentDetails: {
+        ...assignmentDetails,
+        teamId: teamId, // Make sure teamId is included
+      },
+      // Extract just the user IDs for the markers. The backend doesn't need usernames here.
+      markers: markers.map(marker => marker.id),
+      rubric: rubric,
+    };
+
+    try {
+      // 2. Use your configured 'api' utility (e.g., Axios) to send the data.
+      //    This should match the route you created in server.js (e.g., /api/assignments).
+      //    If your axios instance has a baseURL of '/api', then '/assignments' is correct.
+      const response = await api.post('/assignments', payload, {
+        headers: {
+          // Send the authentication token so the backend knows who is creating the assignment.
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // 3. Handle the successful response from the server.
+      if (response.status === 201) { // 201 Created is the standard success code
+        alert("Assignment created successfully!");
+        
+        // 4. Redirect the user to a new page, like the dashboard or the team's assignment list.
+        navigate('/dashboard'); // Or navigate(`/team/${teamId}`);
+      } else {
+        // Handle unexpected but non-error responses
+        alert(`An issue occurred: ${response.data.message || 'Please try again.'}`);
+      }
+    } catch (error) {
+      // 5. Handle errors, like network issues or a 500 error from the server.
+      console.error("Failed to create assignment:", error);
+      const errorMessage = error.response?.data?.message || "An error occurred while creating the assignment. Please try again.";
+      alert(`Error: ${errorMessage}`);
+    }
+  };
+
+    }
   };
 
   return (
