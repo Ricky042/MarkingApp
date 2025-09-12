@@ -7,14 +7,15 @@ import React, { useEffect, useState } from "react";
  * - Accessible (aria-labels, roles, focus rings, ESC to close menu)
  * - TailwindCSS only; no external UI libs required
  */
-export default function NavBar() {
-    const [open, setOpen] = useState(false);
+export default function NavBar({onBurgerClick}) {
     const [username, setUsername] = useState("");
+    const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
+
 
   // Close menu on ESC
     useEffect(() => {
         const onKey = (e) => {
-        if (e.key === "Escape") setOpen(false);
+        if (e.key === "Escape") setMenuOpen(false);
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
@@ -34,13 +35,13 @@ export default function NavBar() {
     return (
         <header className="w-full bg-white/90 backdrop-blur border-b border-slate-200">
         {/* Top bar */}
-        <div className="px-6 w-full">
-            <div className="h-16 flex items-center justify-between">
+        <div className="px-6">
+            <div className="h-16 flex items-center">
             {/* Menu Button */}
-            <div className="flex-shrink-1 flex items-center gap-3 min-w-0">
+            <div className="flex-shrink-0 flex items-center gap-6">
                 <button
-                    aria-label={open ? "Close menu" : "Open menu"}
-                    onClick={() => setOpen((v) => !v)}
+                    aria-label="Toggle menu"
+                    onClick= {onBurgerClick}
                 >
                 <span className="sr-only">Menu</span>
                 <img
@@ -68,7 +69,7 @@ export default function NavBar() {
             </div>
 
             {/* Search */}
-            <div className="flex-grow flex max-w-72">
+            <div className="flex max-w-72 ml-auto mr-6">
                 <div className="w-full min-h-8 px-3 py-1.5 bg-neutral-100 rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
                 <img
                     src="/navBarIcon/navBar_searchIcon.svg"
