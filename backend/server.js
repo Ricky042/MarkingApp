@@ -503,6 +503,7 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
     );
 
     res.json({ assignment: assignmentsRes.rows });
+    console.log(assignmentsRes.rows);
   } catch (err) {
     console.error("Failed to fetch particular assignments:", err);
     res.status(500).json({ error: "Failed to fetch particular assignments" });

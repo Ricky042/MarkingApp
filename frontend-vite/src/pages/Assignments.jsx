@@ -138,7 +138,7 @@ export default function Assignments() {
                             {assignment.gradedCount} / {assignment.totalCount} graded ({assignment.percentage}%)
                         </div>
                         <div className="mt-2 text-xs text-gray-400">
-                            Due in {assignment.dueInDays} days
+                            Due at {assignment.due_date}
                         </div>
                     </button>
                 ))}

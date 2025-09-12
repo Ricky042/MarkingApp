@@ -8,7 +8,7 @@ import MenuItem from "../components/NavbarMenu";
 export default function AssignmentDetails() {
     const { teamId} = useParams();
     const { assignmentId } = useParams();
-    const [assignment, setAssignment] = useState(null);
+    const [assignment, setAssignment] = useState({});
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
     const [isLoading, setIsLoading] = useState(true);
@@ -22,6 +22,7 @@ export default function AssignmentDetails() {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 setAssignment(response.data.assignment);
+                console.log(response.data.assignment);
             } catch (err) {
                 console.error("Error fetching assignments:", err);
                 navigate("/");
@@ -59,7 +60,7 @@ export default function AssignmentDetails() {
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
                     {/* Left: Page Title */}
                     <div className="w-28 text-offical-black text-2xl font-semibold font-['Inter'] leading-7">
-                        {assignment.title}
+                        {assignment?.title}
                     </div>
                 </div>  
             </div>
