@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate  } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import api from "../utils/axios";
@@ -42,11 +42,24 @@ const AutoTextarea = ({ value, onChange, placeholder, onContextMenu }) => {
   );
 };
 
-// -------------------------------------------------
-// Main Component
-// -------------------------------------------------
+// Helper function to round to the nearest 0.5
+const roundToHalf = (num) => Math.round(num * 2) / 2;
+
+// Generates tiers based on standard academic percentages of a total
+const generateTiersWithPercentages = (points) => {
+    const percentages = { hd: 0.85, d: 0.75, c: 0.65, p: 0.50 };
+    return [
+        { id: crypto.randomUUID(), name: 'High Distinction', description: "", lowerBound: roundToHalf(points * percentages.hd), upperBound: points },
+        { id: crypto.randomUUID(), name: 'Distinction', description: "", lowerBound: roundToHalf(points * percentages.d), upperBound: roundToHalf(points * percentages.hd) - 0.5 },
+        { id: crypto.randomUUID(), name: 'Credit', description: "", lowerBound: roundToHalf(points * percentages.c), upperBound: roundToHalf(points * percentages.d) - 0.5 },
+        { id: crypto.randomUUID(), name: 'Pass', description: "", lowerBound: roundToHalf(points * percentages.p), upperBound: roundToHalf(points * percentages.c) - 0.5 },
+        { id: crypto.randomUUID(), name: 'Fail', description: "", lowerBound: 0, upperBound: roundToHalf(points * percentages.p) - 0.5 },
+    ];
+};
+
 export default function CreateAssignment() {
   const { teamId } = useParams();
+  const navigate = useNavigate(); // Add this line
   const [step, setStep] = useState(1);
 
   // --- STEP 1: ASSIGNMENT DETAILS STATE ---
@@ -223,38 +236,80 @@ export default function CreateAssignment() {
         deleteRow(criterionId);
       }
     }
-
-    if (action === "delete-box" && type === "rating") {
-      const criterion = rubric.find((c) => c.id === criterionId);
-      if (criterion && criterion.tiers.length <= 1) {
-        alert("Each criterion must have at least one rating box.");
-      } else {
-        deleteTier(criterionId, tierIndex);
-      }
-    }
-
-    if (action === "delete-column" && type === "rating") {
-      const canDelete = rubric.every(
-        (c) => c.tiers.length > 1 || c.tiers.length <= tierIndex
-      );
-      if (!canDelete) {
-        alert(
-          "You cannot delete this column as it would leave a criterion with no rating boxes."
-        );
-      } else {
-        deleteColumn(tierIndex);
-      }
-    }
-
     setContextMenu(null);
   };
 
-  // This calculation is the "brain" behind the smart alignment.
-  const maxTiers = Math.max(1, ...rubric.map((c) => c.tiers.length));
+  // Validation and step handling logic
+  const handleNextStep = () => {
+    if (step === 1) {
+        if (!assignmentDetails.courseCode || !assignmentDetails.courseName || !assignmentDetails.semester || !assignmentDetails.dueDate) {
+            alert("Please fill out all assignment details.");
+            return;
+        }
+        if (markers.length === 0) {
+            alert("Please add at least one marker.");
+            return;
+        }
+        setStep(2);
+    } else if (step === 2) {
+        for (const criterion of rubric) {
+            if (criterion.criteria.trim() === "") {
+                alert("Please fill out all 'Criteria' descriptions in the rubric.");
+                return;
+            }
+            for (const tier of criterion.tiers) {
+                if (tier.description.trim() === "") {
+                    alert(`Please fill out the description for '${tier.name}' in the rubric.`);
+                    return;
+                }
+            }
+        }
+        setStep(3);
+    }
+  };
 
-  // -------------------------------------------------
-  // RENDER
-  // -------------------------------------------------
+  const handleCreate = async () => {
+    // 1. Assemble the complete data payload from the component's state.
+    // This structure must match what the backend controller expects.
+    const payload = {
+      assignmentDetails: {
+        ...assignmentDetails,
+        teamId: teamId, // Make sure teamId is included
+      },
+      // Extract just the user IDs for the markers. The backend doesn't need usernames here.
+      markers: markers.map(marker => marker.id),
+      rubric: rubric,
+    };
+
+    try {
+      // 2. Use your configured 'api' utility (e.g., Axios) to send the data.
+      //    This should match the route you created in server.js (e.g., /api/assignments).
+      //    If your axios instance has a baseURL of '/api', then '/assignments' is correct.
+      const response = await api.post('/assignments', payload, {
+        headers: {
+          // Send the authentication token so the backend knows who is creating the assignment.
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // 3. Handle the successful response from the server.
+      if (response.status === 201) { // 201 Created is the standard success code
+        alert("Assignment created successfully!");
+        
+        // 4. Redirect the user to a new page, like the dashboard or the team's assignment list.
+        navigate('/dashboard'); // Or navigate(`/team/${teamId}`);
+      } else {
+        // Handle unexpected but non-error responses
+        alert(`An issue occurred: ${response.data.message || 'Please try again.'}`);
+      }
+    } catch (error) {
+      // 5. Handle errors, like network issues or a 500 error from the server.
+      console.error("Failed to create assignment:", error);
+      const errorMessage = error.response?.data?.message || "An error occurred while creating the assignment. Please try again.";
+      alert(`Error: ${errorMessage}`);
+    }
+  };
+
   return (
     <div className="bg-neutral-100 min-h-screen">
       <Sidebar />
