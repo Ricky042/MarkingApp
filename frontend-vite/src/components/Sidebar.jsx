@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 
 const navItems = [
@@ -14,7 +14,6 @@ export default function Sidebar() {
   const [activeIndex, setActiveIndex] = useState(0);
   const navigate = useNavigate();
   const { teamId } = useParams();
-  const [open, setOpen] = useState(false);
   const [username, setUsername] = useState("");
 
   const handleNav = (i, path) => {
@@ -22,20 +21,34 @@ export default function Sidebar() {
     navigate(`/team/${teamId}/${path}`);
   };
 
+  const handleLogout = () => {
+    // Clear user authentication data from storage
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    // Notify the app that authentication state has changed
+    window.dispatchEvent(new Event("authChange"));
+
+    // Navigate to the login page
+    navigate("/login");
+  };
+
   useEffect(() => {
-          const userStr = localStorage.getItem("user");
-          if (userStr) {
-              const user = JSON.parse(userStr);
-              console.log(user.username);
-              console.log(user.id);
-              setUsername(user.username);
-          }
-      }, [])
-    
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      setUsername(user.username);
+    }
+  }, []);
+
   return (
     <div className="w-56 min-h-screen bg-zinc-800 flex flex-col p-4 font-['Inter'] fixed top-0 left-0">
       {/* Logo / Title */}
-      <div className="flex items-center gap-2 mb-6 justify-start">
+      <div
+        className="flex items-center gap-2 mb-6 justify-start cursor-pointer hover:opacity-80 transition"
+        onClick={handleLogout} // <-- ADDED: Logout functionality
+        title="Logout" // <-- ADDED: Tooltip for better user experience
+      >
         <div className="relative w-7 h-7 flex items-center justify-center">
           {/* Circle from public assets */}
           <img
@@ -44,7 +57,7 @@ export default function Sidebar() {
             className="w-6 h-6 bg-slate-200 rounded-full"
           />
           <span className="absolute text-[10px] text-slate-900 font-normal leading-none">
-            {username ? username.charAt(0).toUpperCase() : ""} 
+            {username ? username.charAt(0).toUpperCase() : ""}
           </span>
         </div>
         <span className="text-neutral-100 text-sm font-bold font-['Inter'] leading-normal">

@@ -2,16 +2,14 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
-import Navbar from "../components/Navbar"; // 注意首字母大写
+import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
 
 export default function TeamDashboard() {
   const { teamId } = useParams();
   const navigate = useNavigate();
-  const [team, setTeam] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+
   const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
  
   // Tabs
@@ -29,20 +27,7 @@ export default function TeamDashboard() {
       if (!token) return navigate("/login");
 
       try {
-        const teamRes = await api.get(`/team/${teamId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setTeam(teamRes.data.team);
-
-        const membersRes = await api.get(`/team/${teamId}/members`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setMembers(membersRes.data.members);
-
-        const assignmentsRes = await api.get(`/team/${teamId}/assignments`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setAssignments(assignmentsRes.data.assignments || []);
+        
       } catch (err) {
         console.error("Failed to fetch team data:", err);
         navigate("/");
@@ -53,37 +38,6 @@ export default function TeamDashboard() {
 
     fetchTeamData();
   }, [teamId, navigate]);
-
-  // Invite logic
-  const handleAddEmail = () => {
-    if (!inviteEmail.trim()) return;
-    if (!emailsList.includes(inviteEmail.trim())) {
-      setEmailsList([...emailsList, inviteEmail.trim()]);
-      setInviteEmail("");
-    }
-  };
-
-  const handleRemoveEmail = (email) => {
-    setEmailsList(emailsList.filter((e) => e !== email));
-  };
-
-  const handleInviteMultiple = async () => {
-    const token = localStorage.getItem("token");
-    if (emailsList.length === 0) return setInviteStatus("Add at least one email.");
-
-    try {
-      await api.post(
-        `/team/${teamId}/invite`,
-        { emails: emailsList },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setInviteStatus("Invitations sent successfully!");
-      setEmailsList([]);
-    } catch (err) {
-      console.error("Failed to send invites:", err);
-      setInviteStatus("Failed to send invites.");
-    }
-  };
 
   if (isLoading) return <div>Loading...</div>;
 

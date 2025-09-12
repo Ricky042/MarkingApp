@@ -73,9 +73,34 @@ function App() {
     };
   }, []);
 
+  // New component to handle the logic for the join-team route
+  const JoinTeamRoute = () => {
+    const location = useLocation();
+    const token = new URLSearchParams(location.search).get('token');
+
+    if (isLoggedIn) {
+      // If user is logged in, they can see the page.
+      // We should also clear the pending token now that they've reached the page.
+      sessionStorage.removeItem("pendingInviteToken");
+      return <JoinTeam />;
+    }
+
+    // If user is not logged in, save the token and redirect to login.
+    if (token) {
+      sessionStorage.setItem('pendingInviteToken', token);
+    }
+
+    return <Navigate to="/login" replace />;
+  };
+
+
   if (isLoading) return <div style={{ display: 'flex', justifyContent:'center', alignItems:'center', height:'100vh' }}>Loading...</div>;
 
   const pendingInviteToken = sessionStorage.getItem("pendingInviteToken");
+
+  const loggedInRedirect = pendingInviteToken
+    ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
+    : (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />);
 
   return (
     <Router>
@@ -84,9 +109,7 @@ function App() {
           <Route
             path="/"
             element={
-              pendingInviteToken
-                ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
-                : isLoggedIn
+              isLoggedIn
                   ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
                   : <Navigate to="/login" replace />
             }
@@ -94,36 +117,22 @@ function App() {
 
           <Route
             path="/login"
-            element={
-              isLoggedIn
-                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
-                : <Login />
-            }
+            element={isLoggedIn ? loggedInRedirect : <Login />}
           />
 
           <Route
             path="/signup"
-            element={
-              isLoggedIn
-                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
-                : <Signup />
-            }
+            element={isLoggedIn ? loggedInRedirect : <Signup />}
           />
 
           <Route
             path="/forgetpassword"
-            element={
-              pendingInviteToken
-                ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
-                : !isLoggedIn
-                  ? <Forgetpassword />
-                  : (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
-            }
+            element={isLoggedIn ? loggedInRedirect : <Forgetpassword />}
           />
 
           <Route path="/create-team" element={<CreateTeam />} />
           <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
-          <Route path="/join-team" element={<JoinTeam />} />
+          <Route path="/join-team" element={<JoinTeamRoute />} />
           <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
           <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
           <Route path="/team/:teamId/assignments" element={<Assignments />} />
