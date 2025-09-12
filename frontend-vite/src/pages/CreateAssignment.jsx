@@ -259,9 +259,6 @@ export default function CreateAssignment() {
     }
   };
 
-    }
-  };
-
   return (
     <div className="bg-neutral-100 min-h-screen">
       <Sidebar />
