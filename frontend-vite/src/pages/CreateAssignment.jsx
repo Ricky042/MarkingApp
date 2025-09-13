@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate  } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import api from "../utils/axios";
@@ -57,7 +57,7 @@ const generateTiersWithPercentages = (points) => {
 
 export default function CreateAssignment() {
   const { teamId } = useParams();
-  const navigate = useNavigate(); // Add this line
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
   // --- STEP 1: ASSIGNMENT DETAILS STATE ---
@@ -75,34 +75,83 @@ export default function CreateAssignment() {
   // --- MARKER STATE ---
   const [markers, setMarkers] = useState([]);
   const [showMarkerList, setShowMarkerList] = useState(false);
-
-  // --- TEAM MEMBERS STATE ---
-  const [teamMembers, setTeamMembers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null); // State to store the current user
   const [loadingMembers, setLoadingMembers] = useState(true);
 
-  // FETCH TEAM MEMBERS
+
+  // FETCH CURRENT USER AND TEAM MEMBERS
   useEffect(() => {
-    const fetchMembers = async () => {
+    const fetchUserData = async () => {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      const userStr = localStorage.getItem("user"); // Get user string from localStorage
+
+      if (!token || !userStr) {
+        setLoadingMembers(false);
+        navigate("/login"); // Redirect if not authenticated
+        return;
+      }
+
       try {
-        const res = await api.get(`/team/${teamId}/members`, {
+        const localUser = JSON.parse(userStr); // Parse the user string to get ID
+
+        // Fetch current user from the database using their ID
+        const userRes = await api.get(`/users/${localUser.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setTeamMembers(res.data.members || []);
+        setCurrentUser(userRes.data); // Set the full user object from the database
+
+        // Fetch team members
+        const teamRes = await api.get(`/team/${teamId}/members`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setTeamMembers(teamRes.data.members || []);
       } catch (err) {
-        console.error("Failed to load team members:", err);
+        console.error("Failed to load user or team members:", err);
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          navigate("/login"); // Redirect to login page on auth error
+        }
       } finally {
         setLoadingMembers(false);
       }
     };
-    fetchMembers();
-  }, [teamId]);
+    fetchUserData();
+  }, [teamId, navigate]); // Add navigate to dependency array
+
+  // Add current user to markers once currentUser is loaded
+  useEffect(() => {
+    if (currentUser) {
+      setMarkers(prevMarkers => {
+        // Only add if not already present
+        if (!prevMarkers.some(m => m.id === currentUser.id)) {
+          return [...prevMarkers, currentUser];
+        }
+        return prevMarkers;
+      });
+    }
+  }, [currentUser]); // Depend on currentUser, so this runs when it's set
+
+
+  // TEAM MEMBERS STATE
+  const [teamMembers, setTeamMembers] = useState([]);
+  // loadingMembers state is already defined above
 
   // MARKER HELPER FUNCTIONS
   const addMarker = (member) => { if (!markers.find((m) => m.id === member.id)) { setMarkers([...markers, member]); } };
-  const removeMarker = (id) => { setMarkers(markers.filter((m) => m.id !== id)); };
-  const availableMembers = teamMembers.filter( (member) => !markers.find((m) => m.id === member.id) );
+  const removeMarker = (id) => { 
+    if (currentUser && String(id) === String(currentUser.id)) { // Use String() for comparison to avoid type issues
+        alert("The assignment creator cannot be removed as a marker.");
+        return;
+    }
+    setMarkers(markers.filter((m) => String(m.id) !== String(id))); // Use String() for comparison
+  };
+  // Filter out both already selected markers AND the current user from the available list
+  const availableMembers = teamMembers.filter( (member) => 
+    !markers.find((m) => String(m.id) === String(member.id)) &&
+    (currentUser ? String(member.id) !== String(currentUser.id) : true) // Exclude current user from selectable list
+  );
+
 
   // --- RUBRIC STATE & FUNCTIONS (Step 2) ---
   const [rubric, setRubric] = useState([ { id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: 0, }, ]);
@@ -195,10 +244,9 @@ export default function CreateAssignment() {
             alert("Please fill out all assignment details.");
             return;
         }
-        if (markers.length === 0) {
-            alert("Please add at least one marker.");
-            return;
-        }
+        // No longer explicitly checking markers.length here, as creator is always added
+        // The backend will enforce if no markers are sent, but for frontend flow,
+        // we're assuming at least one (the creator) will be there.
         setStep(2);
     } else if (step === 2) {
         for (const criterion of rubric) {
@@ -218,41 +266,29 @@ export default function CreateAssignment() {
   };
 
   const handleCreate = async () => {
-    // 1. Assemble the complete data payload from the component's state.
-    // This structure must match what the backend controller expects.
     const payload = {
       assignmentDetails: {
         ...assignmentDetails,
-        teamId: teamId, // Make sure teamId is included
+        teamId: teamId,
       },
-      // Extract just the user IDs for the markers. The backend doesn't need usernames here.
       markers: markers.map(marker => marker.id),
       rubric: rubric,
     };
 
     try {
-      // 2. Use your configured 'api' utility (e.g., Axios) to send the data.
-      //    This should match the route you created in server.js (e.g., /api/assignments).
-      //    If your axios instance has a baseURL of '/api', then '/assignments' is correct.
       const response = await api.post('/assignments', payload, {
         headers: {
-          // Send the authentication token so the backend knows who is creating the assignment.
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
 
-      // 3. Handle the successful response from the server.
-      if (response.status === 201) { // 201 Created is the standard success code
+      if (response.status === 201) {
         alert("Assignment created successfully!");
-        
-        // 4. Redirect the user to a new page, like the dashboard or the team's assignment list.
-        navigate('/dashboard'); // Or navigate(`/team/${teamId}`);
+        navigate('/dashboard');
       } else {
-        // Handle unexpected but non-error responses
         alert(`An issue occurred: ${response.data.message || 'Please try again.'}`);
       }
     } catch (error) {
-      // 5. Handle errors, like network issues or a 500 error from the server.
       console.error("Failed to create assignment:", error);
       const errorMessage = error.response?.data?.message || "An error occurred while creating the assignment. Please try again.";
       alert(`Error: ${errorMessage}`);
@@ -399,10 +435,10 @@ export default function CreateAssignment() {
                             {marker.id}
                             </div>
                             <div
-                            className="text-zinc-600 text-[8px] font-normal underline cursor-pointer"
+                            className={`text-zinc-600 text-[8px] font-normal underline ${currentUser && String(marker.id) === String(currentUser.id) ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer'}`}
                             onClick={() => removeMarker(marker.id)}
                             >
-                            Remove
+                            {currentUser && String(marker.id) === String(currentUser.id) ? 'Creator (Cannot Remove)' : 'Remove'}
                             </div>
                         </div>
                         <div className="flex items-center gap-3.5">
@@ -430,7 +466,7 @@ export default function CreateAssignment() {
                         <div>Loading team members...</div>
                         ) : availableMembers.length === 0 ? (
                         <div className="text-sm text-zinc-600">
-                            No team members available.
+                            No other team members available to add.
                         </div>
                         ) : (
                         availableMembers.map((member) => (
@@ -562,7 +598,9 @@ export default function CreateAssignment() {
                               </div>
                               <div className="flex items-center gap-3.5">
                                   <div className="w-9 h-9 bg-black rounded-full flex-shrink-0" />
-                                  <div className="text-bg-[#0F172A] text-base font-medium truncate">{marker.username}</div>
+                                  <div className="text-bg-[#0F172A] text-base font-medium truncate">
+                                    {marker.username} {currentUser && String(marker.id) === String(currentUser.id) && '(Creator)'}
+                                  </div>
                               </div>
                           </div>
                       ))}

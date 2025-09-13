@@ -32,7 +32,7 @@ export default function Assignments() {
         fetchAssignments();
     }, [teamId, navigate]);
 
-    // UPDATED: Implemented frontend filtering
+    // Implemented frontend filtering
     const filteredAssignments = useMemo(() => {
         return assignments.filter(assignment => {
             // Semester filter logic

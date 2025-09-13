@@ -306,6 +306,7 @@ app.get("/team/:teamId", authenticateToken, async (req, res) => {
   }
 });
 
+// Fetch all members of a team
 app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   try {
@@ -671,6 +672,40 @@ app.post("/assignments", authenticateToken, async (req, res) => {
   } finally {
     // Crucially, release the database client back to the pool so it can be reused.
     client.release();
+  }
+});
+
+////////////////////////////////////////////////////////////////////
+// User Management
+////////////////////////////////////////////////////////////////////
+
+// New endpoint to fetch a single user by ID
+app.get("/users/:id", authenticateToken, async (req, res) => {
+  const userId = req.params.id;
+  const requestingUserId = req.user.id; // The ID of the user making the request
+
+  // Optional: Add a check if the requesting user is allowed to view this user's profile.
+  // For simplicity, we'll allow any authenticated user to fetch details of any user,
+  // but in a real app, you might only allow fetching your own profile or profiles
+  // of users within your team, or by an admin.
+  // If you want to restrict it to only fetching their own profile:
+  // if (String(userId) !== String(requestingUserId)) {
+  //   return res.status(403).json({ message: "Access denied: Cannot view other users' profiles." });
+  // }
+
+
+  try {
+    const result = await pool.query("SELECT id, username FROM users WHERE id=$1", [userId]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user); // Return id and username
+  } catch (err) {
+    console.error(`Error fetching user with ID ${userId}:`, err);
+    res.status(500).json({ message: "Failed to fetch user details" });
   }
 });
 
