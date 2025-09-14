@@ -52,20 +52,33 @@ function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Don't set loading to false prematurely. Let it stay true.
       const authStatus = getAuthStatus();
       setIsLoggedIn(authStatus);
 
       if (authStatus) {
-        const teams = await fetchTeams();
-        setUserTeams(teams);
+        try {
+          const teams = await fetchTeams();
+          setUserTeams(teams);
+        } catch (error) {
+          // Handle potential errors during team fetching
+          console.error("Failed to fetch teams:", error);
+          setUserTeams([]); // Ensure teams is empty on error
+        }
       }
 
+      // ONLY set isLoading to false after all checks and fetches are complete.
       setIsLoading(false);
     };
 
     checkAuth();
 
-    const handleStorageChange = () => checkAuth();
+    const handleStorageChange = () => {
+      // When auth changes, we need to re-evaluate everything, so reset loading state
+      setIsLoading(true);
+      checkAuth();
+    };
+
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("authChange", handleStorageChange);
 
@@ -73,7 +86,7 @@ function App() {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("authChange", handleStorageChange);
     };
-  }, []);
+  }, []); // The empty dependency array is correct
 
   // New component to handle the logic for the join-team route
   const JoinTeamRoute = () => {
