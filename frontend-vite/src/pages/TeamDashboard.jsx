@@ -14,7 +14,7 @@ const CloseIcon = () => (
   </svg>
 );
 
-// --- Invite Modal Component ---
+// --- Invite Modal Component (Fully Updated) ---
 
 function InviteModal({ isOpen, onClose, teamId }) {
   const [emails, setEmails] = useState([]);
@@ -22,25 +22,28 @@ function InviteModal({ isOpen, onClose, teamId }) {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
+  
+  // New state to hold the results from the backend
+  const [inviteResults, setInviteResults] = useState([]);
 
-  // Reset state when modal closes
+  // Reset the entire state when the modal opens or closes
   useEffect(() => {
     if (!isOpen) {
-      setEmails([]);
-      setCurrentEmail("");
-      setMessage("");
-      setFeedback({ type: "", message: "" });
-      setIsSending(false);
+      setTimeout(() => { // Delay reset to allow for closing animation
+        setEmails([]);
+        setCurrentEmail("");
+        setMessage("");
+        setFeedback({ type: "", message: "" });
+        setIsSending(false);
+        setInviteResults([]);
+      }, 300);
     }
   }, [isOpen]);
 
   const handleKeyDown = (e) => {
     if (e.key !== "Enter" || !currentEmail.trim()) return;
-    
     e.preventDefault();
-    const newEmail = currentEmail.trim();
-
-    // Basic email validation & prevent duplicates
+    const newEmail = currentEmail.trim().toLowerCase();
     if (/\S+@\S+\.\S+/.test(newEmail) && !emails.includes(newEmail)) {
       setEmails([...emails, newEmail]);
       setCurrentEmail("");
@@ -51,9 +54,16 @@ function InviteModal({ isOpen, onClose, teamId }) {
     setEmails(emails.filter((email) => email !== emailToRemove));
   };
 
+  // --- UPDATED handleSendInvites FUNCTION ---
   const handleSendInvites = async () => {
     if (emails.length === 0) {
       setFeedback({ type: "error", message: "Please add at least one email." });
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setFeedback({ type: "error", message: "Authentication error. Please log in again." });
       return;
     }
     
@@ -61,106 +71,110 @@ function InviteModal({ isOpen, onClose, teamId }) {
     setFeedback({ type: "", message: "" });
 
     try {
-      await api.post(`/team/${teamId}/invite`, {
-        emails: emails,
-        message: message,
-      });
-
-      setFeedback({ type: "success", message: "Invitations sent successfully!" });
+      const res = await api.post(
+        `/team/${teamId}/invite`,
+        {
+          emails: emails,
+          message: message, // Send the optional message
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }, // Add the token for authentication
+        }
+      );
       
-      // Close modal after a short delay
-      setTimeout(() => {
-        onClose();
-      }, 1500);
+      // On success, store the detailed results to display them
+      setInviteResults(res.data.results || []);
 
     } catch (err) {
       const errorMessage = err.response?.data?.message || "An unexpected error occurred.";
       setFeedback({ type: "error", message: errorMessage });
+    } finally {
       setIsSending(false);
+    }
+  };
+
+  // Helper to render the status of each invite
+  const renderStatus = (status) => {
+    switch (status) {
+      case 'sent':
+        return <span className="text-green-600 font-medium">Sent</span>;
+      case 'already_member':
+        return <span className="text-yellow-600 font-medium">Already a member</span>;
+      case 'already_invited':
+        return <span className="text-blue-600 font-medium">Already invited</span>;
+      default:
+        return <span className="text-gray-500">{status}</span>;
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    // Backdrop
     <div 
-      className="fixed inset-0 bg-black/40 flex justify-center items-center z-50"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50"
       onClick={onClose}
     >
-      {/* Modal */}
       <div
         className="w-full max-w-lg bg-white rounded-xl shadow-lg flex flex-col gap-4 p-5"
-        onClick={(e) => e.stopPropagation()} // Prevents modal from closing when clicking inside
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex justify-between items-center">
-          <h3 className="text-slate-900 text-lg font-semibold">Invite Markers</h3>
+          <h3 className="text-slate-900 text-lg font-semibold">
+            {inviteResults.length > 0 ? 'Invitation Results' : 'Invite Markers'}
+          </h3>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100">
             <CloseIcon />
           </button>
         </div>
 
-        {/* Email Input Area */}
-        <div className="self-stretch min-h-10 p-2 bg-neutral-100 rounded-lg flex flex-wrap items-center gap-2 border border-slate-200">
-          {emails.map((email) => (
-            <div key={email} className="bg-white rounded-full flex items-center gap-1.5 pl-3 pr-1.5 py-1 border border-slate-200">
-              <span className="text-slate-900 text-sm font-medium">{email}</span>
-              <button
-                onClick={() => removeEmail(email)}
-                className="bg-slate-200 rounded-full w-4 h-4 flex items-center justify-center text-slate-600 hover:bg-slate-300"
-              >
-                &times;
+        {/* --- DYNAMIC CONTENT: Show form OR results --- */}
+        {inviteResults.length > 0 ? (
+          // --- RESULTS VIEW ---
+          <div>
+            <ul className="flex flex-col gap-2 my-4">
+              {inviteResults.map(result => (
+                <li key={result.email} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
+                  <span className="text-sm text-gray-800">{result.email}</span>
+                  {renderStatus(result.status)}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-2 rounded-lg border border-neutral-200 shadow-sm text-center text-neutral-900 text-sm font-medium hover:bg-neutral-50"
+            >
+              Close
+            </button>
+          </div>
+        ) : (
+          // --- INVITATION FORM VIEW ---
+          <>
+            <div className="self-stretch min-h-10 p-2 bg-neutral-100 rounded-lg flex flex-wrap items-center gap-2 border border-slate-200">
+              {emails.map((email) => (
+                <div key={email} className="bg-white rounded-full flex items-center gap-1.5 pl-3 pr-1.5 py-1 border border-slate-200">
+                  <span className="text-slate-900 text-sm font-medium">{email}</span>
+                  <button onClick={() => removeEmail(email)} className="bg-slate-200 rounded-full w-4 h-4 flex items-center justify-center text-slate-600 hover:bg-slate-300">&times;</button>
+                </div>
+              ))}
+              <input type="email" value={currentEmail} onChange={(e) => setCurrentEmail(e.target.value)} onKeyDown={handleKeyDown} placeholder={emails.length === 0 ? "Enter email and press Enter" : ""} className="flex-1 bg-transparent outline-none p-1 text-sm"/>
+            </div>
+
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Add an optional message..." className="self-stretch flex-1 p-3 bg-white rounded-md border border-slate-300 focus:ring-2 focus:ring-slate-400 focus:outline-none text-sm" rows={4}/>
+            
+            {feedback.message && (<div className={`text-sm ${feedback.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{feedback.message}</div>)}
+            
+            <div className="self-stretch flex justify-end items-start gap-2.5">
+              <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-neutral-200 shadow-sm text-center text-neutral-900 text-sm font-medium hover:bg-neutral-50">Cancel</button>
+              <button onClick={handleSendInvites} disabled={isSending} className="flex-1 h-10 px-4 py-2 bg-slate-900 rounded-md shadow-sm text-center text-white text-sm font-medium hover:bg-slate-800 disabled:bg-slate-400">
+                {isSending ? "Sending..." : `Send Invite${emails.length > 1 ? 's' : ''}`}
               </button>
             </div>
-          ))}
-          <input
-            type="email"
-            value={currentEmail}
-            onChange={(e) => setCurrentEmail(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={emails.length === 0 ? "Enter one or more emails" : ""}
-            className="flex-1 bg-transparent outline-none p-1 text-sm"
-          />
-        </div>
-
-        {/* Message Textarea */}
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Add an optional message..."
-          className="self-stretch flex-1 p-3 bg-white rounded-md border border-slate-300 focus:ring-2 focus:ring-slate-400 focus:outline-none text-sm"
-          rows={4}
-        />
-
-        {/* Feedback Message */}
-        {feedback.message && (
-          <div className={`text-sm ${feedback.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-            {feedback.message}
-          </div>
+          </>
         )}
-
-        {/* Action Buttons */}
-        <div className="self-stretch flex justify-end items-start gap-2.5">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg border border-neutral-200 shadow-sm text-center text-neutral-900 text-sm font-medium hover:bg-neutral-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSendInvites}
-            disabled={isSending}
-            className="flex-1 h-10 px-4 py-2 bg-slate-900 rounded-md shadow-sm text-center text-white text-sm font-medium hover:bg-slate-800 disabled:bg-slate-400"
-          >
-            {isSending ? "Sending..." : `Send Invite${emails.length > 1 ? 's' : ''}`}
-          </button>
-        </div>
       </div>
     </div>
   );
 }
-
 
 // --- Main Team Dashboard Component ---
 

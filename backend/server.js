@@ -329,7 +329,8 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
 // Invite multiple users to a team
 app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
-  const { emails } = req.body; // expects an array of emails
+  // Destructure both emails and the new message field
+  const { emails, message } = req.body; 
   const inviterId = req.user.id;
 
   if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -339,49 +340,65 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   try {
     const results = [];
     for (const email of emails) {
-      // 1. Check if user with this email is already in the team
+      // 1. Check if user is already a member (no changes needed here)
       const memberCheck = await pool.query(
-        `SELECT u.id
-         FROM users u
-         JOIN team_members tm ON u.id = tm.user_id
-         WHERE tm.team_id = $1 AND u.username = $2`,
+        `SELECT u.id FROM users u JOIN team_members tm ON u.id = tm.user_id WHERE tm.team_id = $1 AND u.username = $2`,
         [teamId, email]
       );
 
       if (memberCheck.rows.length > 0) {
         results.push({ email, status: "already_member" });
-        continue; // skip to next email
+        continue;
       }
 
-      // 2. Check if invite already exists and is still pending
+      // 2. Check for pending invites (no changes needed here)
       const inviteCheck = await pool.query(
-        `SELECT id FROM team_invites
-         WHERE team_id=$1 AND invitee_email=$2 AND status='pending'`,
+        `SELECT id FROM team_invites WHERE team_id=$1 AND invitee_email=$2 AND status='pending'`,
         [teamId, email]
       );
 
       if (inviteCheck.rows.length > 0) {
         results.push({ email, status: "already_invited" });
-        continue; // skip to next email
+        continue;
       }
 
-      // 3. Create invite + send mail
+      // 3. Create invite + send mail (MODIFIED SECTION)
       const inviteToken = require("crypto").randomBytes(32).toString("hex");
 
       await pool.query(
-        `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status)
-         VALUES ($1, $2, $3, $4, 'pending')`,
+        `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status) VALUES ($1, $2, $3, $4, 'pending')`,
         [teamId, inviterId, email, inviteToken]
       );
 
-      const inviteUrl = `${process.env.FRONTEND_URL}join-team?token=${inviteToken}`;
+      const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
+      
+      // --- Start of email message logic ---
+      // Build the email HTML dynamically
+      let emailHtml = `<p>You have been invited to join a team.</p>`;
+
+      // If a custom message exists, add it to the email body
+      if (message && message.trim() !== "") {
+        emailHtml += `
+          <div style="padding: 10px; border-left: 3px solid #ccc; margin: 15px 0;">
+            <p style="margin: 0;"><i>A message from the inviter:</i></p>
+            <p style="margin: 5px 0 0 0;">${message}</p>
+          </div>
+        `;
+      }
+      
+      emailHtml += `
+        <p>Click the button below to accept the invitation:</p>
+        <a href="${inviteUrl}" style="display: inline-block; padding: 10px 20px; background-color: #0F172A; color: #ffffff; text-decoration: none; border-radius: 5px;">
+          Join Team
+        </a>
+      `;
+      // --- End of email message logic ---
+
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: email,
         subject: "You're invited to join a team!",
-        html: `<p>You have been invited to join a team.</p>
-               <p>Click below to accept the invitation:</p>
-               <a href="${inviteUrl}">Join Team</a>`,
+        html: emailHtml, // Use the dynamically created HTML
       });
 
       results.push({ email, status: "sent" });
@@ -393,7 +410,6 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to send invites" });
   }
 });
-
 
 // Accept or deny an invite
 app.post("/team/invite/:token/respond", authenticateToken, async (req, res) => {
