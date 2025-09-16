@@ -725,6 +725,155 @@ app.get("/users/:id", authenticateToken, async (req, res) => {
   }
 });
 
+// ----------------------------------------------------------------------------------
+// BRAND NEW ENDPOINT
+// Get FULLY detailed assignment data for the Assignment Details page view.
+// This includes all rubric criteria and all submitted control paper marks.
+// ----------------------------------------------------------------------------------
+
+app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, async (req, res) => {
+  const { assignmentId, teamId } = req.params;
+  const currentUser = req.user;
+
+  try {
+    // --- STEP 1: DEFINE ALL DATABASE QUERIES (NO ABBREVIATIONS) ---
+
+    // Query 1: Get main assignment details
+    const assignmentQuery = pool.query(
+      `SELECT a.id, a.course_code, a.course_name, a.semester, a.due_date 
+       FROM assignments a
+       JOIN team_members tm ON a.team_id = tm.team_id
+       WHERE a.id = $1 AND a.team_id = $2 AND tm.user_id = $3`,
+      [assignmentId, teamId, currentUser.id]
+    );
+
+    // Query 2: Get all markers assigned to this assignment
+    const markersQuery = pool.query(
+      `SELECT u.id, u.username
+       FROM assignment_markers am
+       JOIN users u ON am.user_id = u.id
+       WHERE am.assignment_id = $1`,
+      [assignmentId]
+    );
+
+    // Query 3: Get all rubric criteria for the assignment
+    const criteriaQuery = pool.query(
+      `SELECT id, criterion_description, points, deviation_threshold
+       FROM rubric_criteria
+       WHERE assignment_id = $1
+       ORDER BY id ASC`,
+      [assignmentId]
+    );
+
+    // Query 4: Get marks for CONTROL PAPERS ONLY
+    const marksQuery = pool.query(
+      `SELECT
+         m.tutor_id as "marker_id",
+         s.student_identifier as "paper_id", -- Using student_identifier to name papers like 'cp-A'
+         m.criterion_id,
+         m.marks_awarded as "score"
+       FROM marks m
+       JOIN submissions s ON m.submission_id = s.id
+       WHERE s.assignment_id = $1 AND s.is_control_paper = TRUE`,
+      [assignmentId]
+    );
+
+    // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL ---
+    const [
+      assignmentRes,
+      markersRes,
+      criteriaRes,
+      marksRes
+    ] = await Promise.all([
+      assignmentQuery,
+      markersQuery,
+      criteriaQuery,
+      marksQuery
+    ]);
+
+    if (assignmentRes.rows.length === 0) {
+      return res.status(404).json({ message: "Assignment not found or you do not have access." });
+    }
+
+    // --- STEP 3: ASSEMBLE THE FINAL JSON PAYLOAD ---
+
+    // A) Assemble the control paper marks
+    const controlPapersMap = new Map();
+    const marksByMarkerAndPaper = new Map();
+
+    marksRes.rows.forEach(mark => {
+      if (!controlPapersMap.has(mark.paper_id)) {
+        // Create a user-friendly name, e.g., "Control Paper A" from "cp-A"
+        const paperNameSuffix = mark.paper_id.includes('-') ? mark.paper_id.split('-')[1] : mark.paper_id;
+        controlPapersMap.set(mark.paper_id, {
+          id: mark.paper_id,
+          name: `Control Paper ${paperNameSuffix}`,
+          marks: []
+        });
+      }
+    });
+    
+    // Fallback in case there are no marks yet, but we know what the control papers should be.
+    // You might have a better way to define this, but for now this prevents an empty page.
+    if (controlPapersMap.size === 0) {
+        controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [] });
+        controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [] });
+    }
+
+
+    marksRes.rows.forEach(mark => {
+      const key = `${mark.marker_id}|${mark.paper_id}`;
+      if (!marksByMarkerAndPaper.has(key)) {
+        marksByMarkerAndPaper.set(key, {
+          markerId: mark.marker_id,
+          scores: []
+        });
+      }
+      marksByMarkerAndPaper.get(key).scores.push({
+        rubricCategoryId: mark.criterion_id,
+        score: parseFloat(mark.score)
+      });
+    });
+
+    marksByMarkerAndPaper.forEach((value, key) => {
+      const [markerId, paperId] = key.split('|');
+      if (controlPapersMap.has(paperId)) {
+        controlPapersMap.get(paperId).marks.push(value);
+      }
+    });
+
+    // B) Construct the final response object
+    const finalResponse = {
+      assignmentDetails: {
+        id: assignmentRes.rows[0].id,
+        title: assignmentRes.rows[0].course_name,
+        description: `Course: ${assignmentRes.rows[0].course_code} | Semester: ${assignmentRes.rows[0].semester}`
+      },
+      currentUser: {
+        id: currentUser.id,
+        role: currentUser.role
+      },
+      markers: markersRes.rows.map(marker => ({
+        id: marker.id,
+        name: marker.username
+      })),
+      rubric: criteriaRes.rows.map(criterion => ({
+        id: criterion.id,
+        categoryName: criterion.criterion_description,
+        maxScore: parseFloat(criterion.points),
+        deviationScore: parseFloat(criterion.deviation_threshold)
+      })),
+      controlPapers: Array.from(controlPapersMap.values())
+    };
+
+    // --- STEP 4: SEND THE RESPONSE ---
+    res.json(finalResponse);
+
+  } catch (err) {
+    console.error(`Failed to fetch detailed data for assignment ${assignmentId}:`, err);
+    res.status(500).json({ message: "Server error while fetching assignment details." });
+  }
+});
 /////////////////////
 // Start Server
 /////////////////////

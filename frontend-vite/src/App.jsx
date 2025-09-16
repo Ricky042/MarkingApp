@@ -151,7 +151,7 @@ function App() {
           <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
           <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
           <Route path="/team/:teamId/assignments" element={<Assignments />} />
-          <Route path="/team/:teamId/assignment/:assignmentId" element={<AssignmentDetails />} />
+          <Route path="/team/:teamId/assignments/:assignmentId" element={<AssignmentDetails />} />
           <Route path="/dashboard" element={<IndividualDashboard />} />
         </Routes>
     </Router>
