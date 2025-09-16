@@ -6,7 +6,7 @@ import api from "../utils/axios";
 
 // SHADCN & DATE-DNS IMPORTS
 import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, UploadCloud, File, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -75,32 +75,28 @@ export default function CreateAssignment() {
   // --- MARKER STATE ---
   const [markers, setMarkers] = useState([]);
   const [showMarkerList, setShowMarkerList] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null); // State to store the current user
+  const [currentUser, setCurrentUser] = useState(null);
   const [loadingMembers, setLoadingMembers] = useState(true);
-
 
   // FETCH CURRENT USER AND TEAM MEMBERS
   useEffect(() => {
     const fetchUserData = async () => {
       const token = localStorage.getItem("token");
-      const userStr = localStorage.getItem("user"); // Get user string from localStorage
+      const userStr = localStorage.getItem("user");
 
       if (!token || !userStr) {
         setLoadingMembers(false);
-        navigate("/login"); // Redirect if not authenticated
+        navigate("/login");
         return;
       }
 
       try {
-        const localUser = JSON.parse(userStr); // Parse the user string to get ID
-
-        // Fetch current user from the database using their ID
+        const localUser = JSON.parse(userStr);
         const userRes = await api.get(`/users/${localUser.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setCurrentUser(userRes.data); // Set the full user object from the database
+        setCurrentUser(userRes.data);
 
-        // Fetch team members
         const teamRes = await api.get(`/team/${teamId}/members`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -110,50 +106,41 @@ export default function CreateAssignment() {
         if (err.response && (err.response.status === 401 || err.response.status === 403)) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
-          navigate("/login"); // Redirect to login page on auth error
+          navigate("/login");
         }
       } finally {
         setLoadingMembers(false);
       }
     };
     fetchUserData();
-  }, [teamId, navigate]); // Add navigate to dependency array
+  }, [teamId, navigate]);
 
-  // Add current user to markers once currentUser is loaded
   useEffect(() => {
     if (currentUser) {
       setMarkers(prevMarkers => {
-        // Only add if not already present
         if (!prevMarkers.some(m => m.id === currentUser.id)) {
           return [...prevMarkers, currentUser];
         }
         return prevMarkers;
       });
     }
-  }, [currentUser]); // Depend on currentUser, so this runs when it's set
+  }, [currentUser]);
 
-
-  // TEAM MEMBERS STATE
   const [teamMembers, setTeamMembers] = useState([]);
-  // loadingMembers state is already defined above
-
-  // MARKER HELPER FUNCTIONS
   const addMarker = (member) => { if (!markers.find((m) => m.id === member.id)) { setMarkers([...markers, member]); } };
   const removeMarker = (id) => { 
-    if (currentUser && String(id) === String(currentUser.id)) { // Use String() for comparison to avoid type issues
+    if (currentUser && String(id) === String(currentUser.id)) {
         alert("The assignment creator cannot be removed as a marker.");
         return;
     }
-    setMarkers(markers.filter((m) => String(m.id) !== String(id))); // Use String() for comparison
+    setMarkers(markers.filter((m) => String(m.id) !== String(id)));
   };
-  // Filter out both already selected markers AND the current user from the available list
   const availableMembers = teamMembers.filter( (member) => 
     !markers.find((m) => String(m.id) === String(member.id)) &&
-    (currentUser ? String(member.id) !== String(currentUser.id) : true) // Exclude current user from selectable list
+    (currentUser ? String(member.id) !== String(currentUser.id) : true)
   );
 
-
-  // --- RUBRIC STATE & FUNCTIONS (Step 2) ---
+  // --- STEP 2: RUBRIC STATE & FUNCTIONS ---
   const [rubric, setRubric] = useState([ { id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: 0, }, ]);
   const [contextMenu, setContextMenu] = useState(null);
 
@@ -164,7 +151,6 @@ export default function CreateAssignment() {
   }, []);
 
   const updateCriterionText = (criterionId, value) => setRubric(rubric.map((c) => (c.id === criterionId ? { ...c, criteria: value } : c)));
-
   const updateTierDescription = (criterionId, tierIndex, value) => {
     setRubric(rubric.map((c) => {
       if (c.id === criterionId) {
@@ -174,59 +160,34 @@ export default function CreateAssignment() {
       return c;
     }));
   };
-  
   const updatePoints = (criterionId, value) => {
     const newPoints = parseFloat(value);
     if (isNaN(newPoints) || newPoints < 0) return;
-    
-    setRubric(rubric.map((c) => {
-      if (c.id === criterionId) {
-        return { ...c, points: newPoints, tiers: generateTiersWithPercentages(newPoints) };
-      }
-      return c;
-    }));
+    setRubric(rubric.map((c) => c.id === criterionId ? { ...c, points: newPoints, tiers: generateTiersWithPercentages(newPoints) } : c));
   };
-
   const updateDeviation = (criterionId, value) => setRubric(rubric.map((c) => (c.id === criterionId ? { ...c, deviation: parseFloat(value) || 0 } : c)));
-  
-  const addCriterion = () => { setRubric([ ...rubric, { id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: 0, }, ]); };
-
+  const addCriterion = () => setRubric([ ...rubric, { id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: 0, }, ]);
   const updateTierLowerBound = (criterionId, tierIndex, newLowerBoundStr) => {
     const value = parseFloat(newLowerBoundStr);
-
     setRubric(currentRubric => {
-        const newRubric = JSON.parse(JSON.stringify(currentRubric)); // Deep copy
+        const newRubric = JSON.parse(JSON.stringify(currentRubric));
         const criterion = newRubric.find(c => c.id === criterionId);
         if (!criterion) return currentRubric;
-
         const tiers = criterion.tiers;
         const totalPoints = criterion.points;
-
-        if (isNaN(value) || value < 0) return currentRubric;
-        if (value > totalPoints) return currentRubric; 
-        if (tierIndex > 0 && value >= tiers[tierIndex - 1].lowerBound) return currentRubric;
-        if (tierIndex < tiers.length - 2 && value <= tiers[tierIndex + 1].lowerBound) return currentRubric;
-
+        if (isNaN(value) || value < 0 || value > totalPoints || (tierIndex > 0 && value >= tiers[tierIndex - 1].lowerBound) || (tierIndex < tiers.length - 2 && value <= tiers[tierIndex + 1].lowerBound)) return currentRubric;
         tiers[tierIndex].lowerBound = value;
         if (tierIndex < tiers.length - 1) {
             tiers[tierIndex + 1].upperBound = value - 0.5;
         }
-
         return newRubric;
     });
   };
-
   const deleteRow = (criterionId) => setRubric(rubric.filter((c) => c.id !== criterionId));
-  
-  const handleRightClick = (e, criterionId) => { 
-    e.preventDefault(); 
-    setContextMenu({ x: e.pageX, y: e.pageY, criterionId }); 
-  };
-  
+  const handleRightClick = (e, criterionId) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, criterionId }); };
   const handleContextMenuAction = (action) => {
     if (!contextMenu) return;
     const { criterionId } = contextMenu;
-
     if (action === "delete-row") {
       if (rubric.length <= 1) {
         alert("You cannot delete the last criterion.");
@@ -237,16 +198,17 @@ export default function CreateAssignment() {
     setContextMenu(null);
   };
 
-  // Validation and step handling logic
+  // --- STEP 3: CONTROL PAPERS STATE ---
+  const [controlPaperA, setControlPaperA] = useState(null);
+  const [controlPaperB, setControlPaperB] = useState(null);
+
+  // --- UPDATED: Navigation and Submission Logic ---
   const handleNextStep = () => {
     if (step === 1) {
         if (!assignmentDetails.courseCode || !assignmentDetails.courseName || !assignmentDetails.semester || !assignmentDetails.dueDate) {
             alert("Please fill out all assignment details.");
             return;
         }
-        // No longer explicitly checking markers.length here, as creator is always added
-        // The backend will enforce if no markers are sent, but for frontend flow,
-        // we're assuming at least one (the creator) will be there.
         setStep(2);
     } else if (step === 2) {
         for (const criterion of rubric) {
@@ -262,21 +224,34 @@ export default function CreateAssignment() {
             }
         }
         setStep(3);
+    } else if (step === 3) {
+      if (!controlPaperA || !controlPaperB) {
+        alert("Please upload both Control Paper A and Control Paper B before proceeding.");
+        return;
+      }
+      setStep(4);
     }
   };
 
   const handleCreate = async () => {
+    if (!controlPaperA || !controlPaperB) {
+      alert("Both control papers are required. Please go back and upload them.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('controlPaperA', controlPaperA);
+    formData.append('controlPaperB', controlPaperB);
+
     const payload = {
-      assignmentDetails: {
-        ...assignmentDetails,
-        teamId: teamId,
-      },
+      assignmentDetails: { ...assignmentDetails, teamId: teamId },
       markers: markers.map(marker => marker.id),
       rubric: rubric,
     };
+    formData.append('assignmentData', JSON.stringify(payload));
 
     try {
-      const response = await api.post('/assignments', payload, {
+      const response = await api.post('/assignments', formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
@@ -290,7 +265,7 @@ export default function CreateAssignment() {
       }
     } catch (error) {
       console.error("Failed to create assignment:", error);
-      const errorMessage = error.response?.data?.message || "An error occurred while creating the assignment. Please try again.";
+      const errorMessage = error.response?.data?.message || "An error occurred while creating the assignment.";
       alert(`Error: ${errorMessage}`);
     }
   };
@@ -572,6 +547,69 @@ export default function CreateAssignment() {
           )}
 
             {step === 3 && (
+              <div className="w-full mb-6">
+                {/* Header */}
+                <div className="w-full justify-start mb-6">
+                  <span className="text-bg-[#0F172A] text-2xl font-semibold leading-7">Create New Assignment/<br /></span>
+                  <span className="text-bg-[#0F172A] text-2xl font-medium leading-7">Control Paper Uploads<br /></span>
+                </div>
+                <p className="text-slate-600 mb-8">Upload the two control papers for this assignment. These will be used to standardize marking across all assigned tutors.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Uploader for Control Paper A */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-bg-[#0F172A] text-base font-semibold">Control Paper A</label>
+                    {controlPaperA ? (
+                      <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <File className="w-6 h-6 text-blue-600"/>
+                          <span className="text-sm font-medium text-slate-800">{controlPaperA.name}</span>
+                        </div>
+                        <button onClick={() => setControlPaperA(null)} className="p-1 rounded-full hover:bg-slate-100">
+                          <X className="w-4 h-4 text-slate-500"/>
+                        </button>
+                      </div>
+                    ) : (
+                      <label htmlFor="file-upload-A" className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <UploadCloud className="w-10 h-10 mb-3 text-slate-400"/>
+                              <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                              <p className="text-xs text-slate-500">PDF, DOCX, etc.</p>
+                          </div>
+                          <input id="file-upload-A" type="file" className="absolute inset-0 w-full h-full opacity-0" onChange={(e) => setControlPaperA(e.target.files[0])} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Uploader for Control Paper B */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-bg-[#0F172A] text-base font-semibold">Control Paper B</label>
+                    {controlPaperB ? (
+                       <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                           <File className="w-6 h-6 text-green-600"/>
+                           <span className="text-sm font-medium text-slate-800">{controlPaperB.name}</span>
+                         </div>
+                         <button onClick={() => setControlPaperB(null)} className="p-1 rounded-full hover:bg-slate-100">
+                           <X className="w-4 h-4 text-slate-500"/>
+                         </button>
+                       </div>
+                    ) : (
+                      <label htmlFor="file-upload-B" className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <UploadCloud className="w-10 h-10 mb-3 text-slate-400"/>
+                              <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                              <p className="text-xs text-slate-500">PDF, DOCX, etc.</p>
+                          </div>
+                          <input id="file-upload-B" type="file" className="absolute inset-0 w-full h-full opacity-0" onChange={(e) => setControlPaperB(e.target.files[0])} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
                  <div className="w-full mb-6">
                     {/* Header */}
                     <div className="w-72 justify-start mb-6">
@@ -604,6 +642,25 @@ export default function CreateAssignment() {
                               </div>
                           </div>
                       ))}
+                    </div>
+
+                    {/* Control Papers Review */}
+                    <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Control Papers</div>
+                    <div className="p-4 bg-white rounded-lg border border-slate-300 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center gap-3">
+                        <File className="w-5 h-5 text-blue-600"/>
+                        <div>
+                          <p className="font-semibold text-sm">Control Paper A</p>
+                          <p className="text-xs text-slate-600">{controlPaperA?.name || 'No file selected'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <File className="w-5 h-5 text-green-600"/>
+                        <div>
+                          <p className="font-semibold text-sm">Control Paper B</p>
+                          <p className="text-xs text-slate-600">{controlPaperB?.name || 'No file selected'}</p>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Rubric Review */}
@@ -651,18 +708,18 @@ export default function CreateAssignment() {
                         Back
                     </button>
                 )}
-                {step < 3 && (
+                {step < 4 && (
                     <button 
                         className="px-4 py-2 bg-neutral-900 rounded-lg text-sm font-medium text-white hover:bg-neutral-800" 
                         onClick={handleNextStep}>
-                        {step === 1 ? 'Next' : 'Review'}
+                        {step === 3 ? 'Review' : 'Next'}
                     </button>
                 )}
-                {step === 3 && (
+                {step === 4 && (
                     <button 
                         className="px-4 py-2 bg-neutral-900 rounded-lg text-sm font-medium text-white hover:bg-neutral-800"
                         onClick={handleCreate}>
-                        Create
+                        Create Assignment
                     </button>
                 )}
             </div>
