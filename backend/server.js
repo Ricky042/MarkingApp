@@ -725,20 +725,23 @@ app.get("/users/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// ----------------------------------------------------------------------------------
-// BRAND NEW ENDPOINT
-// Get FULLY detailed assignment data for the Assignment Details page view.
-// This includes all rubric criteria and all submitted control paper marks.
-// ----------------------------------------------------------------------------------
+////////////////////////////////////////////////////
+// Assignment Stuff
+////////////////////////////////////////////////////
 
+// ----------------------------------------------------------------------------------
+// FINAL, COMPLETE ENDPOINT
+// This is the full code for the endpoint that serves BOTH the Assignment Details page
+// and the new, detailed Marking Page. It includes the full rubric with all tiers.
+// ----------------------------------------------------------------------------------
 app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, async (req, res) => {
   const { assignmentId, teamId } = req.params;
   const currentUser = req.user;
 
   try {
-    // --- STEP 1: DEFINE ALL DATABASE QUERIES (NO ABBREVIATIONS) ---
+    // --- STEP 1: DEFINE ALL DATABASE QUERIES ---
 
-    // Query 1: Get main assignment details
+    // Query 1: Get main assignment details and verify user access
     const assignmentQuery = pool.query(
       `SELECT a.id, a.course_code, a.course_name, a.semester, a.due_date 
        FROM assignments a
@@ -756,7 +759,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
-    // Query 3: Get all rubric criteria for the assignment
+    // Query 3: Get all rubric criteria (the main categories)
     const criteriaQuery = pool.query(
       `SELECT id, criterion_description, points, deviation_threshold
        FROM rubric_criteria
@@ -764,12 +767,22 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
        ORDER BY id ASC`,
       [assignmentId]
     );
+    
+    // Query 4: Fetch all rubric tiers for this assignment (for the detailed view)
+    const tiersQuery = pool.query(
+      `SELECT T.id, T.criterion_id, T.tier_name, T.description, T.lower_bound, T.upper_bound
+       FROM rubric_tiers T
+       JOIN rubric_criteria C ON T.criterion_id = C.id
+       WHERE C.assignment_id = $1
+       ORDER BY T.criterion_id ASC, T.upper_bound DESC`, // Order is crucial for assembly
+      [assignmentId]
+    );
 
-    // Query 4: Get marks for CONTROL PAPERS ONLY
+    // Query 5: Get marks submitted for CONTROL PAPERS ONLY
     const marksQuery = pool.query(
       `SELECT
          m.tutor_id as "marker_id",
-         s.student_identifier as "paper_id", -- Using student_identifier to name papers like 'cp-A'
+         s.student_identifier as "paper_id",
          m.criterion_id,
          m.marks_awarded as "score"
        FROM marks m
@@ -783,11 +796,13 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       assignmentRes,
       markersRes,
       criteriaRes,
+      tiersRes,
       marksRes
     ] = await Promise.all([
       assignmentQuery,
       markersQuery,
       criteriaQuery,
+      tiersQuery,
       marksQuery
     ]);
 
@@ -797,13 +812,23 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
 
     // --- STEP 3: ASSEMBLE THE FINAL JSON PAYLOAD ---
 
-    // A) Assemble the control paper marks
+    // A) Assemble the full rubric with its tiers
+    const criteriaMap = new Map();
+    criteriaRes.rows.forEach(criterion => {
+      criterion.tiers = []; // Initialize an empty array for the tiers
+      criteriaMap.set(criterion.id, criterion);
+    });
+    tiersRes.rows.forEach(tier => {
+      if (criteriaMap.has(tier.criterion_id)) {
+        criteriaMap.get(tier.criterion_id).tiers.push(tier);
+      }
+    });
+
+    // B) Assemble the control paper marks
     const controlPapersMap = new Map();
     const marksByMarkerAndPaper = new Map();
-
     marksRes.rows.forEach(mark => {
       if (!controlPapersMap.has(mark.paper_id)) {
-        // Create a user-friendly name, e.g., "Control Paper A" from "cp-A"
         const paperNameSuffix = mark.paper_id.includes('-') ? mark.paper_id.split('-')[1] : mark.paper_id;
         controlPapersMap.set(mark.paper_id, {
           id: mark.paper_id,
@@ -812,29 +837,23 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
         });
       }
     });
-    
-    // Fallback in case there are no marks yet, but we know what the control papers should be.
-    // You might have a better way to define this, but for now this prevents an empty page.
-    if (controlPapersMap.size === 0) {
+    // Add default papers in case no marks have been submitted yet
+    if (!controlPapersMap.has('cp-A')) {
         controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [] });
+    }
+    if (!controlPapersMap.has('cp-B')) {
         controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [] });
     }
-
-
     marksRes.rows.forEach(mark => {
       const key = `${mark.marker_id}|${mark.paper_id}`;
       if (!marksByMarkerAndPaper.has(key)) {
-        marksByMarkerAndPaper.set(key, {
-          markerId: mark.marker_id,
-          scores: []
-        });
+        marksByMarkerAndPaper.set(key, { markerId: mark.marker_id, scores: [] });
       }
       marksByMarkerAndPaper.get(key).scores.push({
         rubricCategoryId: mark.criterion_id,
         score: parseFloat(mark.score)
       });
     });
-
     marksByMarkerAndPaper.forEach((value, key) => {
       const [markerId, paperId] = key.split('|');
       if (controlPapersMap.has(paperId)) {
@@ -842,7 +861,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       }
     });
 
-    // B) Construct the final response object
+    // C) Construct the final response object
     const finalResponse = {
       assignmentDetails: {
         id: assignmentRes.rows[0].id,
@@ -857,11 +876,17 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
         id: marker.id,
         name: marker.username
       })),
-      rubric: criteriaRes.rows.map(criterion => ({
+      rubric: Array.from(criteriaMap.values()).map(criterion => ({
         id: criterion.id,
         categoryName: criterion.criterion_description,
         maxScore: parseFloat(criterion.points),
-        deviationScore: parseFloat(criterion.deviation_threshold)
+        deviationScore: parseFloat(criterion.deviation_threshold),
+        tiers: criterion.tiers.map(t => ({
+            name: t.tier_name,
+            description: t.description,
+            lowerBound: parseFloat(t.lower_bound),
+            upperBound: parseFloat(t.upper_bound)
+        }))
       })),
       controlPapers: Array.from(controlPapersMap.values())
     };
@@ -874,6 +899,81 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
     res.status(500).json({ message: "Server error while fetching assignment details." });
   }
 });
+
+// Receives and saves the marks for a single control paper from a single marker.
+// Uses a transaction to safely replace old marks with the new submission.
+app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) => {
+  // Use a database client from the pool to run a transaction
+  const client = await pool.connect();
+
+  try {
+    // --- STEP 1: EXTRACT DATA & VALIDATE ---
+    const { assignmentId } = req.params;
+    const { paperId, scores } = req.body; // 'paperId' is 'cp-A', 'cp-B', etc.
+    const tutorId = req.user.id; // The ID of the marker submitting the scores
+
+    // Basic validation to ensure the payload is correct
+    if (!paperId || !scores || !Array.isArray(scores) || scores.length === 0) {
+      return res.status(400).json({ message: "Invalid payload. 'paperId' and a non-empty 'scores' array are required." });
+    }
+
+    // --- STEP 2: BEGIN DATABASE TRANSACTION ---
+    await client.query('BEGIN');
+
+    // --- STEP 3: FIND THE SUBMISSION ID ---
+    // We need to translate the 'paperId' (e.g., 'cp-A') into the actual ID 
+    // from the 'submissions' table to use as a foreign key.
+    const submissionRes = await client.query(
+      `SELECT id FROM submissions WHERE assignment_id = $1 AND student_identifier = $2 AND is_control_paper = TRUE`,
+      [assignmentId, paperId]
+    );
+
+    if (submissionRes.rows.length === 0) {
+      // This is a server-side issue if the control paper doesn't exist.
+      // We throw an error to trigger the ROLLBACK.
+      throw new Error(`Control paper '${paperId}' not found for assignment ${assignmentId}.`);
+    }
+    const submissionId = submissionRes.rows[0].id;
+
+    // --- STEP 4: DELETE OLD MARKS (for idempotency) ---
+    // To handle re-submissions, we first delete any existing marks this tutor
+    // may have already submitted for this specific control paper.
+    await client.query(
+      `DELETE FROM marks WHERE submission_id = $1 AND tutor_id = $2`,
+      [submissionId, tutorId]
+    );
+
+    // --- STEP 5: INSERT NEW MARKS ---
+    // Loop through the scores from the payload and insert each one as a new row.
+    const insertSql = `
+      INSERT INTO marks (submission_id, criterion_id, tutor_id, marks_awarded)
+      VALUES ($1, $2, $3, $4)
+    `;
+
+    for (const score of scores) {
+      // Add validation for each score object if desired
+      const values = [submissionId, score.criterionId, tutorId, score.score];
+      await client.query(insertSql, values);
+    }
+
+    // --- STEP 6: COMMIT THE TRANSACTION ---
+    // If all the above queries succeeded, permanently save the changes.
+    await client.query('COMMIT');
+
+    // Send a success response.
+    res.status(201).json({ message: `Marks for ${paperId} submitted successfully!` });
+
+  } catch (error) {
+    // If any error occurred in the 'try' block, undo all database changes.
+    await client.query('ROLLBACK');
+    console.error("Error submitting marks:", error);
+    res.status(500).json({ message: "Failed to submit marks due to a server error." });
+  } finally {
+    // ALWAYS release the client back to the pool.
+    client.release();
+  }
+});
+
 /////////////////////
 // Start Server
 /////////////////////

@@ -34,7 +34,7 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
     return (
       <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6" role="alert">
         <p className="font-bold">Action Required</p>
-        <p>You have not yet submitted your marks for the control papers. Please complete this before you can begin marking student submissions.</p>
+        <p>You have not yet submitted your marks for the control papers. Please complete this whenever possible.</p>
         <button
           onClick={() => navigate(`/team/${teamId}/assignment/${assignmentId}/mark`)}
           className="mt-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-800"
