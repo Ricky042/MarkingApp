@@ -553,7 +553,7 @@ export default function CreateAssignment() {
                   <span className="text-bg-[#0F172A] text-2xl font-semibold leading-7">Create New Assignment/<br /></span>
                   <span className="text-bg-[#0F172A] text-2xl font-medium leading-7">Control Paper Uploads<br /></span>
                 </div>
-                <p className="text-slate-600 mb-8">Upload the two control papers for this assignment. These will be used to standardize marking across all assigned tutors.</p>
+                <p className="text-slate-600 mb-8">Upload the two control papers for this assignment. These will be used to standardise marking across all assigned tutors.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Uploader for Control Paper A */}
