@@ -36,7 +36,7 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
         <p className="font-bold">Action Required</p>
         <p>You have not yet submitted your marks for the control papers. Please complete this whenever possible.</p>
         <button
-          onClick={() => navigate(`/team/${teamId}/assignment/${assignmentId}/mark`)}
+          onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}/mark`)}
           className="mt-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-800"
         >
           Mark Control Papers
@@ -54,49 +54,47 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
     );
   }
 
-  return null; // Don't render anything if status is not determined yet
+  return null;
 }
 
-// 2. The Admin's powerful score comparison table
-function AdminScoreTable({ data }) {
+// 2. The Score Comparison Table (Now shown to everyone)
+function ScoreComparisonTable({ data }) {
   const [selectedPaperId, setSelectedPaperId] = useState('cp-A');
-  const { rubric, markers, controlPapers, currentUser } = data;
+  const { assignmentDetails, rubric, markers, controlPapers } = data;
 
-  // Find the data for the currently selected paper
+  const standardMarkerId = assignmentDetails.created_by;
+  const standardMarker = markers.find(m => m.id === standardMarkerId);
+  const otherMarkers = markers
+    .filter(m => m.id !== standardMarkerId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const selectedPaperData = controlPapers.find(p => p.id === selectedPaperId);
-  if (!selectedPaperData) return <p>No data for selected paper.</p>;
-
-  // Find the admin's marks for this paper and create a quick-lookup map
-  const adminMarksData = selectedPaperData.marks.find(m => m.markerId === currentUser.id);
-  const adminScoresMap = new Map();
-  if (adminMarksData) {
-    adminMarksData.scores.forEach(s => adminScoresMap.set(s.rubricCategoryId, s.score));
+  const scoresMap = new Map();
+  if (selectedPaperData) {
+    selectedPaperData.marks.forEach(markerScores => {
+      const innerMap = new Map();
+      markerScores.scores.forEach(s => innerMap.set(s.rubricCategoryId, s.score));
+      scoresMap.set(markerScores.markerId, innerMap);
+    });
   }
-  const isAdminMarked = adminScoresMap.size > 0;
 
-  // Determine which markers haven't finished marking BOTH control papers
-  const markedSet = new Set();
-  controlPapers.forEach(paper => {
-      paper.marks.forEach(markerScore => {
-        if(markerScore.scores.length > 0) markedSet.add(markerScore.markerId);
-      });
-  });
-  const unfinishedMarkers = markers.filter(marker => !markedSet.has(marker.id));
+  const getScore = (markerId, criterionId) => {
+    return scoresMap.get(markerId)?.get(criterionId);
+  };
 
-  // Sort markers to ensure admin is first in the table display
-  const sortedMarkers = [...markers].sort((a, b) => {
-    if (a.id === currentUser.id) return -1;
-    if (b.id === currentUser.id) return 1;
-    return a.name.localeCompare(b.name);
-  });
+  const standardScores = scoresMap.get(standardMarkerId);
+  const isStandardMarked = standardScores && standardScores.size > 0;
 
   return (
     <div className="mt-8 bg-white p-6 rounded-lg border border-slate-200">
       <h3 className="text-xl font-semibold mb-4 text-slate-900">Marker Score Comparison</h3>
       
-      <div className="flex justify-between items-center mb-4">
-        {/* Dropdown to select control paper */}
+      <div className="mb-4">
+        <label htmlFor="paper-select" className="block text-sm font-medium text-slate-700 mb-1">
+          Showing scores for:
+        </label>
         <select
+          id="paper-select"
           value={selectedPaperId}
           onChange={(e) => setSelectedPaperId(e.target.value)}
           className="p-2 border border-slate-300 rounded-md"
@@ -105,57 +103,55 @@ function AdminScoreTable({ data }) {
             <option key={paper.id} value={paper.id}>{paper.name}</option>
           ))}
         </select>
-
-        {/* Unfinished Markers List */}
-        {unfinishedMarkers.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-sm text-slate-600">Marking Incomplete:</h4>
-            <ul className="text-sm text-slate-500">
-              {unfinishedMarkers.map(marker => <li key={marker.id}>{marker.name}</li>)}
-            </ul>
-          </div>
-        )}
       </div>
 
-      {/* The Scores Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200">
+        <table className="min-w-full divide-y divide-slate-200 border border-slate-200">
           <thead className="bg-slate-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rubric Category</th>
-              {sortedMarkers.map(marker => (
-                <th key={marker.id} className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  {marker.name}{marker.id === currentUser.id ? ' (Standard)' : ''}
+              <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-1/4">Rubric Criterion</th>
+              
+              {standardMarker && (
+                <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  {standardMarker.name} (Standard)
+                </th>
+              )}
+
+              {otherMarkers.map(marker => (
+                <th key={marker.id} className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                  {marker.name}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
             {rubric.map(category => {
-              const adminScore = adminScoresMap.get(category.id);
-
+              const standardScore = standardScores ? getScore(standardMarkerId, category.id) : undefined;
+              
               return (
                 <tr key={category.id}>
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-900">{category.categoryName}</td>
-                  {sortedMarkers.map(marker => {
-                    const markerData = selectedPaperData.marks.find(m => m.markerId === marker.id);
-                    const markerScoreData = markerData?.scores.find(s => s.rubricCategoryId === category.id);
-                    const score = markerScoreData?.score;
+                  <td className="px-6 py-4 whitespace-normal font-medium text-slate-900">{category.categoryName}</td>
+                  
+                  {standardMarker && (
+                    <td className="px-6 py-4 whitespace-nowrap text-center font-bold bg-slate-50 text-slate-800">
+                      {typeof standardScore === 'number' ? standardScore : 'N/A'}
+                    </td>
+                  )}
 
+                  {otherMarkers.map(marker => {
+                    const markerScore = getScore(marker.id, category.id);
                     let cellColor = 'bg-white';
-                    if (marker.id !== currentUser.id && isAdminMarked && typeof score === 'number') {
-                      const difference = Math.abs(score - adminScore);
+                    if (isStandardMarked && typeof markerScore === 'number' && typeof standardScore === 'number') {
+                      const difference = Math.abs(markerScore - standardScore);
                       const deviation = category.deviationScore;
-                      if (difference < deviation) cellColor = 'bg-green-100 text-green-800';
-                      else if (difference === deviation) cellColor = 'bg-yellow-100 text-yellow-800';
-                      else cellColor = 'bg-red-100 text-red-800';
-                    } else if (marker.id === currentUser.id) {
-                      cellColor = 'bg-slate-50 font-semibold';
+                      if (difference < deviation) cellColor = 'bg-green-100 text-green-900';
+                      else if (difference === deviation) cellColor = 'bg-yellow-100 text-yellow-900';
+                      else cellColor = 'bg-red-100 text-red-900';
                     }
 
                     return (
-                      <td key={marker.id} className={`px-6 py-4 whitespace-nowrap text-center ${cellColor}`}>
-                        {typeof score === 'number' ? score : 'N/A'}
+                      <td key={marker.id} className={`px-6 py-4 whitespace-nowrap text-center font-medium ${cellColor}`}>
+                        {typeof markerScore === 'number' ? markerScore : 'N/A'}
                       </td>
                     );
                   })}
@@ -164,9 +160,9 @@ function AdminScoreTable({ data }) {
             })}
           </tbody>
         </table>
-        {!isAdminMarked && (
+        {!isStandardMarked && (
             <div className="mt-4 p-3 bg-blue-100 text-blue-700 rounded-md text-sm">
-                The Admin has not yet marked this control paper. Score coloring is disabled until the standard is set.
+                The standard marker has not yet marked this control paper. Score coloring is disabled until the standard is set.
             </div>
         )}
       </div>
@@ -175,7 +171,7 @@ function AdminScoreTable({ data }) {
 }
 
 
-// --- THE MAIN PAGE COMPONENT ---
+// --- THE MAIN PAGE COMPONENT (Updated with No Role-Based Rendering) ---
 export default function AssignmentDetails() {
   const { teamId, assignmentId } = useParams();
   const [isLoading, setIsLoading] = useState(true);
@@ -196,7 +192,7 @@ export default function AssignmentDetails() {
         const data = response.data;
         setAssignmentData(data);
 
-        // --- Logic to check if the current user has marked BOTH control papers ---
+        // This logic can stay, as the prompt is useful for all users
         const { currentUser, controlPapers } = data;
         let markedCount = 0;
         controlPapers.forEach(paper => {
@@ -209,12 +205,10 @@ export default function AssignmentDetails() {
 
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load assignment details.");
-        console.error(err);
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchDetails();
   }, [teamId, assignmentId]);
 
@@ -222,7 +216,7 @@ export default function AssignmentDetails() {
   if (error) return <ErrorMessage message={error} />;
   if (!assignmentData) return null;
 
-  const { assignmentDetails, rubric, currentUser } = assignmentData;
+  const { assignmentDetails } = assignmentData;
 
   return (
     <div className="flex min-h-screen">
@@ -233,44 +227,31 @@ export default function AssignmentDetails() {
       <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
 
-        
-        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+        <div className={`fixed inset-0 z-40 ${menuOpen ? '' : 'pointer-events-none'}`}>
+          <div className="absolute inset-0" onClick={() => setMenuOpen(false)} />
+          <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+        </div>
 
-        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
         <main className="p-6">
-          {/* Page Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.title}</h1>
             <p className="text-slate-600 mt-1">{assignmentDetails.description}</p>
           </div>
 
-          {/* Completion Prompt */}
           <CompletionPrompt
             status={userCompletionStatus}
             teamId={teamId}
             assignmentId={assignmentId}
           />
+          
+          {/* --- THE FIX IS HERE --- */}
+          {/* We are now ALWAYS rendering the ScoreComparisonTable for every user. */}
+          {/* This removes the dependency on the user's role for now. */}
+          <ScoreComparisonTable data={assignmentData} />
 
-          {/* Admin Score Table (conditionally rendered) */}
-          {currentUser.role === 'admin' && <AdminScoreTable data={assignmentData} />}
-
-          {/* Rubric View (visible to everyone) */}
-          <div className="mt-8 bg-white p-6 rounded-lg border border-slate-200">
-            <h3 className="text-xl font-semibold mb-4 text-slate-900">Assignment Rubric</h3>
-            <ul className="space-y-4">
-              {rubric.map(cat => (
-                <li key={cat.id} className="p-4 bg-slate-50 rounded-md">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-slate-800">{cat.categoryName}</span>
-                    <span className="text-sm text-slate-600">Max Points: {cat.maxScore}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* The old, simple rubric has been completely removed to avoid confusion. */}
 
         </main>
-        </div>
       </div>
     </div>
   );
