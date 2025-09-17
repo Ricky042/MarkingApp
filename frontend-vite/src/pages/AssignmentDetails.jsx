@@ -228,30 +228,30 @@ export default function AssignmentDetails() {
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
 
         <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
-      <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
+        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
 
-        <main className="p-6">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.title}</h1>
-            <p className="text-slate-600 mt-1">{assignmentDetails.description}</p>
-          </div>
+          <main className="p-6">
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.title}</h1>
+              <p className="text-slate-600 mt-1">{assignmentDetails.description}</p>
+            </div>
 
-          <CompletionPrompt
-            status={userCompletionStatus}
-            teamId={teamId}
-            assignmentId={assignmentId}
-          />
-          
-          {/* --- THE FIX IS HERE --- */}
-          {/* We are now ALWAYS rendering the ScoreComparisonTable for every user. */}
-          {/* This removes the dependency on the user's role for now. */}
-          <ScoreComparisonTable data={assignmentData} />
+            <CompletionPrompt
+              status={userCompletionStatus}
+              teamId={teamId}
+              assignmentId={assignmentId}
+            />
+            
+            {/* --- THE FIX IS HERE --- */}
+            {/* We are now ALWAYS rendering the ScoreComparisonTable for every user. */}
+            {/* This removes the dependency on the user's role for now. */}
+            <ScoreComparisonTable data={assignmentData} />
 
-          {/* The old, simple rubric has been completely removed to avoid confusion. */}
+            {/* The old, simple rubric has been completely removed to avoid confusion. */}
 
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
     </div>
   );
 }
