@@ -770,27 +770,28 @@ app.get("/users/:id", authenticateToken, async (req, res) => {
 ////////////////////////////////////////////////////
 
 // ----------------------------------------------------------------------------------
-// FINAL, COMPLETE 'DETAILS' ENDPOINT
-// This is the full code for the endpoint that serves BOTH the Assignment Details page
-// and the Marking Page. It includes the full rubric with all tiers and file paths.
+// FINAL, COMPLETE 'DETAILS' ENDPOINT WITH ROLE DETECTION
+// This is the full code for the endpoint that serves the Assignment Details page.
+// It includes all queries for assignment data, markers, rubric, marks, file paths,
+// and the current user's specific role within the team.
 // ----------------------------------------------------------------------------------
 app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, async (req, res) => {
   const { assignmentId, teamId } = req.params;
-  const currentUser = req.user;
+  const currentUserId = req.user.id; // Get the user's global ID from the token
 
   try {
     // --- STEP 1: DEFINE ALL DATABASE QUERIES ---
 
-    // Query 1: Get main assignment details and verify user access
+    // Query 1: Get main assignment details, including the creator's ID, and verify the current user is a member of the team.
     const assignmentQuery = pool.query(
-      `SELECT a.id, a.course_code, a.course_name, a.semester, a.due_date 
+      `SELECT a.id, a.course_code, a.course_name, a.semester, a.due_date, a.created_by 
        FROM assignments a
        JOIN team_members tm ON a.team_id = tm.team_id
        WHERE a.id = $1 AND a.team_id = $2 AND tm.user_id = $3`,
-      [assignmentId, teamId, currentUser.id]
+      [assignmentId, teamId, currentUserId]
     );
 
-    // Query 2: Get all markers assigned to this assignment
+    // Query 2: Get all markers who are specifically assigned to this assignment.
     const markersQuery = pool.query(
       `SELECT u.id, u.username
        FROM assignment_markers am
@@ -799,7 +800,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
-    // Query 3: Get all rubric criteria (the main categories)
+    // Query 3: Get all rubric criteria for the assignment.
     const criteriaQuery = pool.query(
       `SELECT id, criterion_description, points, deviation_threshold
        FROM rubric_criteria
@@ -808,17 +809,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
     
-    // Query 4: Fetch all rubric tiers for this assignment (for the detailed view)
-    const tiersQuery = pool.query(
-      `SELECT T.id, T.criterion_id, T.tier_name, T.description, T.lower_bound, T.upper_bound
-       FROM rubric_tiers T
-       JOIN rubric_criteria C ON T.criterion_id = C.id
-       WHERE C.assignment_id = $1
-       ORDER BY T.criterion_id ASC, T.upper_bound DESC`,
-      [assignmentId]
-    );
-
-    // Query 5: Get marks submitted for CONTROL PAPERS ONLY
+    // Query 4: Get all submitted marks for the control papers associated with this assignment.
     const marksQuery = pool.query(
       `SELECT
          m.tutor_id as "marker_id",
@@ -831,13 +822,14 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
-    // Query 6: Get the submissions themselves to retrieve the file paths
+    // Query 5: Get the control paper submissions themselves to retrieve their file paths from S3.
     const submissionsQuery = pool.query(
       `SELECT student_identifier, file_path 
        FROM submissions 
        WHERE assignment_id = $1 AND is_control_paper = TRUE`,
       [assignmentId]
     );
+
 
     // Query 7: Count how many unique markers have submitted marks for any control paper
     const markersAlreadyMarkedQuery = pool.query(
@@ -848,54 +840,53 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
-    // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL ---
+    // Query 6: Get the current user's role ('admin' or 'tutor') for THIS specific team.
+    const userRoleQuery = pool.query(
+      `SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2`,
+      [currentUserId, teamId]
+    );
+
+    // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL FOR PERFORMANCE ---
     const [
       assignmentRes,
       markersRes,
       criteriaRes,
-      tiersRes,
       marksRes,
       submissionsRes,
+      userRoleRes,
       markersAlreadyMarkedRes
     ] = await Promise.all([
       assignmentQuery,
       markersQuery,
       criteriaQuery,
-      tiersQuery,
       marksQuery,
       submissionsQuery,
-      markersAlreadyMarkedQuery
+      markersAlreadyMarkedQuery,
+      userRoleQuery
     ]);
 
+    // If the assignment query returns no rows, the user either doesn't have access or the assignment doesn't exist.
     if (assignmentRes.rows.length === 0) {
       return res.status(404).json({ message: "Assignment not found or you do not have access." });
     }
+    
+    // Extract the role from the new query result. Default to 'tutor' as a safe fallback.
+    const currentUserRole = userRoleRes.rows[0]?.role || 'tutor';
 
     // --- STEP 3: ASSEMBLE THE FINAL JSON PAYLOAD ---
 
-    // A) Assemble the full rubric with its tiers
-    const criteriaMap = new Map();
-    criteriaRes.rows.forEach(criterion => {
-      criterion.tiers = [];
-      criteriaMap.set(criterion.id, criterion);
-    });
-    tiersRes.rows.forEach(tier => {
-      if (criteriaMap.has(tier.criterion_id)) {
-        criteriaMap.get(tier.criterion_id).tiers.push(tier);
-      }
-    });
-
-    // B) Assemble the control paper marks and file paths
+    // A) Assemble the control paper data, including their file paths and any submitted marks.
     const controlPapersMap = new Map();
     const filePaths = {};
     submissionsRes.rows.forEach(row => {
         filePaths[row.student_identifier] = row.file_path;
     });
 
-    // Initialize the control paper objects with their file paths
+    // Initialize the paper objects with their file paths.
     controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [], filePath: filePaths['cp-A'] || null });
     controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [], filePath: filePaths['cp-B'] || null });
 
+    // Group the raw marks data by marker and paper for easy consumption by the frontend.
     const marksByMarkerAndPaper = new Map();
     marksRes.rows.forEach(mark => {
       const key = `${mark.marker_id}|${mark.paper_id}`;
@@ -908,6 +899,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       });
     });
 
+    // Add the grouped marks to the correct control paper object.
     marksByMarkerAndPaper.forEach((value, key) => {
       const [markerId, paperId] = key.split('|');
       if (controlPapersMap.has(paperId)) {
@@ -915,32 +907,23 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       }
     });
 
-    // C) Construct the final response object
+    // B) Construct the final response object in the exact shape the frontend expects.
     const finalResponse = {
-      assignmentDetails: {
-        id: assignmentRes.rows[0].id,
-        title: assignmentRes.rows[0].course_name,
-        description: `Course: ${assignmentRes.rows[0].course_code} | Semester: ${assignmentRes.rows[0].semester}`
-      },
+      assignmentDetails: assignmentRes.rows[0], // This object now includes the `created_by` field.
       currentUser: {
-        id: currentUser.id,
-        role: currentUser.role
+        id: currentUserId,
+        role: currentUserRole // This now includes the user's team-specific role.
       },
       markers: markersRes.rows.map(marker => ({
         id: marker.id,
         name: marker.username
       })),
-      rubric: Array.from(criteriaMap.values()).map(criterion => ({
+      rubric: criteriaRes.rows.map(criterion => ({
         id: criterion.id,
         categoryName: criterion.criterion_description,
         maxScore: parseFloat(criterion.points),
         deviationScore: parseFloat(criterion.deviation_threshold),
-        tiers: criterion.tiers.map(t => ({
-            name: t.tier_name,
-            description: t.description,
-            lowerBound: parseFloat(t.lower_bound),
-            upperBound: parseFloat(t.upper_bound)
-        }))
+        tiers: [] // Tiers are not needed for the details page, keeping payload smaller.
       })),
       controlPapers: Array.from(controlPapersMap.values()),
       markersAlreadyMarked: parseInt(markersAlreadyMarkedRes.rows[0].graded_marker_count, 10)
