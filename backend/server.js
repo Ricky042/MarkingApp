@@ -861,8 +861,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       criteriaQuery,
       marksQuery,
       submissionsQuery,
-      markersAlreadyMarkedQuery,
-      userRoleQuery
+      userRoleQuery,
+      markersAlreadyMarkedQuery
     ]);
 
     // If the assignment query returns no rows, the user either doesn't have access or the assignment doesn't exist.
