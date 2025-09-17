@@ -140,7 +140,7 @@ export default function MarkingPage() {
       });
 
       alert(`Marks for ${selectedPaperId} submitted successfully!`);
-      navigate(`/team/${teamId}/assignment/${assignmentId}`);
+      navigate(`/team/${teamId}/assignments/${assignmentId}`);
 
     } catch (err) {
       alert(err.response?.data?.message || "Failed to submit marks. Please try again.");
