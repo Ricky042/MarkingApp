@@ -70,6 +70,7 @@ async function initDB() {
         created_by INTEGER NOT NULL REFERENCES users(id),
         course_code TEXT NOT NULL,
         course_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Marking', -- 'Marking' or 'Completed'
         semester INTEGER NOT NULL,
         due_date TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()

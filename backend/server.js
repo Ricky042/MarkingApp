@@ -839,6 +839,15 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
+    // Query 7: Count how many unique markers have submitted marks for any control paper
+    const markersAlreadyMarkedQuery = pool.query(
+      `SELECT COUNT(DISTINCT m.tutor_id) AS graded_marker_count
+      FROM marks m
+      JOIN submissions s ON s.id = m.submission_id
+      WHERE s.assignment_id = $1`,
+      [assignmentId]
+    );
+
     // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL ---
     const [
       assignmentRes,
@@ -846,14 +855,16 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       criteriaRes,
       tiersRes,
       marksRes,
-      submissionsRes
+      submissionsRes,
+      markersAlreadyMarkedRes
     ] = await Promise.all([
       assignmentQuery,
       markersQuery,
       criteriaQuery,
       tiersQuery,
       marksQuery,
-      submissionsQuery
+      submissionsQuery,
+      markersAlreadyMarkedQuery
     ]);
 
     if (assignmentRes.rows.length === 0) {
@@ -931,7 +942,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
             upperBound: parseFloat(t.upper_bound)
         }))
       })),
-      controlPapers: Array.from(controlPapersMap.values())
+      controlPapers: Array.from(controlPapersMap.values()),
+      markersAlreadyMarked: parseInt(markersAlreadyMarkedRes.rows[0].graded_marker_count, 10)
     };
 
     // --- STEP 4: SEND THE RESPONSE ---

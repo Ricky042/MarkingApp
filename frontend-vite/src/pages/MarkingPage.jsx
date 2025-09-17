@@ -218,7 +218,7 @@ export default function MarkingPage() {
             <div className="flex flex-col h-full overflow-hidden">
               <main className="flex-1 p-6 overflow-y-auto">
                 <div className="mb-6">
-                  <h1 className="text-2xl font-bold text-slate-900">{assignmentDetails.title}</h1>
+                  <h1 className="text-2xl font-bold text-slate-900">{Details.title}</h1>
                   <p className="text-slate-600">Control Paper Marking</p>
                 </div>
                 <div className="mb-6">

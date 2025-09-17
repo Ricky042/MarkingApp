@@ -16,22 +16,61 @@ export default function Assignments() {
     const [searchQuery, setSearchQuery] = useState(""); // Added searchQuery state
 
     useEffect(() => {
-        const fetchAssignments = async () => {
-            const token = localStorage.getItem("token");
-            if (!token) return navigate("/login");
-            try {
-                const response = await api.get(`/team/${teamId}/assignments`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setAssignments(response.data.assignments || []);
-            } catch (err) {
-                console.error("Error fetching assignments:", err);
-            } finally {
-                setIsLoading(false);
+    const fetchAssignments = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return navigate("/login");
+
+        setIsLoading(true);
+        try {
+        const listRes = await api.get(`/team/${teamId}/assignments`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const base = (listRes.data.assignments || []).map(a => ({
+            ...a,
+            markers: [],
+            markersAlreadyMarked: 0,
+        }));
+
+        const settled = await Promise.allSettled(
+            base.map(a =>
+            api.get(`/team/${teamId}/assignments/${a.id}/details`, {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            )
+        );
+
+        const withMarkers = base.map((a, idx) => {
+            const r = settled[idx];
+            if (r.status === "fulfilled") {
+                const data = r.value?.data || {};
+                const ms = data.markers || [];
+                return {
+                    ...a,
+                    markers: ms.map(m => ({ id: m.id, name: m.name })), 
+                    markersAlreadyMarked: data.markersAlreadyMarked ?? 0, // Default to 0 if undefined
+                };
             }
-        };
-        fetchAssignments();
+            return { ...a, markers: [], markersAlreadyMarked: 0 };
+        });
+
+        setAssignments(withMarkers);
+        } catch (err) {
+        console.error("Error fetching assignments:", err);
+        } finally {
+        setIsLoading(false);
+        }
+    };
+
+    fetchAssignments();
     }, [teamId, navigate]);
+
+    // Debug: Log assignments to verify data
+    assignments.forEach(a => {
+        console.log(`Assignment: ${a.course_name}`);
+        console.log("Markers:", a.markers?.map(m => m.name).join(", ") || "No markers");
+        console.log("Markers Already Marked:", a.markersAlreadyMarked);
+    });
 
     // Implemented frontend filtering
     const filteredAssignments = useMemo(() => {
@@ -40,14 +79,17 @@ export default function Assignments() {
             const semesterMatch = !selectedSemester || 
                                   selectedSemester === "All Semesters" || 
                                   `Semester ${assignment.semester}` === selectedSemester;
-            
+            const statusMatch = !selectedStatus || 
+                                  selectedStatus === "All Status" || 
+                                  `${assignment.status}` === selectedStatus;
+            console.log(assignment.status);
             // Status filter logic (currently disabled as we don't have this data)
             // const statusMatch = !selectedStatus || selectedStatus === "All Status";
 
             // Search query logic
             const searchMatch = assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase());
 
-            return semesterMatch && searchMatch; // && statusMatch;
+            return semesterMatch && statusMatch && searchMatch; // && statusMatch;
         });
     }, [assignments, selectedSemester, selectedStatus, searchQuery]);
 
@@ -66,13 +108,13 @@ export default function Assignments() {
             <Sidebar />
         </aside>
 
-        <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
+        <div className="ml-56 flex-1 flex flex-col bg-white">
             <Navbar onBurgerClick={() => setMenuOpen(v => !v)}/>
             <MenuItem 
                 menuOpen={menuOpen}
                 onClose={() => setMenuOpen(false)}
             />
-            <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
+            <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-white ${menuOpen ? "ml-56" : "mr-0"}`}>
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
                     <div className="w-auto text-offical-black text-2xl font-semibold font-['Inter'] leading-7">
                         Assignments
@@ -110,7 +152,7 @@ export default function Assignments() {
                         >
                             <option value="" disabled>Select status</option>
                             <option value="All Status">All Status</option>
-                            <option value="In progress">In progress</option>
+                            <option value="Marking">Marking</option>
                             <option value="Completed">Completed</option>
                         </select>
                     </div>
@@ -124,8 +166,8 @@ export default function Assignments() {
                         />
                         <input
                             className="bg-transparent outline-none placeholder-zinc-500 text-sm w-full"
-                            placeholder="Search"
-                            aria-label="Search"
+                            placeholder="Search assignments"
+                            aria-label="Search assignments"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                         />
@@ -139,22 +181,33 @@ export default function Assignments() {
                     <button
                         key={assignment.id}
                         onClick={() => handleNav(`assignments/${assignment.id}`)} // Fixed navigation path
-                        className="w-72 p-4 bg-white border border-slate-200 rounded-lg shadow hover:bg-slate-50 transition-colors text-left flex flex-col"
+                        className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex flex-col justify-start items-start gap-1.5"
                         >
-                        {/* Using 'course_name' instead of 'title' */}
-                        <div className="text-lg font-semibold mb-2 truncate">{assignment.course_name}</div>
+
+                        {/* 'semester' from the API */}
+                            <div className="w-60 inline-flex justify-between">
+                                Semester {assignment.semester}
+                                <div className="w-16 h-7 px-4 py-2 bg-slate-100 rounded-[50px] outline outline-1 outline-offset-[-1px] outline-slate-200 inline-flex justify-center items-center gap-2.5">
+                                    <div className="justify-start text-slate-900 text-xs font-medium font-['Inter'] leading-normal">{assignment.status}</div>
+                                </div>                        
+                            </div>
                         
-                        {/* Using 'course_code' and 'semester' from the API */}
-                        <div className="text-sm text-gray-500 mb-2">
-                            {assignment.course_code} | Semester {assignment.semester}
+
+                        {/* Using 'course_name' instead of 'title' */}
+                        <div className="w-36 flex flex-col items-start gap-8">
+                            <div className="w-48 text-offical-black text-2xl font-medium font-['Inter'] leading-7 text-left">{assignment.course_name}</div>
                         </div>
                         
-                        {/* Temporarily removed grading progress as data is not available */}
-                        {/* 
-                        <div className="text-sm text-gray-700">
-                            {assignment.gradedCount} / {assignment.totalCount} graded ({assignment.percentage}%)
-                        </div> 
-                        */}
+                        {/* Using 'course_code' from the API */}
+                        <div className="text-sm text-gray-500 mb-2">
+                            {assignment.course_code}
+                        </div>
+                        
+                        <div className="justify-start text-black text-xs font-normal font-['Inter'] leading-7">
+                            {assignment.markersAlreadyMarked || 0} / {assignment.markers?.length || 0} 
+                            ({((assignment.markersAlreadyMarked || 0) / (assignment.markers?.length || 0) * 100).toFixed(0)}%)
+                        </div>
+
                         <div className="flex-grow"></div> {/* Pushes due date to the bottom */}
                         
                         <div className="mt-4 text-xs text-gray-400">
