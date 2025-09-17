@@ -17,6 +17,11 @@ const pool = require("./database.js");
 const nodemailer = require("nodemailer");
 const path = require("path");
 
+// --- NEW REQUIRES FOR AWS SDK v3 ---
+const { S3Client } = require('@aws-sdk/client-s3');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const SECRET = process.env.JWT_SECRET || "supersecret"; // use .env in prod
@@ -45,7 +50,6 @@ app.use(
 );
 
 app.use(bodyParser.json());
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Nodemailer Configuration
 const transporter = nodemailer.createTransport({
@@ -54,6 +58,28 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER || "markingapp3077@gmail.com",
     pass: process.env.EMAIL_PASS || "mche wvuu wkbh nxbi",
   },
+});
+
+// --- NEW: AWS SDK v3 & MULTER CONFIGURATION ---
+// The S3Client will automatically read credentials from your .env file
+// as long as the variable names are correct (AWS_ACCESS_KEY_ID, etc.)
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION // The region from your .env file
+});
+
+// Configure multer-s3 to use the v3 client
+const upload = multer({
+  storage: multerS3({
+    s3: s3Client, // Pass the v3 client here
+    bucket: process.env.AWS_S3_BUCKET_NAME,
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  })
 });
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -593,28 +619,34 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
 //  Assignments - NEW SECTION
 ////////////////////////////////////////////////////////////////////
 
-// This is the new endpoint to handle the creation of a full assignment with its rubric.
-app.post("/assignments", authenticateToken, async (req, res) => {
-  // Use a client from the pool to run a transaction. This ensures that if any part
-  // of the process fails, the entire operation is undone (rolled back).
+// ----------------------------------------------------------------------------------
+// FINAL ENDPOINT for Assignment Creation with AWS SDK v3
+// This is the full code for the endpoint that handles the multi-step form,
+// including the S3 file uploads for control papers.
+// ----------------------------------------------------------------------------------
+app.post("/assignments", authenticateToken, upload.fields([
+  { name: 'controlPaperA', maxCount: 1 },
+  { name: 'controlPaperB', maxCount: 1 }
+]), async (req, res) => {
   const client = await pool.connect();
-
   try {
-    // 1. Destructure the payload from the frontend request body.
-    const { assignmentDetails, markers, rubric } = req.body;
-    
-    // 2. The user's ID is available from the 'authenticateToken' middleware.
+    // STEP 1: PARSE INCOMING DATA
+    // The JSON data comes as a string in the 'assignmentData' field from the FormData object.
+    const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
     const createdById = req.user.id; 
 
-    // --- BEGIN DATABASE TRANSACTION ---
+    // The file information is available in `req.files`. After multer-s3 (v3 compatible)
+    // processes the upload, the `location` property contains the public URL of the file on S3.
+    const controlPaperAPath = req.files.controlPaperA[0].location;
+    const controlPaperBPath = req.files.controlPaperB[0].location;
+
+    // --- DATABASE TRANSACTION STARTS ---
     await client.query('BEGIN');
 
-    // 3. Insert the main assignment details into the 'assignments' table.
-    //    We use 'RETURNING id' to immediately get the ID of the new assignment.
+    // STEP 2: Insert the main assignment details into the 'assignments' table.
     const assignmentSql = `
       INSERT INTO assignments (team_id, created_by, course_code, course_name, semester, due_date)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id;
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;
     `;
     const assignmentValues = [
       assignmentDetails.teamId,
@@ -627,7 +659,15 @@ app.post("/assignments", authenticateToken, async (req, res) => {
     const newAssignment = await client.query(assignmentSql, assignmentValues);
     const newAssignmentId = newAssignment.rows[0].id;
 
-    // 4. Loop through the marker IDs and insert them into the 'assignment_markers' join table.
+    // STEP 3: Create the control paper submissions with the S3 file paths.
+    const submissionsSql = `
+      INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
+      VALUES ($1, 'cp-A', TRUE, $2), 
+             ($1, 'cp-B', TRUE, $3);
+    `;
+    await client.query(submissionsSql, [newAssignmentId, controlPaperAPath, controlPaperBPath]);
+
+    // STEP 4: Insert the assigned markers into the 'assignment_markers' join table.
     if (markers && markers.length > 0) {
       const markerSql = 'INSERT INTO assignment_markers (assignment_id, user_id) VALUES ($1, $2);';
       for (const markerId of markers) {
@@ -635,11 +675,10 @@ app.post("/assignments", authenticateToken, async (req, res) => {
       }
     }
 
-    // 5. Loop through the rubric criteria. For each criterion, insert it, then insert its tiers.
+    // STEP 5: Insert the rubric criteria and their corresponding tiers.
     const criteriaSql = `
       INSERT INTO rubric_criteria (assignment_id, criterion_description, points, deviation_threshold)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id;
+      VALUES ($1, $2, $3, $4) RETURNING id;
     `;
     const tierSql = `
       INSERT INTO rubric_tiers (criterion_id, tier_name, description, lower_bound, upper_bound)
@@ -647,7 +686,7 @@ app.post("/assignments", authenticateToken, async (req, res) => {
     `;
 
     for (const criterion of rubric) {
-      // Insert the criterion row and get its new ID.
+      // Insert the criterion row and get its new ID back.
       const criteriaValues = [
         newAssignmentId,
         criterion.criteria,
@@ -657,7 +696,7 @@ app.post("/assignments", authenticateToken, async (req, res) => {
       const newCriterion = await client.query(criteriaSql, criteriaValues);
       const newCriterionId = newCriterion.rows[0].id;
 
-      // Loop through the 5 tiers and insert them, linking them to the criterion ID we just got.
+      // Now, loop through the tiers and insert them, linking them to the criterion ID.
       for (const tier of criterion.tiers) {
         const tierValues = [
           newCriterionId,
@@ -670,18 +709,18 @@ app.post("/assignments", authenticateToken, async (req, res) => {
       }
     }
 
-    // --- COMMIT THE TRANSACTION ---
-    // If all the above queries succeeded without errors, permanently save the changes.
+    // --- DATABASE TRANSACTION ENDS (SUCCESS) ---
     await client.query('COMMIT');
 
-    // Send a success response back to the frontend.
+    // Send a success response to the frontend.
     res.status(201).json({ 
       message: 'Assignment created successfully!',
       assignmentId: newAssignmentId 
     });
 
   } catch (error) {
-    // If any error occurred in the 'try' block, undo all the changes.
+    // --- DATABASE TRANSACTION ENDS (FAILURE) ---
+    // If any step in the 'try' block failed, undo all changes.
     await client.query('ROLLBACK');
     console.error('Error creating assignment:', error);
     res.status(500).json({ message: 'Failed to create assignment due to a server error.' });
@@ -690,6 +729,7 @@ app.post("/assignments", authenticateToken, async (req, res) => {
     client.release();
   }
 });
+
 
 ////////////////////////////////////////////////////////////////////
 // User Management
