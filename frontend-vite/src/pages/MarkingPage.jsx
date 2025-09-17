@@ -14,12 +14,8 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
 
-// --- PDF WORKER CONFIGURATION (VERY IMPORTANT) ---
-// This line is required by react-pdf to function correctly.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
+// PDF worker config
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 // --- Helper Components ---
 const LoadingSpinner = () => (
@@ -73,7 +69,6 @@ function RubricCategory({ category, score, onScoreChange }) {
     </div>
   );
 }
-
 
 // --- THE MAIN MARKING PAGE COMPONENT ---
 export default function MarkingPage() {

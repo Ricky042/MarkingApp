@@ -259,7 +259,7 @@ export default function CreateAssignment() {
 
       if (response.status === 201) {
         alert("Assignment created successfully!");
-        navigate('/dashboard');
+        navigate('team/:teamId/dashboard');
       } else {
         alert(`An issue occurred: ${response.data.message || 'Please try again.'}`);
       }
