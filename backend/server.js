@@ -770,9 +770,9 @@ app.get("/users/:id", authenticateToken, async (req, res) => {
 ////////////////////////////////////////////////////
 
 // ----------------------------------------------------------------------------------
-// FINAL, COMPLETE ENDPOINT
+// FINAL, COMPLETE 'DETAILS' ENDPOINT
 // This is the full code for the endpoint that serves BOTH the Assignment Details page
-// and the new, detailed Marking Page. It includes the full rubric with all tiers.
+// and the Marking Page. It includes the full rubric with all tiers and file paths.
 // ----------------------------------------------------------------------------------
 app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, async (req, res) => {
   const { assignmentId, teamId } = req.params;
@@ -814,7 +814,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
        FROM rubric_tiers T
        JOIN rubric_criteria C ON T.criterion_id = C.id
        WHERE C.assignment_id = $1
-       ORDER BY T.criterion_id ASC, T.upper_bound DESC`, // Order is crucial for assembly
+       ORDER BY T.criterion_id ASC, T.upper_bound DESC`,
       [assignmentId]
     );
 
@@ -831,19 +831,29 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
+    // Query 6: Get the submissions themselves to retrieve the file paths
+    const submissionsQuery = pool.query(
+      `SELECT student_identifier, file_path 
+       FROM submissions 
+       WHERE assignment_id = $1 AND is_control_paper = TRUE`,
+      [assignmentId]
+    );
+
     // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL ---
     const [
       assignmentRes,
       markersRes,
       criteriaRes,
       tiersRes,
-      marksRes
+      marksRes,
+      submissionsRes
     ] = await Promise.all([
       assignmentQuery,
       markersQuery,
       criteriaQuery,
       tiersQuery,
-      marksQuery
+      marksQuery,
+      submissionsQuery
     ]);
 
     if (assignmentRes.rows.length === 0) {
@@ -855,7 +865,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
     // A) Assemble the full rubric with its tiers
     const criteriaMap = new Map();
     criteriaRes.rows.forEach(criterion => {
-      criterion.tiers = []; // Initialize an empty array for the tiers
+      criterion.tiers = [];
       criteriaMap.set(criterion.id, criterion);
     });
     tiersRes.rows.forEach(tier => {
@@ -864,26 +874,18 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       }
     });
 
-    // B) Assemble the control paper marks
+    // B) Assemble the control paper marks and file paths
     const controlPapersMap = new Map();
-    const marksByMarkerAndPaper = new Map();
-    marksRes.rows.forEach(mark => {
-      if (!controlPapersMap.has(mark.paper_id)) {
-        const paperNameSuffix = mark.paper_id.includes('-') ? mark.paper_id.split('-')[1] : mark.paper_id;
-        controlPapersMap.set(mark.paper_id, {
-          id: mark.paper_id,
-          name: `Control Paper ${paperNameSuffix}`,
-          marks: []
-        });
-      }
+    const filePaths = {};
+    submissionsRes.rows.forEach(row => {
+        filePaths[row.student_identifier] = row.file_path;
     });
-    // Add default papers in case no marks have been submitted yet
-    if (!controlPapersMap.has('cp-A')) {
-        controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [] });
-    }
-    if (!controlPapersMap.has('cp-B')) {
-        controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [] });
-    }
+
+    // Initialize the control paper objects with their file paths
+    controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [], filePath: filePaths['cp-A'] || null });
+    controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [], filePath: filePaths['cp-B'] || null });
+
+    const marksByMarkerAndPaper = new Map();
     marksRes.rows.forEach(mark => {
       const key = `${mark.marker_id}|${mark.paper_id}`;
       if (!marksByMarkerAndPaper.has(key)) {
@@ -894,6 +896,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
         score: parseFloat(mark.score)
       });
     });
+
     marksByMarkerAndPaper.forEach((value, key) => {
       const [markerId, paperId] = key.split('|');
       if (controlPapersMap.has(paperId)) {

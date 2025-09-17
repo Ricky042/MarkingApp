@@ -1,11 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../utils/axios";
 
-// --- Standard Layout & Helper Components ---
+// --- NEW LIBRARY IMPORTS ---
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+// --- ICONS & STANDARD COMPONENTS ---
+import { ZoomIn, ZoomOut } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+
+// --- PDF WORKER CONFIGURATION (VERY IMPORTANT) ---
+// This line is required by react-pdf to function correctly.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url,
+).toString();
 
 // --- Helper Components ---
 const LoadingSpinner = () => (
@@ -23,12 +37,9 @@ const ErrorMessage = ({ message }) => (
   </div>
 );
 
-// --- Detailed Rubric Category Component ---
-// Displays one full category of the rubric in a clear card format.
 function RubricCategory({ category, score, onScoreChange }) {
   return (
     <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
-      {/* Category Header & Score Input */}
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-4 pb-4 border-b border-slate-200">
         <div>
           <h3 className="text-xl font-bold text-slate-900">{category.categoryName}</h3>
@@ -48,8 +59,6 @@ function RubricCategory({ category, score, onScoreChange }) {
           />
         </div>
       </div>
-
-      {/* Tiers Display Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
         {category.tiers.map((tier) => (
           <div key={tier.name} className="border border-slate-200 rounded-md p-3 bg-slate-50">
@@ -79,7 +88,9 @@ export default function MarkingPage() {
   const [marks, setMarks] = useState({});
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Fetch the full assignment data, including the detailed rubric with tiers
+  const [numPages, setNumPages] = useState(null);
+  const [pdfScale, setPdfScale] = useState(1.0);
+
   useEffect(() => {
     const fetchMarkingData = async () => {
       try {
@@ -90,7 +101,7 @@ export default function MarkingPage() {
         });
         setAssignmentData(response.data);
       } catch (err) {
-        setError(err.response?.data?.message || "Failed to load assignment rubric.");
+        setError(err.response?.data?.message || "Failed to load assignment data.");
       } finally {
         setIsLoading(false);
       }
@@ -98,11 +109,8 @@ export default function MarkingPage() {
     fetchMarkingData();
   }, [teamId, assignmentId]);
 
-  // Handler for when a score is entered into an input box
   const handleScoreChange = (criterionId, maxScore, value) => {
-    // Sanitize input: allow empty string for clearing, otherwise clamp to range
     const newScore = value === '' ? '' : Math.max(0, Math.min(maxScore, Number(value)));
-
     setMarks(prevMarks => ({
       ...prevMarks,
       [selectedPaperId]: {
@@ -112,12 +120,10 @@ export default function MarkingPage() {
     }));
   };
 
-  // Handler for the submit button
   const handleSubmitMarks = async () => {
     const marksForCurrentPaper = marks[selectedPaperId];
     const rubricCategories = assignmentData.rubric;
 
-    // Validate that all categories have a score
     if (!marksForCurrentPaper || rubricCategories.some(cat => marksForCurrentPaper[cat.id] === undefined || marksForCurrentPaper[cat.id] === '')) {
       alert("Please enter a score for every rubric category before submitting.");
       return;
@@ -139,7 +145,7 @@ export default function MarkingPage() {
       });
 
       alert(`Marks for ${selectedPaperId} submitted successfully!`);
-      navigate(`/team/${teamId}/assignment/${assignmentId}`); // Navigate back to the details page
+      navigate(`/team/${teamId}/assignment/${assignmentId}`);
 
     } catch (err) {
       alert(err.response?.data?.message || "Failed to submit marks. Please try again.");
@@ -147,6 +153,12 @@ export default function MarkingPage() {
       setIsSubmitting(false);
     }
   };
+  
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    setNumPages(numPages);
+  };
+  const zoomIn = () => setPdfScale(prevScale => Math.min(prevScale + 0.2, 3.0));
+  const zoomOut = () => setPdfScale(prevScale => Math.max(prevScale - 0.2, 0.4));
 
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
@@ -154,9 +166,10 @@ export default function MarkingPage() {
 
   const { assignmentDetails, rubric, controlPapers } = assignmentData;
   const currentMarks = marks[selectedPaperId] || {};
-
+  const selectedPaper = controlPapers.find(p => p.id === selectedPaperId);
+  
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
         <Sidebar />
       </aside>
@@ -168,51 +181,96 @@ export default function MarkingPage() {
           <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
         </div>
 
-        <main className="p-6">
-          {/* Page Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.title}</h1>
-            <p className="text-slate-600 mt-1">Control Paper Marking</p>
-          </div>
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
+          
+          <ResizablePanel defaultSize={50} minSize={30}>
+            <div className="flex flex-col h-full bg-slate-200">
+              <div className="flex justify-between items-center p-2 bg-white border-b border-slate-300">
+                <h3 className="font-semibold text-slate-800">{selectedPaper?.name || "Document"}</h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={zoomOut} className="p-1 rounded hover:bg-slate-200"><ZoomOut className="w-5 h-5"/></button>
+                  <span className="text-sm font-medium w-12 text-center">{(pdfScale * 100).toFixed(0)}%</span>
+                  <button onClick={zoomIn} className="p-1 rounded hover:bg-slate-200"><ZoomIn className="w-5 h-5"/></button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-4">
+                {selectedPaper?.filePath ? (
+                  <Document
+                    file={selectedPaper.filePath}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    loading={<div className="flex justify-center items-center h-full"><p>Loading PDF...</p></div>}
+                    error={<div className="flex justify-center items-center h-full"><p className="text-red-600">Failed to load PDF. Please check the file URL.</p></div>}
+                  >
+                    {Array.from(new Array(numPages), (el, index) => (
+                      <Page
+                        key={`page_${index + 1}`}
+                        pageNumber={index + 1}
+                        scale={pdfScale}
+                        className="mb-4 shadow-lg"
+                      />
+                    ))}
+                  </Document>
+                ) : (
+                  <div className="flex justify-center items-center h-full">
+                    <p className="text-slate-500">No document uploaded for this control paper.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </ResizablePanel>
 
-          {/* Control Paper Selector */}
-          <div className="mb-6">
-            <label htmlFor="paper-select" className="block text-sm font-medium text-slate-700 mb-1">Select Paper to Mark:</label>
-            <select
-              id="paper-select"
-              value={selectedPaperId}
-              onChange={(e) => setSelectedPaperId(e.target.value)}
-              className="p-2 border border-slate-300 rounded-md w-full max-w-xs"
-            >
-              {controlPapers.map(paper => (
-                <option key={paper.id} value={paper.id}>{paper.name}</option>
-              ))}
-            </select>
-          </div>
+          <ResizableHandle withHandle />
+          
+          <ResizablePanel defaultSize={50} minSize={30}>
+            <div className="flex flex-col h-full overflow-hidden">
+              <main className="flex-1 p-6 overflow-y-auto">
+                <div className="mb-6">
+                  <h1 className="text-2xl font-bold text-slate-900">{assignmentDetails.title}</h1>
+                  <p className="text-slate-600">Control Paper Marking</p>
+                </div>
+                <div className="mb-6">
+                  <label htmlFor="paper-select" className="block text-sm font-medium text-slate-700 mb-1">Select Paper to Mark:</label>
+                  <select
+                    id="paper-select"
+                    value={selectedPaperId}
+                    onChange={(e) => {
+                      setSelectedPaperId(e.target.value);
+                      setNumPages(null);
+                    }}
+                    className="p-2 border border-slate-300 rounded-md w-full max-w-xs"
+                  >
+                    {controlPapers.map(paper => (
+                      <option key={paper.id} value={paper.id}>{paper.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* New Detailed Rubric Display */}
-          <div className="space-y-6">
-            {rubric.map(category => (
-              <RubricCategory
-                key={category.id}
-                category={category}
-                score={currentMarks[category.id]}
-                onScoreChange={handleScoreChange}
-              />
-            ))}
-          </div>
+                <div className="space-y-6">
+                  {rubric.map(category => (
+                    <RubricCategory
+                      key={category.id}
+                      category={category}
+                      score={currentMarks[category.id]}
+                      onScoreChange={handleScoreChange}
+                    />
+                  ))}
+                </div>
 
-          {/* Submit Button */}
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={handleSubmitMarks}
-              disabled={isSubmitting}
-              className="px-6 py-2 bg-slate-900 text-white font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-400"
-            >
-              {isSubmitting ? 'Submitting...' : `Submit Marks for ${assignmentData.controlPapers.find(p => p.id === selectedPaperId)?.name || ''}`}
-            </button>
-          </div>
-        </main>
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={handleSubmitMarks}
+                    disabled={isSubmitting}
+                    className="px-6 py-2 bg-slate-900 text-white font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-400"
+                  >
+                    {isSubmitting ? 'Submitting...' : `Submit Marks for ${selectedPaper?.name || ''}`}
+                  </button>
+                </div>
+              </main>
+            </div>
+          </ResizablePanel>
+
+        </ResizablePanelGroup>
       </div>
     </div>
   );
