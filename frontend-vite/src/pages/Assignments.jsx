@@ -64,14 +64,10 @@ export default function Assignments() {
 
         <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
             <Navbar onBurgerClick={() => setMenuOpen(v => !v)}/>
-
-            <div className={`fixed inset-0 ${menuOpen ? '' : 'pointer-events-none'}`}>
-                <div className="absolute inset-0" onClick={() => setMenuOpen(false)} />
-                    <MenuItem 
-                    menuOpen={menuOpen}
-                    onClose={() => setMenuOpen(false)}
-                    />
-            </div>
+            <MenuItem 
+                menuOpen={menuOpen}
+                onClose={() => setMenuOpen(false)}
+            />
             <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
                     <div className="w-auto text-offical-black text-2xl font-semibold font-['Inter'] leading-7">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
+import MenuItem from "../components/NavbarMenu";
 import api from "../utils/axios";
 
 // SHADCN & DATE-DNS IMPORTS
@@ -59,6 +60,7 @@ export default function CreateAssignment() {
   const { teamId } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // --- STEP 1: ASSIGNMENT DETAILS STATE ---
   const [assignmentDetails, setAssignmentDetails] = useState({
@@ -272,9 +274,13 @@ export default function CreateAssignment() {
 
   return (
     <div className="bg-neutral-100 min-h-screen">
-      <Sidebar />
+      <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
+        <Sidebar />
+      </aside>
       <div className="ml-56 flex flex-col min-h-screen">
-        <Navbar />
+        <Navbar onBurgerClick={() => setMenuOpen(v => !v)}/>
+        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
         <div className="px-6 py-6 flex-1 overflow-auto">
             {step === 1 && (
                 <>
@@ -725,6 +731,7 @@ export default function CreateAssignment() {
             </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

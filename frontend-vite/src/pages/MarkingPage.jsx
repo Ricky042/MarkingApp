@@ -171,10 +171,7 @@ export default function MarkingPage() {
 
       <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
-        <div className={`fixed inset-0 z-40 ${menuOpen ? '' : 'pointer-events-none'}`}>
-          <div className="absolute inset-0" onClick={() => setMenuOpen(false)} />
-          <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
-        </div>
+        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
         <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
         <ResizablePanelGroup direction="horizontal" className="flex-1">
           
