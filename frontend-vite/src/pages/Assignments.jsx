@@ -13,6 +13,7 @@ export default function Assignments() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedSemester, setSelectedSemester] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("");
+    const [searchQuery, setSearchQuery] = useState(""); // Added searchQuery state
 
     useEffect(() => {
         const fetchAssignments = async () => {
@@ -43,9 +44,12 @@ export default function Assignments() {
             // Status filter logic (currently disabled as we don't have this data)
             // const statusMatch = !selectedStatus || selectedStatus === "All Status";
 
-            return semesterMatch; // && statusMatch;
+            // Search query logic
+            const searchMatch = assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase());
+
+            return semesterMatch && searchMatch; // && statusMatch;
         });
-    }, [assignments, selectedSemester, selectedStatus]);
+    }, [assignments, selectedSemester, selectedStatus, searchQuery]);
 
 
     if (isLoading) {
@@ -109,6 +113,23 @@ export default function Assignments() {
                             <option value="In progress">In progress</option>
                             <option value="Completed">Completed</option>
                         </select>
+                    </div>
+                    {/* Search */}
+                    <div className="flex max-w-72 ml-auto mr-6">
+                        <div className="w-full min-h-8 px-3 py-1.5 bg-neutral-100 rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
+                        <img
+                            src="/navBarIcon/navBar_searchIcon.svg"
+                            alt="Menu Icon"
+                            className="h-3 w-3"
+                        />
+                        <input
+                            className="bg-transparent outline-none placeholder-zinc-500 text-sm w-full"
+                            placeholder="Search"
+                            aria-label="Search"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                        />
+                        </div>
                     </div>
                 </div>
 
