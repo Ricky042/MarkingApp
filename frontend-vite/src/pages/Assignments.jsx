@@ -72,7 +72,7 @@ export default function Assignments() {
                     onClose={() => setMenuOpen(false)}
                     />
             </div>
-            <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-64" : "mr-0"}`}>
+            <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
                     <div className="w-auto text-offical-black text-2xl font-semibold font-['Inter'] leading-7">
                         Assignments

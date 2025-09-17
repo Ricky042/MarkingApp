@@ -15,7 +15,7 @@ export default function MenuItem({ menuOpen, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-label="Side menu"
-        className={`fixed top-16 left-56 z-50
+        className={`fixed top-16 left-56 z-40
                     w-56 min-h-[calc(100dvh-4rem)] bg-white p-4 font-['Inter'] shadow-lg
                     flex justify-center
                     transition-transform duration-300 ease-out

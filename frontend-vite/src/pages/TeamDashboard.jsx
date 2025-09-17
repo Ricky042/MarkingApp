@@ -225,7 +225,7 @@ export default function TeamDashboard() {
             />
           </div>
 
-          <main className={`transition-all duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-64" : ""}`}>
+          <main className={`transition-all duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : ""}`}>
             {/* Page Header Section */}
             <div className="flex justify-between items-center mb-0 px-6 py-6">
               <h1 className="text-offical-black text-2xl font-semibold">

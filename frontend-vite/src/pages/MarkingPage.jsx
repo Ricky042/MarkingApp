@@ -175,7 +175,7 @@ export default function MarkingPage() {
           <div className="absolute inset-0" onClick={() => setMenuOpen(false)} />
           <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
         </div>
-
+        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
         <ResizablePanelGroup direction="horizontal" className="flex-1">
           
           <ResizablePanel defaultSize={50} minSize={30}>
@@ -266,6 +266,7 @@ export default function MarkingPage() {
           </ResizablePanel>
 
         </ResizablePanelGroup>
+      </div>
       </div>
     </div>
   );
