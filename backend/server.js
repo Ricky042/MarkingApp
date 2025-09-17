@@ -17,6 +17,11 @@ const pool = require("./database.js");
 const nodemailer = require("nodemailer");
 const path = require("path");
 
+// --- NEW REQUIRES FOR AWS SDK v3 ---
+const { S3Client } = require('@aws-sdk/client-s3');
+const multer = require('multer');
+const multerS3 = require('multer-s3');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 const SECRET = process.env.JWT_SECRET || "supersecret"; // use .env in prod
@@ -45,7 +50,6 @@ app.use(
 );
 
 app.use(bodyParser.json());
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Nodemailer Configuration
 const transporter = nodemailer.createTransport({
@@ -54,6 +58,28 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER || "markingapp3077@gmail.com",
     pass: process.env.EMAIL_PASS || "mche wvuu wkbh nxbi",
   },
+});
+
+// --- NEW: AWS SDK v3 & MULTER CONFIGURATION ---
+// The S3Client will automatically read credentials from your .env file
+// as long as the variable names are correct (AWS_ACCESS_KEY_ID, etc.)
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION // The region from your .env file
+});
+
+// Configure multer-s3 to use the v3 client
+const upload = multer({
+  storage: multerS3({
+    s3: s3Client, // Pass the v3 client here
+    bucket: process.env.AWS_S3_BUCKET_NAME,
+    metadata: function (req, file, cb) {
+      cb(null, { fieldName: file.fieldname });
+    },
+    key: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  })
 });
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -306,6 +332,7 @@ app.get("/team/:teamId", authenticateToken, async (req, res) => {
   }
 });
 
+// Fetch all members of a team
 app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   try {
@@ -328,7 +355,8 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
 // Invite multiple users to a team
 app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
-  const { emails } = req.body; // expects an array of emails
+  // Destructure both emails and the new message field
+  const { emails, message } = req.body; 
   const inviterId = req.user.id;
 
   if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -338,49 +366,65 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   try {
     const results = [];
     for (const email of emails) {
-      // 1. Check if user with this email is already in the team
+      // 1. Check if user is already a member (no changes needed here)
       const memberCheck = await pool.query(
-        `SELECT u.id
-         FROM users u
-         JOIN team_members tm ON u.id = tm.user_id
-         WHERE tm.team_id = $1 AND u.username = $2`,
+        `SELECT u.id FROM users u JOIN team_members tm ON u.id = tm.user_id WHERE tm.team_id = $1 AND u.username = $2`,
         [teamId, email]
       );
 
       if (memberCheck.rows.length > 0) {
         results.push({ email, status: "already_member" });
-        continue; // skip to next email
+        continue;
       }
 
-      // 2. Check if invite already exists and is still pending
+      // 2. Check for pending invites (no changes needed here)
       const inviteCheck = await pool.query(
-        `SELECT id FROM team_invites
-         WHERE team_id=$1 AND invitee_email=$2 AND status='pending'`,
+        `SELECT id FROM team_invites WHERE team_id=$1 AND invitee_email=$2 AND status='pending'`,
         [teamId, email]
       );
 
       if (inviteCheck.rows.length > 0) {
         results.push({ email, status: "already_invited" });
-        continue; // skip to next email
+        continue;
       }
 
-      // 3. Create invite + send mail
+      // 3. Create invite + send mail (MODIFIED SECTION)
       const inviteToken = require("crypto").randomBytes(32).toString("hex");
 
       await pool.query(
-        `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status)
-         VALUES ($1, $2, $3, $4, 'pending')`,
+        `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status) VALUES ($1, $2, $3, $4, 'pending')`,
         [teamId, inviterId, email, inviteToken]
       );
 
-      const inviteUrl = `${process.env.FRONTEND_URL}join-team?token=${inviteToken}`;
+      const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
+      
+      // --- Start of email message logic ---
+      // Build the email HTML dynamically
+      let emailHtml = `<p>You have been invited to join a team.</p>`;
+
+      // If a custom message exists, add it to the email body
+      if (message && message.trim() !== "") {
+        emailHtml += `
+          <div style="padding: 10px; border-left: 3px solid #ccc; margin: 15px 0;">
+            <p style="margin: 0;"><i>A message from the inviter:</i></p>
+            <p style="margin: 5px 0 0 0;">${message}</p>
+          </div>
+        `;
+      }
+      
+      emailHtml += `
+        <p>Click the button below to accept the invitation:</p>
+        <a href="${inviteUrl}" style="display: inline-block; padding: 10px 20px; background-color: #0F172A; color: #ffffff; text-decoration: none; border-radius: 5px;">
+          Join Team
+        </a>
+      `;
+      // --- End of email message logic ---
+
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: email,
         subject: "You're invited to join a team!",
-        html: `<p>You have been invited to join a team.</p>
-               <p>Click below to accept the invitation:</p>
-               <a href="${inviteUrl}">Join Team</a>`,
+        html: emailHtml, // Use the dynamically created HTML
       });
 
       results.push({ email, status: "sent" });
@@ -392,7 +436,6 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to send invites" });
   }
 });
-
 
 // Accept or deny an invite
 app.post("/team/invite/:token/respond", authenticateToken, async (req, res) => {
@@ -576,28 +619,34 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
 //  Assignments - NEW SECTION
 ////////////////////////////////////////////////////////////////////
 
-// This is the new endpoint to handle the creation of a full assignment with its rubric.
-app.post("/assignments", authenticateToken, async (req, res) => {
-  // Use a client from the pool to run a transaction. This ensures that if any part
-  // of the process fails, the entire operation is undone (rolled back).
+// ----------------------------------------------------------------------------------
+// FINAL ENDPOINT for Assignment Creation with AWS SDK v3
+// This is the full code for the endpoint that handles the multi-step form,
+// including the S3 file uploads for control papers.
+// ----------------------------------------------------------------------------------
+app.post("/assignments", authenticateToken, upload.fields([
+  { name: 'controlPaperA', maxCount: 1 },
+  { name: 'controlPaperB', maxCount: 1 }
+]), async (req, res) => {
   const client = await pool.connect();
-
   try {
-    // 1. Destructure the payload from the frontend request body.
-    const { assignmentDetails, markers, rubric } = req.body;
-    
-    // 2. The user's ID is available from the 'authenticateToken' middleware.
+    // STEP 1: PARSE INCOMING DATA
+    // The JSON data comes as a string in the 'assignmentData' field from the FormData object.
+    const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
     const createdById = req.user.id; 
 
-    // --- BEGIN DATABASE TRANSACTION ---
+    // The file information is available in `req.files`. After multer-s3 (v3 compatible)
+    // processes the upload, the `location` property contains the public URL of the file on S3.
+    const controlPaperAPath = req.files.controlPaperA[0].location;
+    const controlPaperBPath = req.files.controlPaperB[0].location;
+
+    // --- DATABASE TRANSACTION STARTS ---
     await client.query('BEGIN');
 
-    // 3. Insert the main assignment details into the 'assignments' table.
-    //    We use 'RETURNING id' to immediately get the ID of the new assignment.
+    // STEP 2: Insert the main assignment details into the 'assignments' table.
     const assignmentSql = `
       INSERT INTO assignments (team_id, created_by, course_code, course_name, semester, due_date)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id;
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;
     `;
     const assignmentValues = [
       assignmentDetails.teamId,
@@ -610,7 +659,15 @@ app.post("/assignments", authenticateToken, async (req, res) => {
     const newAssignment = await client.query(assignmentSql, assignmentValues);
     const newAssignmentId = newAssignment.rows[0].id;
 
-    // 4. Loop through the marker IDs and insert them into the 'assignment_markers' join table.
+    // STEP 3: Create the control paper submissions with the S3 file paths.
+    const submissionsSql = `
+      INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
+      VALUES ($1, 'cp-A', TRUE, $2), 
+             ($1, 'cp-B', TRUE, $3);
+    `;
+    await client.query(submissionsSql, [newAssignmentId, controlPaperAPath, controlPaperBPath]);
+
+    // STEP 4: Insert the assigned markers into the 'assignment_markers' join table.
     if (markers && markers.length > 0) {
       const markerSql = 'INSERT INTO assignment_markers (assignment_id, user_id) VALUES ($1, $2);';
       for (const markerId of markers) {
@@ -618,11 +675,10 @@ app.post("/assignments", authenticateToken, async (req, res) => {
       }
     }
 
-    // 5. Loop through the rubric criteria. For each criterion, insert it, then insert its tiers.
+    // STEP 5: Insert the rubric criteria and their corresponding tiers.
     const criteriaSql = `
       INSERT INTO rubric_criteria (assignment_id, criterion_description, points, deviation_threshold)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id;
+      VALUES ($1, $2, $3, $4) RETURNING id;
     `;
     const tierSql = `
       INSERT INTO rubric_tiers (criterion_id, tier_name, description, lower_bound, upper_bound)
@@ -630,7 +686,7 @@ app.post("/assignments", authenticateToken, async (req, res) => {
     `;
 
     for (const criterion of rubric) {
-      // Insert the criterion row and get its new ID.
+      // Insert the criterion row and get its new ID back.
       const criteriaValues = [
         newAssignmentId,
         criterion.criteria,
@@ -640,7 +696,7 @@ app.post("/assignments", authenticateToken, async (req, res) => {
       const newCriterion = await client.query(criteriaSql, criteriaValues);
       const newCriterionId = newCriterion.rows[0].id;
 
-      // Loop through the 5 tiers and insert them, linking them to the criterion ID we just got.
+      // Now, loop through the tiers and insert them, linking them to the criterion ID.
       for (const tier of criterion.tiers) {
         const tierValues = [
           newCriterionId,
@@ -653,23 +709,310 @@ app.post("/assignments", authenticateToken, async (req, res) => {
       }
     }
 
-    // --- COMMIT THE TRANSACTION ---
-    // If all the above queries succeeded without errors, permanently save the changes.
+    // --- DATABASE TRANSACTION ENDS (SUCCESS) ---
     await client.query('COMMIT');
 
-    // Send a success response back to the frontend.
+    // Send a success response to the frontend.
     res.status(201).json({ 
       message: 'Assignment created successfully!',
       assignmentId: newAssignmentId 
     });
 
   } catch (error) {
-    // If any error occurred in the 'try' block, undo all the changes.
+    // --- DATABASE TRANSACTION ENDS (FAILURE) ---
+    // If any step in the 'try' block failed, undo all changes.
     await client.query('ROLLBACK');
     console.error('Error creating assignment:', error);
     res.status(500).json({ message: 'Failed to create assignment due to a server error.' });
   } finally {
     // Crucially, release the database client back to the pool so it can be reused.
+    client.release();
+  }
+});
+
+
+////////////////////////////////////////////////////////////////////
+// User Management
+////////////////////////////////////////////////////////////////////
+
+// New endpoint to fetch a single user by ID
+app.get("/users/:id", authenticateToken, async (req, res) => {
+  const userId = req.params.id;
+  const requestingUserId = req.user.id; // The ID of the user making the request
+
+  // Optional: Add a check if the requesting user is allowed to view this user's profile.
+  // For simplicity, we'll allow any authenticated user to fetch details of any user,
+  // but in a real app, you might only allow fetching your own profile or profiles
+  // of users within your team, or by an admin.
+  // If you want to restrict it to only fetching their own profile:
+  // if (String(userId) !== String(requestingUserId)) {
+  //   return res.status(403).json({ message: "Access denied: Cannot view other users' profiles." });
+  // }
+
+
+  try {
+    const result = await pool.query("SELECT id, username FROM users WHERE id=$1", [userId]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user); // Return id and username
+  } catch (err) {
+    console.error(`Error fetching user with ID ${userId}:`, err);
+    res.status(500).json({ message: "Failed to fetch user details" });
+  }
+});
+
+////////////////////////////////////////////////////
+// Assignment Stuff
+////////////////////////////////////////////////////
+
+// ----------------------------------------------------------------------------------
+// FINAL, COMPLETE 'DETAILS' ENDPOINT
+// This is the full code for the endpoint that serves BOTH the Assignment Details page
+// and the Marking Page. It includes the full rubric with all tiers and file paths.
+// ----------------------------------------------------------------------------------
+app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, async (req, res) => {
+  const { assignmentId, teamId } = req.params;
+  const currentUser = req.user;
+
+  try {
+    // --- STEP 1: DEFINE ALL DATABASE QUERIES ---
+
+    // Query 1: Get main assignment details and verify user access
+    const assignmentQuery = pool.query(
+      `SELECT a.id, a.course_code, a.course_name, a.semester, a.due_date 
+       FROM assignments a
+       JOIN team_members tm ON a.team_id = tm.team_id
+       WHERE a.id = $1 AND a.team_id = $2 AND tm.user_id = $3`,
+      [assignmentId, teamId, currentUser.id]
+    );
+
+    // Query 2: Get all markers assigned to this assignment
+    const markersQuery = pool.query(
+      `SELECT u.id, u.username
+       FROM assignment_markers am
+       JOIN users u ON am.user_id = u.id
+       WHERE am.assignment_id = $1`,
+      [assignmentId]
+    );
+
+    // Query 3: Get all rubric criteria (the main categories)
+    const criteriaQuery = pool.query(
+      `SELECT id, criterion_description, points, deviation_threshold
+       FROM rubric_criteria
+       WHERE assignment_id = $1
+       ORDER BY id ASC`,
+      [assignmentId]
+    );
+    
+    // Query 4: Fetch all rubric tiers for this assignment (for the detailed view)
+    const tiersQuery = pool.query(
+      `SELECT T.id, T.criterion_id, T.tier_name, T.description, T.lower_bound, T.upper_bound
+       FROM rubric_tiers T
+       JOIN rubric_criteria C ON T.criterion_id = C.id
+       WHERE C.assignment_id = $1
+       ORDER BY T.criterion_id ASC, T.upper_bound DESC`,
+      [assignmentId]
+    );
+
+    // Query 5: Get marks submitted for CONTROL PAPERS ONLY
+    const marksQuery = pool.query(
+      `SELECT
+         m.tutor_id as "marker_id",
+         s.student_identifier as "paper_id",
+         m.criterion_id,
+         m.marks_awarded as "score"
+       FROM marks m
+       JOIN submissions s ON m.submission_id = s.id
+       WHERE s.assignment_id = $1 AND s.is_control_paper = TRUE`,
+      [assignmentId]
+    );
+
+    // Query 6: Get the submissions themselves to retrieve the file paths
+    const submissionsQuery = pool.query(
+      `SELECT student_identifier, file_path 
+       FROM submissions 
+       WHERE assignment_id = $1 AND is_control_paper = TRUE`,
+      [assignmentId]
+    );
+
+    // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL ---
+    const [
+      assignmentRes,
+      markersRes,
+      criteriaRes,
+      tiersRes,
+      marksRes,
+      submissionsRes
+    ] = await Promise.all([
+      assignmentQuery,
+      markersQuery,
+      criteriaQuery,
+      tiersQuery,
+      marksQuery,
+      submissionsQuery
+    ]);
+
+    if (assignmentRes.rows.length === 0) {
+      return res.status(404).json({ message: "Assignment not found or you do not have access." });
+    }
+
+    // --- STEP 3: ASSEMBLE THE FINAL JSON PAYLOAD ---
+
+    // A) Assemble the full rubric with its tiers
+    const criteriaMap = new Map();
+    criteriaRes.rows.forEach(criterion => {
+      criterion.tiers = [];
+      criteriaMap.set(criterion.id, criterion);
+    });
+    tiersRes.rows.forEach(tier => {
+      if (criteriaMap.has(tier.criterion_id)) {
+        criteriaMap.get(tier.criterion_id).tiers.push(tier);
+      }
+    });
+
+    // B) Assemble the control paper marks and file paths
+    const controlPapersMap = new Map();
+    const filePaths = {};
+    submissionsRes.rows.forEach(row => {
+        filePaths[row.student_identifier] = row.file_path;
+    });
+
+    // Initialize the control paper objects with their file paths
+    controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [], filePath: filePaths['cp-A'] || null });
+    controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [], filePath: filePaths['cp-B'] || null });
+
+    const marksByMarkerAndPaper = new Map();
+    marksRes.rows.forEach(mark => {
+      const key = `${mark.marker_id}|${mark.paper_id}`;
+      if (!marksByMarkerAndPaper.has(key)) {
+        marksByMarkerAndPaper.set(key, { markerId: mark.marker_id, scores: [] });
+      }
+      marksByMarkerAndPaper.get(key).scores.push({
+        rubricCategoryId: mark.criterion_id,
+        score: parseFloat(mark.score)
+      });
+    });
+
+    marksByMarkerAndPaper.forEach((value, key) => {
+      const [markerId, paperId] = key.split('|');
+      if (controlPapersMap.has(paperId)) {
+        controlPapersMap.get(paperId).marks.push(value);
+      }
+    });
+
+    // C) Construct the final response object
+    const finalResponse = {
+      assignmentDetails: {
+        id: assignmentRes.rows[0].id,
+        title: assignmentRes.rows[0].course_name,
+        description: `Course: ${assignmentRes.rows[0].course_code} | Semester: ${assignmentRes.rows[0].semester}`
+      },
+      currentUser: {
+        id: currentUser.id,
+        role: currentUser.role
+      },
+      markers: markersRes.rows.map(marker => ({
+        id: marker.id,
+        name: marker.username
+      })),
+      rubric: Array.from(criteriaMap.values()).map(criterion => ({
+        id: criterion.id,
+        categoryName: criterion.criterion_description,
+        maxScore: parseFloat(criterion.points),
+        deviationScore: parseFloat(criterion.deviation_threshold),
+        tiers: criterion.tiers.map(t => ({
+            name: t.tier_name,
+            description: t.description,
+            lowerBound: parseFloat(t.lower_bound),
+            upperBound: parseFloat(t.upper_bound)
+        }))
+      })),
+      controlPapers: Array.from(controlPapersMap.values())
+    };
+
+    // --- STEP 4: SEND THE RESPONSE ---
+    res.json(finalResponse);
+
+  } catch (err) {
+    console.error(`Failed to fetch detailed data for assignment ${assignmentId}:`, err);
+    res.status(500).json({ message: "Server error while fetching assignment details." });
+  }
+});
+
+// Receives and saves the marks for a single control paper from a single marker.
+// Uses a transaction to safely replace old marks with the new submission.
+app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) => {
+  // Use a database client from the pool to run a transaction
+  const client = await pool.connect();
+
+  try {
+    // --- STEP 1: EXTRACT DATA & VALIDATE ---
+    const { assignmentId } = req.params;
+    const { paperId, scores } = req.body; // 'paperId' is 'cp-A', 'cp-B', etc.
+    const tutorId = req.user.id; // The ID of the marker submitting the scores
+
+    // Basic validation to ensure the payload is correct
+    if (!paperId || !scores || !Array.isArray(scores) || scores.length === 0) {
+      return res.status(400).json({ message: "Invalid payload. 'paperId' and a non-empty 'scores' array are required." });
+    }
+
+    // --- STEP 2: BEGIN DATABASE TRANSACTION ---
+    await client.query('BEGIN');
+
+    // --- STEP 3: FIND THE SUBMISSION ID ---
+    // We need to translate the 'paperId' (e.g., 'cp-A') into the actual ID 
+    // from the 'submissions' table to use as a foreign key.
+    const submissionRes = await client.query(
+      `SELECT id FROM submissions WHERE assignment_id = $1 AND student_identifier = $2 AND is_control_paper = TRUE`,
+      [assignmentId, paperId]
+    );
+
+    if (submissionRes.rows.length === 0) {
+      // This is a server-side issue if the control paper doesn't exist.
+      // We throw an error to trigger the ROLLBACK.
+      throw new Error(`Control paper '${paperId}' not found for assignment ${assignmentId}.`);
+    }
+    const submissionId = submissionRes.rows[0].id;
+
+    // --- STEP 4: DELETE OLD MARKS (for idempotency) ---
+    // To handle re-submissions, we first delete any existing marks this tutor
+    // may have already submitted for this specific control paper.
+    await client.query(
+      `DELETE FROM marks WHERE submission_id = $1 AND tutor_id = $2`,
+      [submissionId, tutorId]
+    );
+
+    // --- STEP 5: INSERT NEW MARKS ---
+    // Loop through the scores from the payload and insert each one as a new row.
+    const insertSql = `
+      INSERT INTO marks (submission_id, criterion_id, tutor_id, marks_awarded)
+      VALUES ($1, $2, $3, $4)
+    `;
+
+    for (const score of scores) {
+      // Add validation for each score object if desired
+      const values = [submissionId, score.criterionId, tutorId, score.score];
+      await client.query(insertSql, values);
+    }
+
+    // --- STEP 6: COMMIT THE TRANSACTION ---
+    // If all the above queries succeeded, permanently save the changes.
+    await client.query('COMMIT');
+
+    // Send a success response.
+    res.status(201).json({ message: `Marks for ${paperId} submitted successfully!` });
+
+  } catch (error) {
+    // If any error occurred in the 'try' block, undo all database changes.
+    await client.query('ROLLBACK');
+    console.error("Error submitting marks:", error);
+    res.status(500).json({ message: "Failed to submit marks due to a server error." });
+  } finally {
+    // ALWAYS release the client back to the pool.
     client.release();
   }
 });
