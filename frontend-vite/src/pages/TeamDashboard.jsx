@@ -54,7 +54,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
     setEmails(emails.filter((email) => email !== emailToRemove));
   };
 
-  // --- UPDATED handleSendInvites FUNCTION ---
+  // --- handleSendInvites FUNCTION ---
   const handleSendInvites = async () => {
     if (emails.length === 0) {
       setFeedback({ type: "error", message: "Please add at least one email." });

@@ -7,7 +7,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
 
-// --- Helper Components (can be moved to their own files if desired) ---
+// --- Helper Components ---
 
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center h-screen">

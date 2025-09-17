@@ -202,7 +202,7 @@ export default function CreateAssignment() {
   const [controlPaperA, setControlPaperA] = useState(null);
   const [controlPaperB, setControlPaperB] = useState(null);
 
-  // --- UPDATED: Navigation and Submission Logic ---
+  // --- Navigation and Submission Logic ---
   const handleNextStep = () => {
     if (step === 1) {
         if (!assignmentDetails.courseCode || !assignmentDetails.courseName || !assignmentDetails.semester || !assignmentDetails.dueDate) {
