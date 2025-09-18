@@ -4,7 +4,7 @@ import api from "../utils/axios";
 
 // --- Main Page Component ---
 import Sidebar from "../components/Sidebar";
-import Navbar from "../components/Navbar";
+import Navbar from "../components/NavbarAssignment";
 import MenuItem from "../components/NavbarMenu";
 
 // --- Helper Components ---
@@ -217,6 +217,7 @@ export default function AssignmentDetails() {
   if (!assignmentData) return null;
 
   const { assignmentDetails } = assignmentData;
+  console.log(assignmentDetails);
 
   return (
     <div className="flex min-h-screen">
@@ -227,7 +228,8 @@ export default function AssignmentDetails() {
       <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
 
-        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} assignmentName={assignmentDetails.course_name} assignmentSemester={assignmentDetails.semester}/>
+        
         <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
 
           <main className="p-6">
