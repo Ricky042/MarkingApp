@@ -833,10 +833,17 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
 
     // Query 7: Count how many unique markers have submitted marks for any control paper
     const markersAlreadyMarkedQuery = pool.query(
-      `SELECT COUNT(DISTINCT m.tutor_id) AS graded_marker_count
-      FROM marks m
-      JOIN submissions s ON s.id = m.submission_id
-      WHERE s.assignment_id = $1`,
+      `SELECT COUNT(*) AS graded_marker_count
+      FROM (
+        SELECT m.tutor_id
+        FROM submissions s
+        JOIN marks m ON m.submission_id = s.id
+        WHERE s.assignment_id = $1
+        GROUP BY m.tutor_id
+        HAVING COUNT(DISTINCT s.id) = (
+          SELECT COUNT(*) FROM submissions WHERE assignment_id = $1
+        )
+      ) fully_marked_tutors;`,
       [assignmentId]
     );
 
