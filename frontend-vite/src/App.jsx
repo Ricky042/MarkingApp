@@ -156,7 +156,6 @@ function App() {
           <Route path="/team/:teamId/assignments" element={<Assignments />} />
           <Route path="/team/:teamId/assignments/:assignmentId" element={<AssignmentDetails />} />
           <Route path="/team/:teamId/assignments/:assignmentId/mark" element={<MarkingPage />} />
-          <Route path="/team/:teamId/settings" element={<Settings/>}/>
           <Route path="/dashboard" element={<IndividualDashboard />} />
           <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
           <Route path="/team/:teamId/settings" element={<Setting />} />
