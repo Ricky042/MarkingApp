@@ -6,6 +6,7 @@ import Navbar from "../components/Navbar";
 
 export default function Setting() {
     const navigate = useNavigate();
+    const { teamId } = useParams();
     const [userTeams, setUserTeams] = useState([]);
     const [selectedTeamId, setSelectedTeamId] = useState("");
 
@@ -20,17 +21,21 @@ export default function Setting() {
                 });
                 if (res.data.teams && res.data.teams.length > 0) {
                     setUserTeams(res.data.teams);
-                    setSelectedTeamId(res.data.teams[0].id);
                 }
             } catch (err) {
-                // handle error if needed
+                console.error("Error fetching teams:", err);
             }
         }
         fetchTeams();
     }, []);
 
+    useEffect(() => {
+        if (teamId) {
+            setSelectedTeamId(teamId);
+        }
+    }, [teamId]);
+
     const handleSwitchTeam = (e) => {
-        setSelectedTeamId(e.target.value);
         navigate(`/team/${e.target.value}/dashboard`);
     };
 
