@@ -13,6 +13,7 @@ import AssignmentDetails from "./pages/AssignmentDetails";
 import MarkingPage from "./pages/MarkingPage";
 import IndividualDashboard from "./pages/IndividualDashboard";
 import AssignmentMakers from "./pages/AssignmentMakers";
+import Setting from "./pages/Setting";
 import api from "./utils/axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -157,6 +158,7 @@ function App() {
           <Route path="/team/:teamId/assignments/:assignmentId/mark" element={<MarkingPage />} />
           <Route path="/dashboard" element={<IndividualDashboard />} />
           <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
+          <Route path="/team/:teamId/settings" element={<Setting />} />
         </Routes>
     </Router>
   );
