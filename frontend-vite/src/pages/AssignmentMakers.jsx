@@ -52,8 +52,8 @@ export default function AssignmentMakers() {
                 <Navbar />
                 Assignment Makers Page - Team ID: {teamId}, Assignment ID: {assignmentId}
                 {assignment.map((marker) => (
-                    <div
-                        className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex flex-col justify-start items-start gap-1.5"
+                    <div className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex 
+                        flex-col justify-start items-start gap-1.5"
                         >
 
                         {/* 'semester' from the API */}

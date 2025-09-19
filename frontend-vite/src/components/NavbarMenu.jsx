@@ -32,7 +32,7 @@ export default function MenuItem({ menuOpen, onClose, assignmentName, assignment
           {assignmentName}
         </div>
         <div
-          className="absolute bottom-250 w-16 h-9 justify-start text-offical-black text-sm font-normal font-['Inter'] leading-7
+          className="w-16 h-9 justify-start text-offical-black text-sm font-normal font-['Inter'] leading-7
           cursor-pointer underline underline-offset-4"
           onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}/assignmentmarkers`)}
         >
