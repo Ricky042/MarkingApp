@@ -624,6 +624,8 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
 // This is the full code for the endpoint that handles the multi-step form,
 // including the S3 file uploads for control papers.
 // ----------------------------------------------------------------------------------
+
+
 app.post("/assignments", authenticateToken, upload.fields([
   { name: 'controlPaperA', maxCount: 1 },
   { name: 'controlPaperB', maxCount: 1 }
@@ -634,11 +636,106 @@ app.post("/assignments", authenticateToken, upload.fields([
     // The JSON data comes as a string in the 'assignmentData' field from the FormData object.
     const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
     const createdById = req.user.id; 
+    
+    
+    const fileA = req.files.controlPaperA[0];
+    const fileB = req.files.controlPaperB[0];
+    const fs = require('fs');
+    const path = require('path');
+    const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+    const docxConverter = require('docx-pdf');
+    const { v4: uuidv4 } = require('uuid');
 
-    // The file information is available in `req.files`. After multer-s3 (v3 compatible)
-    // processes the upload, the `location` property contains the public URL of the file on S3.
-    const controlPaperAPath = req.files.controlPaperA[0].location;
-    const controlPaperBPath = req.files.controlPaperB[0].location;
+    // --- Helper: sanitize filenames for Windows ---
+    const sanitizeFileName = (name) => {
+      return name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    };
+
+    // --- Helper: download S3 file locally ---
+    const downloadS3File = async (bucket, key, originalName) => {
+    const safeName = sanitizeFileName(originalName);
+    const tempPath = path.join(__dirname, 'temp', safeName);
+
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    const s3Object = await s3Client.send(command);
+
+    await new Promise((resolve, reject) => {
+      const writeStream = fs.createWriteStream(tempPath);
+      s3Object.Body.pipe(writeStream)
+        .on('finish', resolve)
+        .on('error', reject);
+    });
+
+    return tempPath;
+  };
+
+// --- Helper: convert doc/docx to PDF ---
+  const convertToPdf = async (inputPath) => {
+    const outputPath = inputPath.replace(/\.(doc|docx)$/i, '.pdf');
+
+    await new Promise((resolve, reject) => {
+
+      const originalConsoleWarn = console.warn;
+      console.warn = () => {};
+
+
+      docxConverter(inputPath, outputPath, (err, result) => {
+
+        console.warn = originalConsoleWarn;
+
+      
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+
+    return outputPath;
+  };
+
+
+  // --- Helper: upload PDF to S3 ---
+  const uploadPdfToS3 = async (pdfPath, originalName) => {
+    if (!pdfPath || !fs.existsSync(pdfPath)) return null; // skip if conversion failed
+
+    const pdfKey = `pdfs/${uuidv4()}-${sanitizeFileName(path.basename(originalName, path.extname(originalName)))}.pdf`;
+    const fileContent = fs.readFileSync(pdfPath);
+
+    await s3Client.send(new PutObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: pdfKey,
+      Body: fileContent,
+      ContentType: 'application/pdf',
+    }));
+
+    return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
+  };
+
+  // --- Cleanup temp files safely ---
+  const cleanupFiles = (files) => {
+    files.forEach(file => {
+      if (file && fs.existsSync(file)) {
+        try {
+          fs.unlinkSync(file);
+        } catch (err) {
+          console.warn('Failed to delete temp file:', file, err.message);
+        }
+      }
+    });
+  };
+
+
+    // --- PROCESS FILES ---
+    const localA = await downloadS3File(fileA.bucket, fileA.key, fileA.originalname);
+    const localB = await downloadS3File(fileB.bucket, fileB.key, fileB.originalname);
+
+    const pdfAPath = await convertToPdf(localA);
+    const pdfBPath = await convertToPdf(localB);
+
+    const controlPaperAPath = await uploadPdfToS3(pdfAPath, fileA.originalname);
+    const controlPaperBPath = await uploadPdfToS3(pdfBPath, fileB.originalname);
+
+    // Clean up temp files
+    cleanupFiles([localA, localB, pdfAPath, pdfBPath]);
 
     // --- DATABASE TRANSACTION STARTS ---
     await client.query('BEGIN');
@@ -1011,6 +1108,7 @@ app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) 
     client.release();
   }
 });
+
 
 /////////////////////
 // Start Server
