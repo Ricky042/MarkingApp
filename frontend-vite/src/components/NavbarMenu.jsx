@@ -17,35 +17,28 @@ export default function MenuItem({ menuOpen, onClose, assignmentName, assignment
 
   return (<>
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Side menu"
         className={`fixed top-16 left-56 z-40
-                    w-56 min-h-[calc(100dvh-4rem)] bg-white p-4 font-['Inter'] shadow-lg
-                    flex justify-center
+                    w-56 min-h-[calc(100dvh-4rem)] bg-white p-6 font-['Inter'] shadow-lg
                     transition-transform duration-300 ease-out
                     ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-      <div className = "px-3 pt-3.5 pb-2 bg-white flex-col justify-start items-start gap-6">
-          Semester {assignmentSemester}
-        <div className = "justify-start text-offical-black text-xl font-medium font-['Inter'] leading-normal">
-          {assignmentName}
+        <div className="relative flex flex-col justify-start items-start gap-2">
+          <div className="text-xs text-gray-500 leading-tight">Semester {assignmentSemester}</div>
+          <div className="text-offical-black text-xl font-medium font-['Inter'] leading-tight">
+            {assignmentName}
+          </div>
+          <div
+            className="w-16 h-9 text-offical-black text-sm font-normal font-['Inter'] leading-tight
+                      cursor-pointer underline underline-offset-4"
+            onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}/assignmentmarkers`)}
+          >
+            Makers
+          </div>
+
+          <div className="text-xs text-gray-500 flex items-center gap-1">
+            Press <span className="px-2 py-0.5 bg-gray-200 rounded border border-gray-300 text-gray-700 font-mono text-xs">ESC</span> to close
+          </div>
         </div>
-        <div
-          className="w-16 h-9 justify-start text-offical-black text-sm font-normal font-['Inter'] leading-7
-          cursor-pointer underline underline-offset-4"
-          onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}/assignmentmarkers`)}
-        >
-          Makers
-        </div>
-        <div className="absolute bottom-12 px-2 text-xs text-gray-500 flex items-center gap-1">
-            Press
-            <span className="px-2 py-0.5 bg-gray-200 rounded border border-gray-300 text-gray-700 font-mono text-xs">
-                ESC
-            </span>
-            to close
-        </div>
-      </div>
       </div>
     </>
   );
