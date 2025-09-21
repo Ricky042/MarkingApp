@@ -77,19 +77,18 @@ export default function Assignments() {
             return assignments.filter(assignment => {
                 // Semester filter logic
                 const semesterMatch = !selectedSemester || 
-                                    selectedSemester === "All Semesters" || 
-                                    `Semester ${assignment.semester}` === selectedSemester;
+                    selectedSemester === "All Semesters" || 
+                    `Semester ${assignment.semester}` === selectedSemester;
                 const statusMatch = !selectedStatus || 
-                                    selectedStatus === "All Status" || 
-                                    `${assignment.status}` === selectedStatus;
-                console.log(assignment.status);
-                // Status filter logic (currently disabled as we don't have this data)
-                // const statusMatch = !selectedStatus || selectedStatus === "All Status";
+                    selectedStatus === "All Status" || 
+                    `${assignment.status}` === selectedStatus;
 
-                // Search query logic
-                const searchMatch = assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase());
+                // Search query logic (now matches course_name and course_code)
+                const searchMatch =
+                    assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    assignment.course_code.toLowerCase().includes(searchQuery.toLowerCase());
 
-                return semesterMatch && statusMatch && searchMatch; // && statusMatch;
+                return semesterMatch && statusMatch && searchMatch;
             });
         }, [assignments, selectedSemester, selectedStatus, searchQuery]);
 
