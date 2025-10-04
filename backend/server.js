@@ -829,6 +829,80 @@ app.post("/assignments", authenticateToken, upload.fields([
 
 
 ////////////////////////////////////////////////////////////////////
+//  Assignments deletion
+////////////////////////////////////////////////////////////////////
+
+
+
+app.delete("/assignments/:id", authenticateToken, async (req, res) => {
+  const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+  const client = await pool.connect();
+  const assignmentId = req.params.id;
+
+  try {
+    // --- DATABASE TRANSACTION STARTS ---
+    await client.query('BEGIN');
+
+    // 1. Grab control paper file paths so we can remove them from S3 afterwards
+    const submissionRes = await client.query(
+      `SELECT file_path 
+       FROM submissions 
+       WHERE assignment_id = $1 AND is_control_paper = TRUE`,
+      [assignmentId]
+    );
+    const filePaths = submissionRes.rows.map(r => r.file_path);
+
+    // 2. Delete rubric tiers first (they depend on criteria)
+    await client.query(`
+      DELETE FROM rubric_tiers 
+      WHERE criterion_id IN (
+        SELECT id FROM rubric_criteria WHERE assignment_id = $1
+      );
+    `, [assignmentId]);
+
+    // 3. Delete rubric criteria
+    await client.query('DELETE FROM rubric_criteria WHERE assignment_id = $1;', [assignmentId]);
+
+    // 4. Delete assignment_markers
+    await client.query('DELETE FROM assignment_markers WHERE assignment_id = $1;', [assignmentId]);
+
+    // 5. Delete submissions
+    await client.query('DELETE FROM submissions WHERE assignment_id = $1;', [assignmentId]);
+
+    // 6. Delete assignment itself
+    await client.query('DELETE FROM assignments WHERE id = $1;', [assignmentId]);
+
+    // --- DATABASE TRANSACTION ENDS (SUCCESS) ---
+    await client.query('COMMIT');
+
+    // 7. Delete the control paper files from S3 (outside the transaction)
+    for (const filePath of filePaths) {
+      try {
+        // filePath looks like https://bucket.s3.amazonaws.com/pdfs/uuid-filename.pdf
+        const urlParts = new URL(filePath);
+        const bucket = process.env.AWS_S3_BUCKET_NAME;
+        const key = decodeURIComponent(urlParts.pathname.slice(1)); // strip leading "/"
+
+        await s3Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+        console.log('Deleted S3 object:', key);
+      } catch (err) {
+        console.warn('Failed to delete S3 object:', filePath, err.message);
+      }
+    }
+
+    res.status(200).json({ message: 'Assignment and control papers deleted successfully.' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting assignment:', error);
+    res.status(500).json({ message: 'Failed to delete assignment due to a server error.' });
+  } finally {
+    client.release();
+  }
+});
+
+
+
+////////////////////////////////////////////////////////////////////
 // User Management
 ////////////////////////////////////////////////////////////////////
 

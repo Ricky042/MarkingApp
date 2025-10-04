@@ -16,9 +16,10 @@ export default function Assignments() {
     const [searchQuery, setSearchQuery] = useState(""); // Added searchQuery state
 
     useEffect(() => {
-    const fetchAssignments = async () => {
-        const token = localStorage.getItem("token");
-        if (!token) return navigate("/login");
+
+        const fetchAssignments = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) return navigate("/login");
 
         setIsLoading(true);
         try {
@@ -76,12 +77,8 @@ export default function Assignments() {
     const filteredAssignments = useMemo(() => {
         return assignments.filter(assignment => {
             // Semester filter logic
-            const semesterMatch = !selectedSemester || 
-                                  selectedSemester === "All Semesters" || 
-                                  `Semester ${assignment.semester}` === selectedSemester;
-            const statusMatch = !selectedStatus || 
-                                  selectedStatus === "All Status" || 
-                                  `${assignment.status}` === selectedStatus;
+            const semesterMatch = !selectedSemester || selectedSemester === "All Semesters" || `Semester ${assignment.semester}` === selectedSemester;
+            const statusMatch = !selectedStatus || selectedStatus === "All Status" || `${assignment.status}` === selectedStatus;
             console.log(assignment.status);
             // Status filter logic (currently disabled as we don't have this data)
             // const statusMatch = !selectedStatus || selectedStatus === "All Status";
@@ -101,6 +98,23 @@ export default function Assignments() {
     const handleNav = (path) => {
         navigate(`/team/${teamId}/${path}`);
     };
+
+        const handleDelete = async (assignmentId) => {
+            if (!window.confirm("Are you sure you want to delete this assignment?")) return;
+
+        const token = localStorage.getItem("token");
+        try {
+            await api.delete(`/assignments/${assignmentId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            });
+        // Remove the deleted assignment from state
+        setAssignments(prev => prev.filter(a => a.id !== assignmentId));
+        } catch (err) {
+            console.error("Failed to delete assignment:", err);
+            alert("Error deleting assignment.");
+            }
+        };
+
 
     return (
     <div className="flex min-h-screen">
@@ -178,7 +192,7 @@ export default function Assignments() {
                 <div className="flex flex-wrap gap-4 px-6 py-4">
                 {/* Mapping over 'filteredAssignments' now */}
                 {filteredAssignments.map((assignment) => (
-                    <button
+                    <div
                         key={assignment.id}
                         onClick={() => handleNav(`assignments/${assignment.id}`)} // Fixed navigation path
                         className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex flex-col justify-start items-start gap-1.5"
@@ -214,7 +228,18 @@ export default function Assignments() {
                             {/* Formatting the due date for better readability */}
                             Due: {new Date(assignment.due_date).toLocaleDateString()}
                         </div>
-                    </button>
+
+                        {/* Delete button outside the clickable area */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation(); // stop click bubbling to card
+                                handleDelete(assignment.id);
+                            }}
+                            className="mt-2 self-end px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
+                        >
+                        Delete
+                        </button>
+                    </div>
                 ))}
                 </div>
             </div>
