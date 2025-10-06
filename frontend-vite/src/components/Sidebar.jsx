@@ -42,7 +42,7 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <div className="w-56 min-h-screen bg-zinc-800 flex flex-col p-4 font-['Inter'] fixed top-0 left-0">
+    <div className="w-56 min-h-screen bg-[#201f30] flex flex-col p-4 font-['Inter'] fixed top-0 left-0">
       {/* Logo / Title */}
       <div
         className="flex items-center gap-2 mb-6 justify-start cursor-pointer hover:opacity-80 transition"
@@ -71,9 +71,9 @@ export default function Sidebar() {
           <button
             key={i}
             onClick={() => handleNav(i, item.path)}
-            className={`flex items-center gap-[6px] px-3 py-1.5 rounded-lg transition
-              ${activeIndex === i ? "bg-neutral-700" : ""}
-              hover:bg-[#434343] justify-start`}
+            className={`flex items-center gap-[6px] px-3 py-1.5 rounded-lg transition cursor-pointer
+              ${activeIndex === i ? "bg-[var(--deakinTeal)]" : ""}
+              ${activeIndex !== i ? "hover:bg-[#434343]" : ""} justify-start`}
           >
             {/* Icon */}
             <div className="w-4 h-4 relative overflow-hidden">

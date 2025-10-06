@@ -4,6 +4,9 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import { Calendar } from "../components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import AssignmentRow from "../components/AssignmentRow";
 
 // --- SVG Icon Components for the Modal ---
 
@@ -228,10 +231,10 @@ export default function TeamDashboard() {
                 Dashboard
               </h1>
               <button 
-                className="px-4 py-2 bg-slate-900 rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
+                className="px-4 py-2 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
                 onClick={() => navigate(`/team/${teamId}/assignments/new`)}
               >
-                <span className="text-white text-sm font-medium">
+                <span className="text-white text-sm font-light">
                   + New Assignment
                 </span>
               </button>
@@ -243,58 +246,93 @@ export default function TeamDashboard() {
               <div className="flex-1 flex flex-col gap-6">
                 <div className="grid grid-cols-4 gap-6">
                   {/* Boxes 1-4 */}
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
+                  <div className="w-full bg-white rounded-lg px-6 pt-3.5 pb-6">
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
                         <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                            <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Total Assignments</div>
+                            <div className=" self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Total Assignments</div>
                         </div>
                     </div>
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">48</div>
+                        <div className="self-stretch justify-start text-[var(--deakinTeal)] text-2xl font-medium font-['Inter'] leading-7">48</div>
                     </div>
                   </div>
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
+                  <div className="w-full bg-white rounded-lg px-6 pt-3.5 pb-6">
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
                         <div className="self-stretch flex flex-col justify-start items-start gap-2">
                             <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Markers Active</div>
                         </div>
                     </div>
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">12/18</div>
+                        <div className="self-stretch justify-start text-[var(--deakinTeal)] text-2xl font-medium font-['Inter'] leading-7">12/18</div>
                     </div>
                   </div>
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
+                  <div className="w-full bg-white rounded-lg px-6 pt-3.5 pb-6">
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
                         <div className="self-stretch flex flex-col justify-start items-start gap-2">
                             <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Submissions Graded</div>
                         </div>
                     </div>
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">342/450</div>
+                        <div className="self-stretch justify-start text-[var(--deakinTeal)] text-2xl font-medium font-['Inter'] leading-7">342/450</div>
                     </div>
                   </div>
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
+                  <div className="w-full bg-white rounded-lg px-6 pt-3.5 pb-6">
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
                         <div className="self-stretch flex flex-col justify-start items-start gap-2">
                             <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Flags Open</div>
                         </div>
                     </div>
                     <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">3</div>
+                        <div className="self-stretch justify-start text-[var(--deakinTeal)] text-2xl font-medium font-['Inter'] leading-7">3</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Wide box under the first 4 boxes */}
-                <div className="w-full h-72 bg-white rounded-lg border border-slate-200"></div>
+                {/* Recent Assignments */}
+                <div className="w-full h-85 flex flex-col bg-white rounded-lg border border-slate-200 pt-6 pb-6 pl-5 pr-5 gap-4">
+                  <h2 className="text-official-black text-lg font-semibold mb-4">
+                    Recent Assignments
+                  </h2>
+                  <AssignmentRow
+                    title="Psychology Report"
+                    updatedText="Last updated 1:30 today"
+                    labelText="Moderating"
+                    completedText="23/45"
+                    percentText="45%"
+                    progressValue={70}
+                    flagsText="2 Flags"
+                    onViewDetails={() => {}}
+                  />
+                  <AssignmentRow
+                    title="Psychology Report"
+                    updatedText="Last updated 1:30 today"
+                    labelText="Moderating"
+                    completedText="23/45"
+                    percentText="45%"
+                    progressValue={70}
+                    flagsText="2 Flags"
+                    onViewDetails={() => {}}
+                  />
+                  <AssignmentRow
+                    title="Psychology Report"
+                    updatedText="Last updated 1:30 today"
+                    labelText="Moderating"
+                    completedText="23/45"
+                    percentText="45%"
+                    progressValue={70}
+                    flagsText="2 Flags"
+                    onViewDetails={() => {}}
+                  />
+                </div>
                 {/* Second Wide box */}
-                <div className="w-full h-72 bg-white rounded-lg border border-slate-200"></div>
+                <div className="w-full h-85 bg-white rounded-lg border border-slate-200"></div>
               </div>
 
               {/* Right wrapper: Stacked boxes */}
               <div className="flex flex-col gap-6 w-56">
                 <div className="w-full bg-white rounded-lg border border-slate-200 p-4">
-                  <h4 className="text-slate-900 text-base font-semibold mb-4">
+                  <h4 className="text-[var(--deakinTeal)] text-base font-semibold mb-4">
                     Quick Actions
                   </h4>
                   {/* *** FIX 1: Corrected the layout and nesting of action items *** */}
@@ -317,13 +355,13 @@ export default function TeamDashboard() {
                       </div>
                     </div>
 
-                    {/* Upcoming Deadlines */}
+                    {/* Upcoming Deadlines
                     <div className="inline-flex justify-start items-center gap-2">
                       <img src="/Dashboard/icon/clipboard-signature.svg" alt="Upcoming Deadlines" className="w-4 h-4" />
                       <div className="text-offical-black text-sm font-medium">
                         Upcoming Deadlines
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* Export Reports */}
                     <div className="inline-flex justify-start items-center gap-2">
@@ -335,7 +373,9 @@ export default function TeamDashboard() {
 
                   </div>
                 </div>
-                <div className="w-full h-64 bg-white rounded-lg border border-slate-200"></div>
+                <div className="w-full h-64 bg-white rounded-lg flex items-center justify-center">
+                  <Calendar/>
+                </div>
                 <div className="w-full h-64 bg-white rounded-lg border border-slate-200"></div>
               </div>
             </div>
