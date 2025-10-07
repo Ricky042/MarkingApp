@@ -625,7 +625,6 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
 // including the S3 file uploads for control papers.
 // ----------------------------------------------------------------------------------
 
-
 app.post("/assignments", authenticateToken, upload.fields([
   { name: 'controlPaperA', maxCount: 1 },
   { name: 'controlPaperB', maxCount: 1 }
@@ -633,13 +632,16 @@ app.post("/assignments", authenticateToken, upload.fields([
   const client = await pool.connect();
   try {
     // STEP 1: PARSE INCOMING DATA
-    // The JSON data comes as a string in the 'assignmentData' field from the FormData object.
     const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
-    const createdById = req.user.id; 
-    
-    
-    const fileA = req.files.controlPaperA[0];
-    const fileB = req.files.controlPaperB[0];
+    const createdById = req.user.id;
+
+    const fileA = req.files.controlPaperA?.[0];
+    const fileB = req.files.controlPaperB?.[0];
+
+    if (!fileA || !fileB) {
+      return res.status(400).json({ message: "Both control papers must be uploaded." });
+    }
+
     const fs = require('fs');
     const path = require('path');
     const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
@@ -647,82 +649,77 @@ app.post("/assignments", authenticateToken, upload.fields([
     const { v4: uuidv4 } = require('uuid');
 
     // --- Helper: sanitize filenames for Windows ---
-    const sanitizeFileName = (name) => {
-      return name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    };
+    const sanitizeFileName = (name) => name.replace(/[^a-zA-Z0-9.-]/g, '_');
 
     // --- Helper: download S3 file locally ---
     const downloadS3File = async (bucket, key, originalName) => {
-    const safeName = sanitizeFileName(originalName);
-    const tempPath = path.join(__dirname, 'temp', safeName);
+      const safeName = sanitizeFileName(originalName);
+      const tempDir = path.join(__dirname, 'temp');
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+      const tempPath = path.join(tempDir, safeName);
 
-    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-    const s3Object = await s3Client.send(command);
+      const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+      const s3Object = await s3Client.send(command);
 
-    await new Promise((resolve, reject) => {
-      const writeStream = fs.createWriteStream(tempPath);
-      s3Object.Body.pipe(writeStream)
-        .on('finish', resolve)
-        .on('error', reject);
-    });
-
-    return tempPath;
-  };
-
-// --- Helper: convert doc/docx to PDF ---
-  const convertToPdf = async (inputPath) => {
-    const outputPath = inputPath.replace(/\.(doc|docx)$/i, '.pdf');
-
-    await new Promise((resolve, reject) => {
-
-      const originalConsoleWarn = console.warn;
-      console.warn = () => {};
-
-
-      docxConverter(inputPath, outputPath, (err, result) => {
-
-        console.warn = originalConsoleWarn;
-
-      
-        if (err) reject(err);
-        else resolve(result);
+      await new Promise((resolve, reject) => {
+        const writeStream = fs.createWriteStream(tempPath);
+        s3Object.Body.pipe(writeStream)
+          .on('finish', resolve)
+          .on('error', reject);
       });
-    });
 
-    return outputPath;
-  };
+      return tempPath;
+    };
 
-
-  // --- Helper: upload PDF to S3 ---
-  const uploadPdfToS3 = async (pdfPath, originalName) => {
-    if (!pdfPath || !fs.existsSync(pdfPath)) return null; // skip if conversion failed
-
-    const pdfKey = `pdfs/${uuidv4()}-${sanitizeFileName(path.basename(originalName, path.extname(originalName)))}.pdf`;
-    const fileContent = fs.readFileSync(pdfPath);
-
-    await s3Client.send(new PutObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET_NAME,
-      Key: pdfKey,
-      Body: fileContent,
-      ContentType: 'application/pdf',
-    }));
-
-    return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
-  };
-
-  // --- Cleanup temp files safely ---
-  const cleanupFiles = (files) => {
-    files.forEach(file => {
-      if (file && fs.existsSync(file)) {
-        try {
-          fs.unlinkSync(file);
-        } catch (err) {
-          console.warn('Failed to delete temp file:', file, err.message);
-        }
+    // --- Helper: convert doc/docx to PDF (skip non-Word files) ---
+    const convertToPdf = async (inputPath) => {
+      if (!/\.(doc|docx)$/i.test(inputPath)) {
+        console.warn(`Skipping conversion for non-Word file: ${inputPath}`);
+        return inputPath; // Already a PDF or unsupported format
       }
-    });
-  };
 
+      const outputPath = inputPath.replace(/\.(doc|docx)$/i, '.pdf');
+
+      await new Promise((resolve, reject) => {
+        const originalConsoleWarn = console.warn;
+        console.warn = () => {}; // suppress docx-pdf warnings
+
+        docxConverter(inputPath, outputPath, (err, result) => {
+          console.warn = originalConsoleWarn;
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
+
+      return outputPath;
+    };
+
+    // --- Helper: upload PDF to S3 ---
+    const uploadPdfToS3 = async (pdfPath, originalName) => {
+      if (!pdfPath || !fs.existsSync(pdfPath)) return null;
+
+      const pdfKey = `pdfs/${uuidv4()}-${sanitizeFileName(path.basename(originalName, path.extname(originalName)))}.pdf`;
+      const fileContent = fs.readFileSync(pdfPath);
+
+      await s3Client.send(new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET_NAME,
+        Key: pdfKey,
+        Body: fileContent,
+        ContentType: 'application/pdf',
+      }));
+
+      return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
+    };
+
+    // --- Cleanup temp files safely ---
+    const cleanupFiles = (files) => {
+      files.forEach(file => {
+        if (file && fs.existsSync(file)) {
+          try { fs.unlinkSync(file); } 
+          catch (err) { console.warn('Failed to delete temp file:', file, err.message); }
+        }
+      });
+    };
 
     // --- PROCESS FILES ---
     const localA = await downloadS3File(fileA.bucket, fileA.key, fileA.originalname);
@@ -734,13 +731,12 @@ app.post("/assignments", authenticateToken, upload.fields([
     const controlPaperAPath = await uploadPdfToS3(pdfAPath, fileA.originalname);
     const controlPaperBPath = await uploadPdfToS3(pdfBPath, fileB.originalname);
 
-    // Clean up temp files
     cleanupFiles([localA, localB, pdfAPath, pdfBPath]);
 
     // --- DATABASE TRANSACTION STARTS ---
     await client.query('BEGIN');
 
-    // STEP 2: Insert the main assignment details into the 'assignments' table.
+    // STEP 2: Insert the main assignment details
     const assignmentSql = `
       INSERT INTO assignments (team_id, created_by, course_code, course_name, semester, due_date)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;
@@ -756,7 +752,7 @@ app.post("/assignments", authenticateToken, upload.fields([
     const newAssignment = await client.query(assignmentSql, assignmentValues);
     const newAssignmentId = newAssignment.rows[0].id;
 
-    // STEP 3: Create the control paper submissions with the S3 file paths.
+    // STEP 3: Create control paper submissions
     const submissionsSql = `
       INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
       VALUES ($1, 'cp-A', TRUE, $2), 
@@ -764,15 +760,13 @@ app.post("/assignments", authenticateToken, upload.fields([
     `;
     await client.query(submissionsSql, [newAssignmentId, controlPaperAPath, controlPaperBPath]);
 
-    // STEP 4: Insert the assigned markers into the 'assignment_markers' join table.
-    if (markers && markers.length > 0) {
+    // STEP 4: Insert assigned markers
+    if (markers?.length > 0) {
       const markerSql = 'INSERT INTO assignment_markers (assignment_id, user_id) VALUES ($1, $2);';
-      for (const markerId of markers) {
-        await client.query(markerSql, [newAssignmentId, markerId]);
-      }
+      for (const markerId of markers) await client.query(markerSql, [newAssignmentId, markerId]);
     }
 
-    // STEP 5: Insert the rubric criteria and their corresponding tiers.
+    // STEP 5: Insert rubric criteria and tiers
     const criteriaSql = `
       INSERT INTO rubric_criteria (assignment_id, criterion_description, points, deviation_threshold)
       VALUES ($1, $2, $3, $4) RETURNING id;
@@ -781,48 +775,26 @@ app.post("/assignments", authenticateToken, upload.fields([
       INSERT INTO rubric_tiers (criterion_id, tier_name, description, lower_bound, upper_bound)
       VALUES ($1, $2, $3, $4, $5);
     `;
-
     for (const criterion of rubric) {
-      // Insert the criterion row and get its new ID back.
-      const criteriaValues = [
-        newAssignmentId,
-        criterion.criteria,
-        criterion.points,
-        criterion.deviation,
-      ];
+      const criteriaValues = [newAssignmentId, criterion.criteria, criterion.points, criterion.deviation];
       const newCriterion = await client.query(criteriaSql, criteriaValues);
       const newCriterionId = newCriterion.rows[0].id;
 
-      // Now, loop through the tiers and insert them, linking them to the criterion ID.
       for (const tier of criterion.tiers) {
-        const tierValues = [
-          newCriterionId,
-          tier.name,
-          tier.description,
-          tier.lowerBound,
-          tier.upperBound,
-        ];
+        const tierValues = [newCriterionId, tier.name, tier.description, tier.lowerBound, tier.upperBound];
         await client.query(tierSql, tierValues);
       }
     }
 
-    // --- DATABASE TRANSACTION ENDS (SUCCESS) ---
+    // --- COMMIT TRANSACTION ---
     await client.query('COMMIT');
-
-    // Send a success response to the frontend.
-    res.status(201).json({ 
-      message: 'Assignment created successfully!',
-      assignmentId: newAssignmentId 
-    });
+    res.status(201).json({ message: 'Assignment created successfully!', assignmentId: newAssignmentId });
 
   } catch (error) {
-    // --- DATABASE TRANSACTION ENDS (FAILURE) ---
-    // If any step in the 'try' block failed, undo all changes.
     await client.query('ROLLBACK');
     console.error('Error creating assignment:', error);
     res.status(500).json({ message: 'Failed to create assignment due to a server error.' });
   } finally {
-    // Crucially, release the database client back to the pool so it can be reused.
     client.release();
   }
 });
