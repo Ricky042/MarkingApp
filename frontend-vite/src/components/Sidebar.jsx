@@ -42,7 +42,7 @@ export default function Sidebar() {
   }, []);
 
   return (
-    <div className="w-56 min-h-screen bg-[#201f30] flex flex-col p-4 font-['Inter'] fixed top-0 left-0">
+    <div className="min-h-full bg-[#201f30] flex flex-col p-4 font-['Inter'] w-full">
       {/* Logo / Title */}
       <div
         className="flex items-center gap-2 mb-6 justify-start cursor-pointer hover:opacity-80 transition"
@@ -60,18 +60,18 @@ export default function Sidebar() {
             {username ? username.charAt(0).toUpperCase() : ""}
           </span>
         </div>
-        <span className="text-neutral-100 text-sm font-bold font-['Inter'] leading-normal">
+        <span className="text-neutral-100 text-md font-bold font-['Inter'] leading-normal">
           Assignment
         </span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex flex-col gap-[2px] justify-start">
+      <nav className="flex flex-col gap-[2spx] justify-start">
         {navItems.map((item, i) => (
           <button
             key={i}
             onClick={() => handleNav(i, item.path)}
-            className={`flex items-center gap-[6px] px-3 py-1.5 rounded-lg transition cursor-pointer
+            className={`flex items-center gap-[6px] px-3 py-3 rounded-lg transition cursor-pointer
               ${activeIndex === i ? "bg-[var(--deakinTeal)]" : ""}
               ${activeIndex !== i ? "hover:bg-[#434343]" : ""} justify-start`}
           >
@@ -85,7 +85,7 @@ export default function Sidebar() {
             </div>
 
             {/* Label */}
-            <span className="justify-start text-[#F7F7F7] text-xs font-medium font-['Inter'] leading-7">
+            <span className="justify-start text-[#F7F7F7] text-md font-base font-['Inter'] leading-7">
               {item.label}
             </span>
           </button>
