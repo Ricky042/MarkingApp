@@ -217,9 +217,9 @@ export default function TeamDashboard() {
     <> {/* Use a fragment to render modal outside the main layout div */}
       <div className="flex flex-row min-h-screen">
         <div className="flex flex-row min-h-screen w-80">
-          <div className=" fixed h-screen w-80 border-r border-slate-200 z-50">
-            <Sidebar />
-          </div>
+           <div className=" fixed h-screen w-80 border-r border-slate-200 z-50">
+             <Sidebar activeTab={0} />
+           </div>
         </div>
         <div className="flex-1 flex flex-col bg-neutral-00">
           <Navbar onBurgerClick = {() => setMenuOpen(v => !v)}/>

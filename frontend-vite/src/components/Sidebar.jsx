@@ -10,8 +10,8 @@ const navItems = [
   { label: "Settings", path: "settings", icon: "/Sidebar/icon/settings.svg" },
 ];
 
-export default function Sidebar() {
-  const [activeIndex, setActiveIndex] = useState(0);
+export default function Sidebar({ activeTab = 0 }) {
+  const [activeIndex, setActiveIndex] = useState(activeTab);
   const navigate = useNavigate();
   const { teamId } = useParams();
   const [username, setUsername] = useState("");
@@ -40,6 +40,10 @@ export default function Sidebar() {
       setUsername(user.username);
     }
   }, []);
+
+  useEffect(() => {
+    setActiveIndex(activeTab);
+  }, [activeTab]);
 
   return (
     <div className="min-h-full bg-[#201f30] flex flex-col p-4 font-['Inter'] w-full">

@@ -100,6 +100,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-deakinTeal: var(--deakinTeal);
+  --color-lime: var(--lime);
+  --color-purple: var(--purple);
   --text-2xs: 0.625rem;
 }
 
@@ -138,6 +140,8 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --deakinTeal: #119C8A;
+  --lime: #d8f275;
+  --purple: #531DF7;
 }
 
 /* Dark mode overrides */
@@ -174,4 +178,6 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --deakinTeal: #119C8A;
+  --lime: #d8f275;
+  --purple: #531DF7;
 }
