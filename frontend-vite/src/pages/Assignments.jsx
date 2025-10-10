@@ -123,7 +123,7 @@ export default function Assignments() {
     return (
     <div className="flex min-h-screen">
         <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
-            <Sidebar />
+            <Sidebar activeTab={1}/>
         </aside>
 
         <div className="ml-56 flex-1 flex flex-col bg-white">
@@ -134,10 +134,19 @@ export default function Assignments() {
             />
             <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-white ${menuOpen ? "ml-56" : "mr-0"}`}>
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
-                    <div className="w-auto text-offical-black text-2xl font-semibold font-['Inter'] leading-7">
+                    <div className="text-offical-black text-3xl font-bold pt-4 pb-4">
                         Assignments
                     </div>
+                    <button 
+                        className="px-4 py-2 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
+                        onClick={() => navigate(`/team/${teamId}/assignments/new`)}
+                    >
+                        <span className="text-white text-lg font-base">
+                        + New Assignment
+                        </span>
+                    </button>
                 </div>
+               
 
                 {/* Select and Search form */}
                 <div className="flex items-center gap-4 px-6 mb-4">
@@ -175,7 +184,7 @@ export default function Assignments() {
                         </select>
                     </div>
                     {/* Search */}
-                    <div className="flex max-w-72 ml-auto mr-6">
+                    <div className="flex max-w-72 ml-auto">
                         <div className="w-full min-h-8 px-3 py-1.5 bg-neutral-100 rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
                         <img
                             src="/navBarIcon/navBar_searchIcon.svg"

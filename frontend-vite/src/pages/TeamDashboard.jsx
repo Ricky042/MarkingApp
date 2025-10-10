@@ -4,6 +4,12 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import { Calendar } from "../components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import AssignmentRow from "../components/AssignmentRow";
+import DeadlineCard from "../components/DeadlineCard";
+import DashboardCard from "../components/DashboardCard";
+import AreaChartComponent from "../components/AreaChartComponent";
 
 // --- SVG Icon Components for the Modal ---
 
@@ -209,92 +215,109 @@ export default function TeamDashboard() {
 
   return (
     <> {/* Use a fragment to render modal outside the main layout div */}
-      <div className="flex min-h-screen">
-        <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
-          <Sidebar />
-        </aside>
-
-        <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
+      <div className="flex flex-row min-h-screen">
+        <div className="flex flex-row min-h-screen w-80">
+           <div className=" fixed h-screen w-80 border-r border-slate-200 z-50">
+             <Sidebar activeTab={0} />
+           </div>
+        </div>
+        <div className="flex-1 flex flex-col bg-neutral-00">
           <Navbar onBurgerClick = {() => setMenuOpen(v => !v)}/>
-          <MenuItem 
+          {/* <MenuItem 
             menuOpen={menuOpen}
             onClose={() => setMenuOpen(false)}
-          />
+          /> */}
 
-          <main className={`transition-all duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : ""}`}>
+          <main className={`transition-all duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : ""}`}>
             {/* Page Header Section */}
             <div className="flex justify-between items-center mb-0 px-6 py-6">
-              <h1 className="text-offical-black text-2xl font-semibold">
+              <h1 className="text-offical-black text-3xl font-bold pt-4 pb-4">
                 Dashboard
               </h1>
               <button 
-                className="px-4 py-2 bg-slate-900 rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
+                className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
                 onClick={() => navigate(`/team/${teamId}/assignments/new`)}
               >
-                <span className="text-white text-sm font-medium">
+                <span className="text-white text-lg font-base">
                   + New Assignment
                 </span>
               </button>
             </div>
 
             {/* Page Content */}
-            <div className="px-6 pb-6 flex-1 flex gap-6">
+            <div className="pl-6 pb-6 flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
               {/* Left wrapper: Boxes 1-4 + wide box */}
-              <div className="flex-1 flex flex-col gap-6">
-                <div className="grid grid-cols-4 gap-6">
-                  {/* Boxes 1-4 */}
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                            <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Total Assignments</div>
-                        </div>
-                    </div>
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">48</div>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                            <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Markers Active</div>
-                        </div>
-                    </div>
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">12/18</div>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                            <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Submissions Graded</div>
-                        </div>
-                    </div>
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">342/450</div>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white rounded-lg outline outline-1 outline-slate-300 px-6 pt-3.5 pb-6">
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                            <div className="self-stretch justify-start text-zinc-600 text-xs font-semibold font-['Inter'] leading-7">Flags Open</div>
-                        </div>
-                    </div>
-                    <div className="self-stretch flex flex-col justify-start items-start gap-8">
-                        <div className="self-stretch justify-start text-offical-black text-2xl font-medium font-['Inter'] leading-7">3</div>
-                    </div>
-                  </div>
+              <div className="flex-1 flex flex-col gap-6 min-w-0 lg:w-3/4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <DashboardCard 
+                    title="Total Assignments"
+                    value="48"
+                  />
+                  <DashboardCard 
+                    title="Markers Active"
+                    value="12/18"
+                  />
+                  <DashboardCard 
+                    title="Submissions Graded"
+                    value="342/450"
+                  />
+                  <DashboardCard 
+                    title="Flags Open"
+                    value="3"
+                  />
                 </div>
 
                 {/* Wide box under the first 4 boxes */}
-                <div className="w-full h-72 bg-white rounded-lg border border-slate-200"></div>
-                {/* Second Wide box */}
-                <div className="w-full h-72 bg-white rounded-lg border border-slate-200"></div>
+                {/* Recent Assignments */}
+                <div className="w-full flex flex-col bg-white rounded-lg h-fit pt-6 pb-7 pl-8 pr-8 gap-4">
+                  <h2 className="text-official-black text-lg font-semibold mb-4 h-fit">
+                    Recent Assignments
+                  </h2>
+                  <AssignmentRow
+                    title="Psychology Report"
+                    updatedText="Last updated 1:30 today"
+                    labelText="Moderating"
+                    completedText="23/45"
+                    percentText="45%"
+                    progressValue={70}
+                    flagsText="2 Flags"
+                    onViewDetails={() => {}}
+                  />
+                  <AssignmentRow
+                    title="Psychology Report"
+                    updatedText="Last updated 1:30 today"
+                    labelText="Moderating"
+                    completedText="23/45"
+                    percentText="45%"
+                    progressValue={70}
+                    flagsText="2 Flags"
+                    onViewDetails={() => {}}
+                  />
+                  <AssignmentRow
+                    title="Psychology Report"
+                    updatedText="Last updated 1:30 today"
+                    labelText="Moderating"
+                    completedText="23/45"
+                    percentText="45%"
+                    progressValue={70}
+                    flagsText="2 Flags"
+                    onViewDetails={() => {}}
+                  />
+                </div>
+                {/* Second Wide box - Area Chart */}
+                <div className="w-full bg-white rounded-lg pt-6 pb-7 pl-8 pr-8">
+                <div className="">
+                  <h3 className="text-lg font-semibold text-offical-black">Assignment Submissions</h3>
+                  <p className="text-sm text-zinc-400">Showing total submissions for the last 6 months</p>
+                </div>
+                  <AreaChartComponent />
+                </div>
               </div>
 
               {/* Right wrapper: Stacked boxes */}
-              <div className="flex flex-col gap-6 w-56">
-                <div className="w-full bg-white rounded-lg border border-slate-200 p-4">
-                  <h4 className="text-slate-900 text-base font-semibold mb-4">
+              <div className="flex flex-col gap-6 w-full lg:w-1/4 flex-shrink-0">
+                <div className="w-full bg-white rounded-lg p-6">
+                  <h4 className="text-[var(--deakinTeal)] text-xl font-semibold mb-4">
                     Quick Actions
                   </h4>
                   {/* *** FIX 1: Corrected the layout and nesting of action items *** */}
@@ -306,37 +329,55 @@ export default function TeamDashboard() {
                       className="inline-flex justify-start items-center gap-2 cursor-pointer hover:opacity-80 text-sm font-medium text-left"
                     >
                       <img src="/Dashboard/icon/layout.svg" alt="Invite" className="w-4 h-4" />
-                      <span>Invite Markers</span>
+                      <span className="text-offical-black text-base font-medium">Invite Markers</span>
                     </button>
 
                     {/* Email Markers */}
                     <div className="inline-flex justify-start items-center gap-2">
                       <img src="/Dashboard/icon/layout.svg" alt="Email Markers" className="w-4 h-4" />
-                      <div className="text-offical-black text-sm font-medium">
+                      <div className="text-offical-black text-base font-medium">
                         Email Markers
                       </div>
                     </div>
 
-                    {/* Upcoming Deadlines */}
+                    {/* Upcoming Deadlines
                     <div className="inline-flex justify-start items-center gap-2">
                       <img src="/Dashboard/icon/clipboard-signature.svg" alt="Upcoming Deadlines" className="w-4 h-4" />
                       <div className="text-offical-black text-sm font-medium">
                         Upcoming Deadlines
                       </div>
-                    </div>
+                    </div> */}
 
                     {/* Export Reports */}
                     <div className="inline-flex justify-start items-center gap-2">
                       <img src="/Dashboard/icon/users.svg" alt="Export Reports" className="w-4 h-4" />
-                      <div className="text-offical-black text-sm font-medium">
+                      <div className="text-offical-black text-base font-medium">
                         Export Reports
                       </div>
                     </div>
 
                   </div>
                 </div>
-                <div className="w-full h-64 bg-white rounded-lg border border-slate-200"></div>
-                <div className="w-full h-64 bg-white rounded-lg border border-slate-200"></div>
+                {/* The calendar */}
+                <Calendar className="w-full rounded-lg p-5"/>
+                {/* The upcoming deadline */}
+                <div className="w-full p-5 bg-white rounded-lg">
+                  <div className="text-[var(--deakinTeal)] font-semibold text-lg mb-4">Upcoming Deadline</div>
+                  
+                  <DeadlineCard 
+                    dueIn="Due in 2 Days"
+                    title="Psychology Report"
+                    lastUpdated="Last updated 1:30 today"
+                    onClick={() => console.log('First deadline clicked')}
+                  />
+
+                  <DeadlineCard 
+                    dueIn="Due in 2 Days"
+                    title="Psychology Report"
+                    lastUpdated="Last updated 1:30 today"
+                    onClick={() => console.log('Second deadline clicked')}
+                  />
+                </div>
               </div>
             </div>
           </main>
