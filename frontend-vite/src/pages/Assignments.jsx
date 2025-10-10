@@ -179,8 +179,8 @@ export default function Assignments() {
                         >
                             <option value="" disabled>Select status</option>
                             <option value="All Status">All Status</option>
-                            <option value="Marking">Marking</option>
-                            <option value="Completed">Completed</option>
+                            <option value="MARKING">MARKING</option>
+                            <option value="COMPLETED">COMLETED</option>
                         </select>
                     </div>
                     {/* Search */}
