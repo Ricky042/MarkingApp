@@ -512,7 +512,7 @@ app.get("/team/:teamId/assignments", authenticateToken, async (req, res) => {
 
   try {
     const assignmentsRes = await pool.query(
-      `SELECT id, course_code, course_name, semester, due_date, created_by 
+      `SELECT id, course_code, course_name, semester, due_date, created_by, status
        FROM assignments 
        WHERE team_id=$1
        ORDER BY due_date ASC`,

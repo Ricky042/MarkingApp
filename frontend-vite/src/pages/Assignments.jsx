@@ -70,6 +70,8 @@ export default function Assignments() {
             console.log(`Assignment: ${a.course_name}`);
             console.log("Markers:", a.markers?.map(m => m.name).join(", ") || "No markers");
             console.log("Markers Already Marked:", a.markersAlreadyMarked);
+            console.log("Status:", a.status);
+            console.log("assignment", a);
         });
 
         // Implemented frontend filtering
@@ -201,12 +203,12 @@ export default function Assignments() {
                         >
 
                         {/* 'semester' from the API */}
-                            <div className="w-60 inline-flex justify-between">
-                                Semester {assignment.semester}
-                                <div className="w-16 h-7 px-4 py-2 bg-slate-100 rounded-[50px] outline outline-1 outline-offset-[-1px] outline-slate-200 inline-flex justify-center items-center gap-2.5">
-                                    <div className="justify-start text-slate-900 text-xs font-medium font-['Inter'] leading-normal">{assignment.status}</div>
-                                </div>                        
-                            </div>
+                        <div className="w-60 inline-flex justify-between">
+                            Semester {assignment.semester}
+                            <div className="w-16 h-7 px-4 py-2 bg-slate-100 rounded-[50px] outline outline-1 outline-offset-[-1px] outline-slate-200 inline-flex justify-center items-center gap-2.5">
+                                <div className="justify-start text-slate-900 text-xs font-medium font-['Inter'] leading-normal">{assignment.status}</div>
+                            </div>                        
+                        </div>
                         
 
                         {/* Using 'course_name' instead of 'title' */}
