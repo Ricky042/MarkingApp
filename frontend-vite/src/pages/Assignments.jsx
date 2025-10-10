@@ -16,88 +16,90 @@ export default function Assignments() {
     const [searchQuery, setSearchQuery] = useState(""); // Added searchQuery state
 
     useEffect(() => {
-
         const fetchAssignments = async () => {
             const token = localStorage.getItem("token");
             if (!token) return navigate("/login");
 
-        setIsLoading(true);
-        try {
-        const listRes = await api.get(`/team/${teamId}/assignments`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const base = (listRes.data.assignments || []).map(a => ({
-            ...a,
-            markers: [],
-            markersAlreadyMarked: 0,
-        }));
-
-        const settled = await Promise.allSettled(
-            base.map(a =>
-            api.get(`/team/${teamId}/assignments/${a.id}/details`, {
+            setIsLoading(true);
+            try {
+            const listRes = await api.get(`/team/${teamId}/assignments`, {
                 headers: { Authorization: `Bearer ${token}` },
-            })
-            )
-        );
+            });
 
-        const withMarkers = base.map((a, idx) => {
-            const r = settled[idx];
-            if (r.status === "fulfilled") {
-                const data = r.value?.data || {};
-                const ms = data.markers || [];
-                return {
-                    ...a,
-                    markers: ms.map(m => ({ id: m.id, name: m.name })), 
-                    markersAlreadyMarked: data.markersAlreadyMarked ?? 0, // Default to 0 if undefined
-                };
+            const base = (listRes.data.assignments || []).map(a => ({
+                ...a,
+                markers: [],
+                markersAlreadyMarked: 0,
+            }));
+
+            const settled = await Promise.allSettled(
+                base.map(a =>
+                api.get(`/team/${teamId}/assignments/${a.id}/details`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+                )
+            );
+
+            const withMarkers = base.map((a, idx) => {
+                const r = settled[idx];
+                if (r.status === "fulfilled") {
+                    const data = r.value?.data || {};
+                    const ms = data.markers || [];
+                    return {
+                        ...a,
+                        markers: ms.map(m => ({ id: m.id, name: m.name })), 
+                        markersAlreadyMarked: data.markersAlreadyMarked ?? 0, // Default to 0 if undefined
+                    };
+                }
+                return { ...a, markers: [], markersAlreadyMarked: 0 };
+            });
+
+            setAssignments(withMarkers);
+            } catch (err) {
+            console.error("Error fetching assignments:", err);
+            } finally {
+            setIsLoading(false);
             }
-            return { ...a, markers: [], markersAlreadyMarked: 0 };
+        };
+
+        fetchAssignments();
+        }, [teamId, navigate]);
+
+        // Debug: Log assignments to verify data
+        assignments.forEach(a => {
+            console.log(`Assignment: ${a.course_name}`);
+            console.log("Markers:", a.markers?.map(m => m.name).join(", ") || "No markers");
+            console.log("Markers Already Marked:", a.markersAlreadyMarked);
         });
 
-        setAssignments(withMarkers);
-        } catch (err) {
-        console.error("Error fetching assignments:", err);
-        } finally {
-        setIsLoading(false);
+        // Implemented frontend filtering
+        const filteredAssignments = useMemo(() => {
+            return assignments.filter(assignment => {
+                // Semester filter logic
+                const semesterMatch = !selectedSemester || 
+                    selectedSemester === "All Semesters" || 
+                    `Semester ${assignment.semester}` === selectedSemester;
+                const statusMatch = !selectedStatus || 
+                    selectedStatus === "All Status" || 
+                    `${assignment.status}` === selectedStatus;
+
+                // Search query logic (now matches course_name and course_code)
+                const searchMatch =
+                    assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    assignment.course_code.toLowerCase().includes(searchQuery.toLowerCase());
+
+                return semesterMatch && statusMatch && searchMatch;
+            });
+        }, [assignments, selectedSemester, selectedStatus, searchQuery]);
+
+
+        if (isLoading) {
+            return <div className="ml-56 flex justify-center items-center h-screen">Loading assignments...</div>;
         }
-    };
 
-    fetchAssignments();
-    }, [teamId, navigate]);
-
-    // Debug: Log assignments to verify data
-    assignments.forEach(a => {
-        console.log(`Assignment: ${a.course_name}`);
-        console.log("Markers:", a.markers?.map(m => m.name).join(", ") || "No markers");
-        console.log("Markers Already Marked:", a.markersAlreadyMarked);
-    });
-
-    // Implemented frontend filtering
-    const filteredAssignments = useMemo(() => {
-        return assignments.filter(assignment => {
-            // Semester filter logic
-            const semesterMatch = !selectedSemester || selectedSemester === "All Semesters" || `Semester ${assignment.semester}` === selectedSemester;
-            const statusMatch = !selectedStatus || selectedStatus === "All Status" || `${assignment.status}` === selectedStatus;
-            console.log(assignment.status);
-            // Status filter logic (currently disabled as we don't have this data)
-            // const statusMatch = !selectedStatus || selectedStatus === "All Status";
-
-            // Search query logic
-            const searchMatch = assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase());
-
-            return semesterMatch && statusMatch && searchMatch; // && statusMatch;
-        });
-    }, [assignments, selectedSemester, selectedStatus, searchQuery]);
-
-
-    if (isLoading) {
-        return <div className="ml-56 flex justify-center items-center h-screen">Loading assignments...</div>;
-    }
-
-    const handleNav = (path) => {
-        navigate(`/team/${teamId}/${path}`);
-    };
+        const handleNav = (path) => {
+            navigate(`/team/${teamId}/${path}`);
+        };
 
         const handleDelete = async (assignmentId) => {
             if (!window.confirm("Are you sure you want to delete this assignment?")) return;
