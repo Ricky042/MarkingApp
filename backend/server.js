@@ -31,8 +31,8 @@ const verificationCodes = {};
 
 // Middleware Setup
 const allowedOrigins = [
-  "http://localhost:5173",      
-  "https://markingapp-frontend.onrender.com"  
+  "http://localhost:5173",
+  "https://markingapp-frontend.onrender.com"
 ];
 
 app.use(
@@ -169,10 +169,10 @@ app.post("/login", async (req, res) => {
     const token = generateToken(user);
 
     // Include minimal user info in the response
-    res.json({ 
-      message: "Login successful", 
-      token, 
-      user: { id: user.id, username: user.username } 
+    res.json({
+      message: "Login successful",
+      token,
+      user: { id: user.id, username: user.username }
     });
   } catch (err) {
     console.error(err);
@@ -343,7 +343,7 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
        WHERE tm.team_id=$1`,
       [teamId]
     );
-    
+
     if (result.rows.length === 0) return res.status(404).json({ error: "No team members found" });
     res.json({ members: result.rows });
   } catch (err) {
@@ -356,7 +356,7 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
 app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   // Destructure both emails and the new message field
-  const { emails, message } = req.body; 
+  const { emails, message } = req.body;
   const inviterId = req.user.id;
 
   if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -397,7 +397,7 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
       );
 
       const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
-      
+
       // --- Start of email message logic ---
       // Build the email HTML dynamically
       let emailHtml = `<p>You have been invited to join a team.</p>`;
@@ -411,7 +411,7 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
           </div>
         `;
       }
-      
+
       emailHtml += `
         <p>Click the button below to accept the invitation:</p>
         <a href="${inviteUrl}" style="display: inline-block; padding: 10px 20px; background-color: #0F172A; color: #ffffff; text-decoration: none; border-radius: 5px;">
@@ -570,7 +570,7 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
        ORDER BY T.criterion_id ASC, T.upper_bound DESC`, // Order is important for assembly
       [assignmentId]
     );
-    
+
     // Run all queries in parallel for better performance
     const [assignmentRes, markersRes, criteriaRes, tiersRes] = await Promise.all([
       assignmentQuery,
@@ -606,7 +606,7 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
       markers: markersRes.rows,
       rubric: finalRubric,
     };
-    
+
     res.json(finalResponse);
 
   } catch (err) {
@@ -682,7 +682,7 @@ app.post("/assignments", authenticateToken, upload.fields([
 
       await new Promise((resolve, reject) => {
         const originalConsoleWarn = console.warn;
-        console.warn = () => {}; // suppress docx-pdf warnings
+        console.warn = () => { }; // suppress docx-pdf warnings
 
         docxConverter(inputPath, outputPath, (err, result) => {
           console.warn = originalConsoleWarn;
@@ -715,7 +715,7 @@ app.post("/assignments", authenticateToken, upload.fields([
     const cleanupFiles = (files) => {
       files.forEach(file => {
         if (file && fs.existsSync(file)) {
-          try { fs.unlinkSync(file); } 
+          try { fs.unlinkSync(file); }
           catch (err) { console.warn('Failed to delete temp file:', file, err.message); }
         }
       });
@@ -776,7 +776,13 @@ app.post("/assignments", authenticateToken, upload.fields([
       VALUES ($1, $2, $3, $4, $5);
     `;
     for (const criterion of rubric) {
-      const criteriaValues = [newAssignmentId, criterion.criteria, criterion.points, criterion.deviation];
+      const deviationPct = Number(criterion.deviation);
+      if (!Number.isFinite(deviationPct) || deviationPct < 0 || deviationPct > 100) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: `Invalid deviation percentage: ${criterion.deviation}. Must be between 0 and 100.` });
+      }
+
+      const criteriaValues = [newAssignmentId, criterion.criteria, criterion.points, deviationPct];
       const newCriterion = await client.query(criteriaSql, criteriaValues);
       const newCriterionId = newCriterion.rows[0].id;
 
@@ -951,7 +957,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
        ORDER BY id ASC`,
       [assignmentId]
     );
-    
+
     // Query 4: Get all submitted marks for the control papers associated with this assignment.
     const marksQuery = pool.query(
       `SELECT
@@ -1019,7 +1025,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
     if (assignmentRes.rows.length === 0) {
       return res.status(404).json({ message: "Assignment not found or you do not have access." });
     }
-    
+
     // Extract the role from the new query result. Default to 'tutor' as a safe fallback.
     const currentUserRole = userRoleRes.rows[0]?.role || 'tutor';
 
@@ -1029,7 +1035,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
     const controlPapersMap = new Map();
     const filePaths = {};
     submissionsRes.rows.forEach(row => {
-        filePaths[row.student_identifier] = row.file_path;
+      filePaths[row.student_identifier] = row.file_path;
     });
 
     // Initialize the paper objects with their file paths.

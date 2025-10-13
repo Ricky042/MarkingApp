@@ -143,7 +143,7 @@ export default function CreateAssignment() {
   );
 
   // --- STEP 2: RUBRIC STATE & FUNCTIONS ---
-  const [rubric, setRubric] = useState([{ id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: 0, },]);
+  const [rubric, setRubric] = useState([{ id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: "", },]);
   const [contextMenu, setContextMenu] = useState(null);
 
   useEffect(() => {
@@ -172,7 +172,7 @@ export default function CreateAssignment() {
     if (isNaN(percentage) || percentage < 0 || percentage > 100) return;
     setRubric(rubric.map((criterion) => criterion.id === criterionId ? { ...criterion, deviation: percentage } : criterion));
   }
-  const addCriterion = () => setRubric([...rubric, { id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: 0, },]);
+  const addCriterion = () => setRubric([...rubric, { id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: "", },]);
   const updateTierLowerBound = (criterionId, tierIndex, newLowerBoundStr) => {
     const value = parseFloat(newLowerBoundStr);
     setRubric(currentRubric => {
@@ -539,7 +539,17 @@ export default function CreateAssignment() {
                       <div className="border-l border-zinc-400 flex items-center justify-center p-2" style={{ flexBasis: '12%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
                         <div className="w-full flex items-center gap-1 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] p-2">
                           <span className="text-[#0F172A] font-normal">±</span>
-                          <input type="number" step="0.5" value={criterion.deviation} onChange={(e) => updateDeviation(criterion.id, e.target.value)} className="w-full text-center text-xs" placeholder="Dev" />
+                          <input
+                            type="number"
+                            step="1"
+                            min="0"
+                            max="100"
+                            value={criterion.deviation}
+                            onChange={(e) => updateDeviation(criterion.id, e.target.value)}
+                            className="w-full text-center text-xs"
+                            placeholder="0"
+                          />
+                          <span className="text-xs text-zinc-500">%</span>
                         </div>
                       </div>
                     </div>
@@ -703,7 +713,7 @@ export default function CreateAssignment() {
                         </div>
                       ))}
                       <div className="border-l border-zinc-400 flex items-center justify-center p-2" style={{ flexBasis: '8%' }}><p className="text-xs">{criterion.points}</p></div>
-                      <div className="border-l border-zinc-400 flex items-center justify-center p-2" style={{ flexBasis: '12%' }}><p className="text-xs">± {criterion.deviation}</p></div>
+                      <div className="border-l border-zinc-400 flex items-center justify-center p-2" style={{ flexBasis: '12%' }}><p className="text-xs">± {criterion.deviation}%</p></div>
                     </div>
                   ))}
                 </div>
