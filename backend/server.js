@@ -914,6 +914,37 @@ app.get("/users/:id", authenticateToken, async (req, res) => {
   }
 });
 
+
+
+////////////////////////////////////////////////////
+// User Role checking
+////////////////////////////////////////////////////
+app.get("/team/:teamId/role", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  //console.log("API /team/:teamId/role", { teamId, currentUserId });
+
+  try {
+    const teamIdInt = parseInt(teamId, 10);
+    const result = await pool.query(
+      `SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2`,
+      [currentUserId, teamIdInt]
+    );
+
+    
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Role not found for this team" });
+    }
+
+    res.json({ role: result.rows[0].role });
+  } catch (error) {
+    console.error("Error fetching user role:", error);
+    res.status(500).json({ message: "Server error while fetching user role" });
+  }
+});
+
+
 ////////////////////////////////////////////////////
 // Assignment Stuff
 ////////////////////////////////////////////////////

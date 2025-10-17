@@ -14,8 +14,26 @@ export default function Assignments() {
     const [selectedSemester, setSelectedSemester] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("");
     const [searchQuery, setSearchQuery] = useState(""); // Added searchQuery state
+    const [currentUserRole, setCurrentUserRole] = useState(null);
 
     useEffect(() => {
+        const fetchUserRole = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) return navigate("/login");
+
+        try {
+            const res = await api.get(`/team/${teamId}/role`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        setCurrentUserRole(res.data.role);
+        } catch (err) {
+            console.error("Error fetching user role:", err);
+            }
+        };
+
+        fetchUserRole();// Fetch current user's role in the team
+
+
         const fetchAssignments = async () => {
             const token = localStorage.getItem("token");
             if (!token) return navigate("/login");
