@@ -130,7 +130,7 @@ export default function Markers() {
                       key={marker.user_id}
                       id={marker.user_id}
                       name={marker.username}
-                      status={marker.role === "admin" ? "Owner" : "Tutor"}
+                      status={marker.role === "admin" ? "Admin" : "Tutor"}
                       gradedCount={Math.floor(Math.random() * 10) + 1} // placeholder
                       totalCount={12}
                       percentage={Math.floor(Math.random() * 100)} // placeholder
