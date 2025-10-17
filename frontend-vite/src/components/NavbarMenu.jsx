@@ -32,7 +32,7 @@ export default function MenuItem({ menuOpen, onClose, assignmentName, assignment
                       cursor-pointer underline underline-offset-4"
             onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}/assignmentmarkers`)}
           >
-            Makers
+            Markers
           </div>
 
           <div className="text-xs text-gray-500 flex items-center gap-1">

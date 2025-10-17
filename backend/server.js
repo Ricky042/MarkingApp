@@ -1168,6 +1168,32 @@ app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) 
   }
 });
 
+// ==========================
+// GET /team/:teamId/markers
+// ==========================
+app.get("/team/:teamId/markers", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        tm.id AS team_member_id,
+        u.id AS user_id,
+        u.username,
+        tm.role,
+        tm.joined_at
+      FROM team_members tm
+      INNER JOIN users u ON tm.user_id = u.id
+      WHERE tm.team_id = $1
+      ORDER BY tm.joined_at ASC;
+    `, [teamId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching team markers:", err);
+    res.status(500).json({ message: "Failed to fetch markers." });
+  }
+});
 
 /////////////////////
 // Start Server
