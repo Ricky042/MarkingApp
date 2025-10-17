@@ -41,8 +41,8 @@ export default function Markers() {
   return (
     <>
       <div className="flex flex-row min-h-screen">
-        <div className="flex flex-row min-h-screen w-80">
-          <div className="fixed h-screen w-80 border-r border-slate-200 z-50">
+        <div className="flex flex-row min-h-screen w-56">
+          <div className="fixed h-screen w-56 border-r border-slate-200 z-50">
             <Sidebar activeTab={2} />
           </div>
         </div>
