@@ -50,6 +50,7 @@ app.use(
 );
 
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Nodemailer Configuration
 const transporter = nodemailer.createTransport({
@@ -625,22 +626,21 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
 // including the S3 file uploads for control papers.
 // ----------------------------------------------------------------------------------
 
-app.post("/assignments", authenticateToken, upload.fields([
-  { name: 'controlPaperA', maxCount: 1 },
-  { name: 'controlPaperB', maxCount: 1 }
-]), async (req, res) => {
+app.post("/assignments", authenticateToken,
+  upload.single('controlPaper'), async (req, res) => {
   const client = await pool.connect();
   try {
     // STEP 1: PARSE INCOMING DATA
-    const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
     const createdById = req.user.id;
+    const file = req.file;
+    const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
 
-    const fileA = req.files.controlPaperA?.[0];
-    const fileB = req.files.controlPaperB?.[0];
 
-    if (!fileA || !fileB) {
-      return res.status(400).json({ message: "Both control papers must be uploaded." });
+
+    if (!file) {
+      return res.status(400).json({ message: "A control paper must be uploaded." });
     }
+
 
     const fs = require('fs');
     const path = require('path');
@@ -722,16 +722,17 @@ app.post("/assignments", authenticateToken, upload.fields([
     };
 
     // --- PROCESS FILES ---
-    const localA = await downloadS3File(fileA.bucket, fileA.key, fileA.originalname);
-    const localB = await downloadS3File(fileB.bucket, fileB.key, fileB.originalname);
+    //const local = await downloadS3File(file.bucket, file.key, file.originalname);
+    const local = file.path;
 
-    const pdfAPath = await convertToPdf(localA);
-    const pdfBPath = await convertToPdf(localB);
+    
+    const pdfPath = await convertToPdf(local);
+  
 
-    const controlPaperAPath = await uploadPdfToS3(pdfAPath, fileA.originalname);
-    const controlPaperBPath = await uploadPdfToS3(pdfBPath, fileB.originalname);
+    const controlPaperPath = await uploadPdfToS3(pdfPath, file.originalname);
+   
 
-    cleanupFiles([localA, localB, pdfAPath, pdfBPath]);
+    cleanupFiles([local, pdfPath]);
 
     // --- DATABASE TRANSACTION STARTS ---
     await client.query('BEGIN');
@@ -754,11 +755,11 @@ app.post("/assignments", authenticateToken, upload.fields([
 
     // STEP 3: Create control paper submissions
     const submissionsSql = `
-      INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
-      VALUES ($1, 'cp-A', TRUE, $2), 
-             ($1, 'cp-B', TRUE, $3);
-    `;
-    await client.query(submissionsSql, [newAssignmentId, controlPaperAPath, controlPaperBPath]);
+        INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
+        VALUES ($1, 'cp-A', TRUE, $2);
+      `;
+    await client.query(submissionsSql, [newAssignmentId, controlPaperPath]);
+
 
     // STEP 4: Insert assigned markers
     if (markers?.length > 0) {
@@ -796,21 +797,77 @@ app.post("/assignments", authenticateToken, upload.fields([
     await client.query('COMMIT');
     res.status(201).json({ message: 'Assignment created successfully!', assignmentId: newAssignmentId });
 
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error creating assignment:', error);
-    res.status(500).json({ message: 'Failed to create assignment due to a server error.' });
+    
+  }  catch (error) {
+  await client.query('ROLLBACK');
+  console.error('Error creating assignment:', error.message);
+  console.error(error.stack);
+  res.status(500).json({
+    message: `Server error: ${error.message}`,
+  });
+} finally {
+  client.release();
+}
+
+});
+
+////////////////////////////////////////////////////////////////////
+//  Assignments change status
+////////////////////////////////////////////////////////////////////
+
+app.post("/assignments/:assignmentId/mark/complete", authenticateToken, async (req, res) => {
+  const client = await pool.connect();
+  const { assignmentId } = req.params;
+  const tutorId = req.user.id;
+
+  try {
+    await client.query("BEGIN");
+
+    //  Mark this tutor as completed in assignment_markers
+    await client.query(
+      `UPDATE assignment_markers
+       SET completed = TRUE
+       WHERE assignment_id = $1 AND user_id = $2`,
+      [assignmentId, tutorId]
+    );
+
+    // Count how many tutors total and how many have completed
+    const totalRes = await client.query(
+      `SELECT COUNT(*) AS total FROM assignment_markers WHERE assignment_id = $1`,
+      [assignmentId]
+    );
+    const completedRes = await client.query(
+      `SELECT COUNT(*) AS completed FROM assignment_markers WHERE assignment_id = $1 AND completed = TRUE`,
+      [assignmentId]
+    );
+
+    const total = parseInt(totalRes.rows[0].total, 10);
+    const completed = parseInt(completedRes.rows[0].completed, 10);
+
+    // If all tutors have completed, mark the assignment as 'Completed'
+    const newStatus = completed === total ? "Completed" : "Marking";
+    await client.query(
+      `UPDATE assignments SET status = $1 WHERE id = $2`,
+      [newStatus, assignmentId]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({ message: "Marking completion updated.", status: newStatus });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error updating marking completion:", err);
+    res.status(500).json({ message: "Server error while updating completion status." });
   } finally {
     client.release();
   }
 });
 
 
+
 ////////////////////////////////////////////////////////////////////
 //  Assignments deletion
 ////////////////////////////////////////////////////////////////////
-
-
 
 app.delete("/assignments/:id", authenticateToken, async (req, res) => {
   const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
@@ -1070,8 +1127,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
     });
 
     // Initialize the paper objects with their file paths.
-    controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [], filePath: filePaths['cp-A'] || null });
-    controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [], filePath: filePaths['cp-B'] || null });
+    controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper', marks: [], filePath: filePaths['cp-A'] || null });
 
     // Group the raw marks data by marker and paper for easy consumption by the frontend.
     const marksByMarkerAndPaper = new Map();

@@ -115,7 +115,7 @@ export default function MarkingPage() {
     }));
   };
 
-  const handleSubmitMarks = async () => {
+  /*const handleSubmitMarks = async () => {
     const marksForCurrentPaper = marks[selectedPaperId];
     const rubricCategories = assignmentData.rubric;
 
@@ -147,7 +147,48 @@ export default function MarkingPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  };*/
+  const handleSubmitMarks = async () => {
+  const marksForCurrentPaper = marks[selectedPaperId];
+  const rubricCategories = assignmentData.rubric;
+
+  if (!marksForCurrentPaper || rubricCategories.some(cat => marksForCurrentPaper[cat.id] === undefined || marksForCurrentPaper[cat.id] === '')) {
+    alert("Please enter a score for every rubric category before submitting.");
+    return;
+  }
+
+  setIsSubmitting(true);
+  try {
+    const payload = {
+      paperId: selectedPaperId,
+      scores: Object.entries(marksForCurrentPaper).map(([criterionId, score]) => ({
+        criterionId: Number(criterionId),
+        score: Number(score)
+      })),
+    };
+
+    const token = localStorage.getItem("token");
+    await api.post(`/assignments/${assignmentId}/mark`, payload, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    /*
+    // 🌟 Optional: call completion endpoint if tutor finished both control papers
+    const confirm = window.confirm("Submit completed marking for this assignment?");
+    if (confirm) {
+      await api.post(`/assignments/${assignmentId}/mark/complete`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } buggy*/
+
+    alert(`Marks for ${selectedPaperId} submitted successfully!`);
+    navigate(`/team/${teamId}/assignments/${assignmentId}`);
+  } catch (err) {
+    alert(err.response?.data?.message || "Failed to submit marks. Please try again.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
   
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -222,21 +263,9 @@ export default function MarkingPage() {
                   <p className="text-slate-600">Control Paper Marking</p>
                 </div>
                 <div className="mb-6">
-                  <label htmlFor="paper-select" className="block text-sm font-medium text-slate-700 mb-1">Select Paper to Mark:</label>
-                  <select
-                    id="paper-select"
-                    value={selectedPaperId}
-                    onChange={(e) => {
-                      setSelectedPaperId(e.target.value);
-                      setNumPages(null);
-                    }}
-                    className="p-2 border border-slate-300 rounded-md w-full max-w-xs"
-                  >
-                    {controlPapers.map(paper => (
-                      <option key={paper.id} value={paper.id}>{paper.name}</option>
-                    ))}
-                  </select>
+                  <h2 className="text-lg font-semibold text-slate-800">Control Paper</h2>
                 </div>
+
 
                 <div className="space-y-6">
                   {rubric.map(category => (

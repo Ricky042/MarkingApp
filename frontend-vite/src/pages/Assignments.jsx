@@ -83,6 +83,16 @@ export default function Assignments() {
         fetchAssignments();
         }, [teamId, navigate]);
 
+        const markComplete = async (assignmentId) => {
+    try {
+      await api.post(`/assignments/${assignmentId}/mark/complete`);
+      // refresh assignments after update
+      const res = await api.get(`/teams/${teamId}/assignments`);
+      setAssignments(res.data.assignments || []);
+    } catch (err) {
+      console.error("Error updating completion:", err);
+    }
+  };
         // Debug: Log assignments to verify data
         assignments.forEach(a => {
             console.log(`Assignment: ${a.course_name}`);
@@ -93,6 +103,7 @@ export default function Assignments() {
         });
 
         // Implemented frontend filtering
+        /*
         const filteredAssignments = useMemo(() => {
             return assignments.filter(assignment => {
                 // Semester filter logic
@@ -110,7 +121,41 @@ export default function Assignments() {
 
                 return semesterMatch && statusMatch && searchMatch;
             });
-        }, [assignments, selectedSemester, selectedStatus, searchQuery]);
+        }, [assignments, selectedSemester, selectedStatus, searchQuery]);*/
+        // --- Filtering logic ---
+const filteredAssignments = useMemo(() => {
+  return assignments.filter((assignment) => {
+    // Semester filter
+    const semesterMatch =
+      !selectedSemester ||
+      selectedSemester === "All Semesters" ||
+      `Semester ${assignment.semester}` === selectedSemester;
+
+    // Status filter (still works for both tutor/admin)
+    const statusMatch =
+      !selectedStatus ||
+      selectedStatus === "All Status" ||
+      `${assignment.status}` === selectedStatus;
+
+    // --- Search logic differs by role ---
+    let searchMatch = false;
+    if (currentUserRole === "tutor") {
+      const myStatus = assignment.myCompleted ? "Complete" : "Marking";
+      searchMatch =
+        assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        assignment.course_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        myStatus.toLowerCase().includes(searchQuery.toLowerCase());
+    } else if (currentUserRole === "admin") {
+      searchMatch =
+        assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        assignment.course_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        assignment.status.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+
+    return semesterMatch && statusMatch && searchMatch;
+  });
+}, [assignments, selectedSemester, selectedStatus, searchQuery, currentUserRole]);
+
 
 
         if (isLoading) {
@@ -164,7 +209,6 @@ export default function Assignments() {
                         </span>
                     </button>
                 </div>
-               
 
                 {/* Select and Search form */}
                 <div className="flex items-center gap-4 px-6 mb-4">
@@ -232,9 +276,22 @@ export default function Assignments() {
                         {/* 'semester' from the API */}
                         <div className="w-60 inline-flex justify-between">
                             Semester {assignment.semester}
-                            <div className="w-16 h-7 px-4 py-2 bg-slate-100 rounded-[50px] outline outline-1 outline-offset-[-1px] outline-slate-200 inline-flex justify-center items-center gap-2.5">
-                                <div className="justify-start text-slate-900 text-xs font-medium font-['Inter'] leading-normal">{assignment.status}</div>
-                            </div>                        
+                            <div
+  className={`w-20 h-7 px-4 py-2 rounded-[50px] outline outline-1 outline-offset-[-1px]
+  ${assignment.status === "Completed"
+    ? "bg-green-100 outline-green-300"
+    : "bg-yellow-100 outline-yellow-300"} 
+  inline-flex justify-center items-center gap-2.5`}
+>
+  <div className="text-xs font-medium">
+    {currentUserRole === "admin"
+      ? assignment.status
+      : assignment.myCompleted
+        ? "Completed"
+        : "Marking"}
+  </div>
+</div>
+                   
                         </div>
                         
 
