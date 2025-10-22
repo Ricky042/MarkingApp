@@ -45,9 +45,11 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true,
+    credentials: false,
   })
 );
+
+app.options("*", cors());
 
 app.use(bodyParser.json());
 
