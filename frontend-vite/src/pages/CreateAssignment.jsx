@@ -205,8 +205,8 @@ export default function CreateAssignment() {
   };
 
   // --- STEP 3: CONTROL PAPERS STATE ---
-  const [controlPaperA, setControlPaperA] = useState(null);
-  const [controlPaperB, setControlPaperB] = useState(null);
+  const [controlPaper, setControlPaper] = useState(null);
+  
 
   // --- Navigation and Submission Logic ---
   const handleNextStep = () => {
@@ -231,8 +231,8 @@ export default function CreateAssignment() {
       }
       setStep(3);
     } else if (step === 3) {
-      if (!controlPaperA || !controlPaperB) {
-        alert("Please upload both Control Paper A and Control Paper B before proceeding.");
+      if (!controlPaper) {
+        alert("Please upload Control Paper before proceeding.");
         return;
       }
       setStep(4);
@@ -240,14 +240,15 @@ export default function CreateAssignment() {
   };
 
   const handleCreate = async () => {
-    if (!controlPaperA || !controlPaperB) {
-      alert("Both control papers are required. Please go back and upload them.");
-      return;
+    if (!controlPaper) {
+    alert("Please upload the Control Paper before creating the assignment.");
+    return;
     }
 
     const formData = new FormData();
-    formData.append('controlPaperA', controlPaperA);
-    formData.append('controlPaperB', controlPaperB);
+    formData.append('controlPaper', controlPaper);
+    console.log('Uploading control paper:');
+
 
     const payload = {
       assignmentDetails: { ...assignmentDetails, teamId: teamId },
@@ -256,13 +257,14 @@ export default function CreateAssignment() {
     };
     formData.append('assignmentData', JSON.stringify(payload));
 
+
     try {
       const response = await api.post('/assignments', formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
-
+      
       if (response.status === 201) {
         alert("Assignment created successfully!");
         navigate(`/team/${teamId}/dashboard`);
@@ -576,55 +578,44 @@ export default function CreateAssignment() {
                 <p className="text-slate-600 mb-8">Upload the two control papers for this assignment. These will be used to standardise marking across all assigned tutors.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Uploader for Control Paper A */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-bg-[#0F172A] text-base font-semibold">Control Paper A</label>
-                    {controlPaperA ? (
-                      <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <File className="w-6 h-6 text-blue-600" />
-                          <span className="text-sm font-medium text-slate-800">{controlPaperA.name}</span>
-                        </div>
-                        <button onClick={() => setControlPaperA(null)} className="p-1 rounded-full hover:bg-slate-100">
-                          <X className="w-4 h-4 text-slate-500" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label htmlFor="file-upload-A" className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <UploadCloud className="w-10 h-10 mb-3 text-slate-400" />
-                          <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                          <p className="text-xs text-slate-500">PDF, DOCX, etc.</p>
-                        </div>
-                        <input id="file-upload-A" type="file" className="absolute inset-0 w-full h-full opacity-0" onChange={(e) => setControlPaperA(e.target.files[0])} />
-                      </label>
-                    )}
-                  </div>
+                  {/* Uploader for Control Paper */}
+<div className="flex flex-col gap-2">
+  <label className="text-bg-[#0F172A] text-base font-semibold">Control Paper</label>
+  {controlPaper ? (
+    <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <File className="w-6 h-6 text-blue-600" />
+        <span className="text-sm font-medium text-slate-800">{controlPaper.name}</span>
+      </div>
+      <button onClick={() => setControlPaper(null)} className="p-1 rounded-full hover:bg-slate-100">
+        <X className="w-4 h-4 text-slate-500" />
+      </button>
+    </div>
+  ) : (
+    <label
+      htmlFor="file-upload"
+      className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100"
+    >
+      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+        <UploadCloud className="w-10 h-10 mb-3 text-slate-400" />
+        <p className="mb-2 text-sm text-slate-500">
+          <span className="font-semibold">Click to upload</span> or drag and drop
+        </p>
+        <p className="text-xs text-slate-500">PDF, DOCX, etc.</p>
+      </div>
+      <input
+        id="file-upload"
+        type="file"
+        className="absolute inset-0 w-full h-full opacity-0"
+        onChange={(e) => setControlPaper(e.target.files[0])}
+      />
+    </label>
+  )}
+</div>
 
-                  {/* Uploader for Control Paper B */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-bg-[#0F172A] text-base font-semibold">Control Paper B</label>
-                    {controlPaperB ? (
-                      <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <File className="w-6 h-6 text-green-600" />
-                          <span className="text-sm font-medium text-slate-800">{controlPaperB.name}</span>
-                        </div>
-                        <button onClick={() => setControlPaperB(null)} className="p-1 rounded-full hover:bg-slate-100">
-                          <X className="w-4 h-4 text-slate-500" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label htmlFor="file-upload-B" className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <UploadCloud className="w-10 h-10 mb-3 text-slate-400" />
-                          <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                          <p className="text-xs text-slate-500">PDF, DOCX, etc.</p>
-                        </div>
-                        <input id="file-upload-B" type="file" className="absolute inset-0 w-full h-full opacity-0" onChange={(e) => setControlPaperB(e.target.files[0])} />
-                      </label>
-                    )}
-                  </div>
+
+                  
+                  
                 </div>
               </div>
             )}
@@ -664,24 +655,18 @@ export default function CreateAssignment() {
                   ))}
                 </div>
 
-                {/* Control Papers Review */}
-                <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Control Papers</div>
-                <div className="p-4 bg-white rounded-lg border border-slate-300 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3">
-                    <File className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <p className="font-semibold text-sm">Control Paper A</p>
-                      <p className="text-xs text-slate-600">{controlPaperA?.name || 'No file selected'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <File className="w-5 h-5 text-green-600" />
-                    <div>
-                      <p className="font-semibold text-sm">Control Paper B</p>
-                      <p className="text-xs text-slate-600">{controlPaperB?.name || 'No file selected'}</p>
-                    </div>
-                  </div>
+                {/* Control Paper Review */}
+                <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">
+                  Control Paper
                 </div>
+                <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center gap-3">
+                  <File className="w-5 h-5 text-blue-600" />
+                <div>
+                <p className="font-semibold text-sm">Control Paper</p>
+                <p className="text-xs text-slate-600">{controlPaper?.name || 'No file selected'}</p>
+                </div>
+              </div>
+
 
                 {/* Rubric Review */}
                 <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Final Rubric</div>

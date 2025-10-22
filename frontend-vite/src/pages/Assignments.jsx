@@ -15,9 +15,13 @@ export default function Assignments() {
     const [selectedStatus, setSelectedStatus] = useState("");
     const [searchQuery, setSearchQuery] = useState(""); // Added searchQuery state
     const [currentUserRole, setCurrentUserRole] = useState(null);
+    const [currentUserId, setCurrentUserId] = useState(null);
+
+
+
 
     useEffect(() => {
-        const fetchUserRole = async () => {
+        const fetchUserRole = async () => { // Fetch current user's role in the team
             const token = localStorage.getItem("token");
             if (!token) return navigate("/login");
 
@@ -26,14 +30,17 @@ export default function Assignments() {
             headers: { Authorization: `Bearer ${token}` },
         });
         setCurrentUserRole(res.data.role);
+        setCurrentUserId(res.data.userId);
         } catch (err) {
             console.error("Error fetching user role:", err);
             }
         };
 
-        fetchUserRole();// Fetch current user's role in the team
+        fetchUserRole();
 
+    }, [teamId, navigate]);
 
+    useEffect(() => {
         const fetchAssignments = async () => {
             const token = localStorage.getItem("token");
             if (!token) return navigate("/login");
@@ -48,44 +55,92 @@ export default function Assignments() {
                 ...a,
                 markers: [],
                 markersAlreadyMarked: 0,
+                myCompleted: false,
             }));
 
             const settled = await Promise.allSettled(
                 base.map(a =>
                 api.get(`/team/${teamId}/assignments/${a.id}/details`, {
                     headers: { Authorization: `Bearer ${token}` },
+                    
                 })
                 )
             );
 
-            const withMarkers = base.map((a, idx) => {
-                const r = settled[idx];
-                if (r.status === "fulfilled") {
-                    const data = r.value?.data || {};
-                    const ms = data.markers || [];
-                    return {
-                        ...a,
-                        markers: ms.map(m => ({ id: m.id, name: m.name })), 
-                        markersAlreadyMarked: data.markersAlreadyMarked ?? 0, // Default to 0 if undefined
-                    };
-                }
-                return { ...a, markers: [], markersAlreadyMarked: 0 };
-            });
+        const withMarkers = base.map((a, idx) => {
+        const r = settled[idx];
+        if (r.status === "fulfilled") {
+          const data = r.value?.data || {};
+          const ms = data.markers || [];
+
+          return {
+            ...a,
+            // Populate markers and myCompleted based on fetched data
+            markers: ms.map(m => ({ id: m.id, name: m.name, completed: m.completed ?? false })),
+            markersAlreadyMarked: data.markersAlreadyMarked ?? 0,
+            // Use personalComplete from backend to set myCompleted
+            myCompleted: data.currentUser?.personalComplete ?? false,
+          };
+        }   return { ...a, markers: [], markersAlreadyMarked: 0, myCompleted: false };
+      });
+
+
+        
+        
 
             setAssignments(withMarkers);
             } catch (err) {
-            console.error("Error fetching assignments:", err);
+                console.error("Error fetching assignments:", err);
             } finally {
-            setIsLoading(false);
+                setIsLoading(false);
             }
         };
 
         fetchAssignments();
-        }, [teamId, navigate]);
+        }, [teamId, navigate, currentUserId]);
+
+        const markComplete = async (assignmentId, paperId, scores) => {
+            const token = localStorage.getItem("token");
+            if (!token) return navigate("/login");
+
+            try {
+            const res = await api.post(
+            `/assignments/${assignmentId}/mark`,
+            { paperId, scores },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        // Update local state to reflect the marking completion
+        setAssignments(prev =>
+            prev.map(a => {
+                if (a.id !== assignmentId) return a;
+
+                const updatedMarkers = a.markers.map(m =>
+                m.id === currentUserId ? { ...m, completed: true } : m
+            );
+            const updatedCompletedCount = Math.min(
+            (a.markersAlreadyMarked || 0) + 1,
+            a.markers.length
+        );
+
+            return {
+                ...a,
+                myCompleted: true,
+                markers: updatedMarkers,
+                markersAlreadyMarked: updatedCompletedCount,
+                status: res.data.status || a.status,
+            };
+            })
+        );
+        } catch (err) {
+            console.error("Error submitting marks:", err);
+        }
+    };
 
         // Debug: Log assignments to verify data
         assignments.forEach(a => {
             console.log(`Assignment: ${a.course_name}`);
+            console.log("Completed by current user:", a.myCompleted);
             console.log("Markers:", a.markers?.map(m => m.name).join(", ") || "No markers");
             console.log("Markers Already Marked:", a.markersAlreadyMarked);
             console.log("Status:", a.status);
@@ -93,6 +148,7 @@ export default function Assignments() {
         });
 
         // Implemented frontend filtering
+        /*
         const filteredAssignments = useMemo(() => {
             return assignments.filter(assignment => {
                 // Semester filter logic
@@ -110,7 +166,45 @@ export default function Assignments() {
 
                 return semesterMatch && statusMatch && searchMatch;
             });
-        }, [assignments, selectedSemester, selectedStatus, searchQuery]);
+        }, [assignments, selectedSemester, selectedStatus, searchQuery]);*/
+        // --- Filtering logic ---
+        const filteredAssignments = useMemo(() => {
+            return assignments.filter((assignment) => {
+            const semesterMatch =
+            !selectedSemester ||
+            selectedSemester === "All Semesters" ||
+            `Semester ${assignment.semester}` === selectedSemester;
+
+            let statusMatch = true;
+            if (selectedStatus && selectedStatus !== "All Status") {
+                if (currentUserRole === "admin") {
+                // Admin sees backend assignment.status
+                statusMatch = assignment.status?.toUpperCase() === selectedStatus.toUpperCase();
+            } else if (currentUserRole === "tutor") {
+                // Tutor sees own marking progress
+                const myStatus = assignment.myCompleted ? "COMPLETED" : "MARKING";
+                statusMatch = myStatus === selectedStatus.toUpperCase();
+            }
+        }
+
+            let searchMatch = false;
+            if (currentUserRole === "tutor") {
+                const myStatus = assignment.myCompleted ? "Completed" : "Marking";
+                searchMatch =
+                    assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    assignment.course_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    myStatus.toLowerCase().includes(searchQuery.toLowerCase());
+                } else if (currentUserRole === "admin") {
+                searchMatch =
+                    assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    assignment.course_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    assignment.status.toLowerCase().includes(searchQuery.toLowerCase());
+            }
+
+                return semesterMatch && statusMatch && searchMatch;
+            });
+        }, [assignments, selectedSemester, selectedStatus, searchQuery, currentUserRole]);
+
 
 
         if (isLoading) {
@@ -137,36 +231,37 @@ export default function Assignments() {
             }
         };
 
-
     return (
-    <div className="flex min-h-screen">
+        <div className="flex min-h-screen">
+        {/* Sidebar */}
         <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
-            <Sidebar activeTab={1}/>
+            <Sidebar activeTab={1} />
         </aside>
 
+        {/* Main Content */}
         <div className="ml-56 flex-1 flex flex-col bg-white">
-            <Navbar onBurgerClick={() => setMenuOpen(v => !v)}/>
-            <MenuItem 
-                menuOpen={menuOpen}
-                onClose={() => setMenuOpen(false)}
-            />
-            <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-white ${menuOpen ? "ml-56" : "mr-0"}`}>
-                <div className="flex justify-between items-center mb-0 px-6 py-6">
-                    <div className="text-offical-black text-3xl font-bold pt-4 pb-4">
-                        Assignments
-                    </div>
-                    <button 
-                        className="px-4 py-2 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
-                        onClick={() => navigate(`/team/${teamId}/assignments/new`)}
-                    >
-                        <span className="text-white text-lg font-base">
-                        + New Assignment
-                        </span>
-                    </button>
-                </div>
-               
+            <Navbar onBurgerClick={() => setMenuOpen((v) => !v)} />
+            <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
 
-                {/* Select and Search form */}
+        <div
+            className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-white ${
+            menuOpen ? "ml-56" : "mr-0"
+        }`}
+        >
+        {/* Header & New Assignment Button */}
+        <div className="flex justify-between items-center mb-0 px-6 py-6">
+            <div className="text-offical-black text-3xl font-bold pt-4 pb-4">
+            Assignments
+            </div>
+            <button
+            className="px-4 py-2 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition"
+            onClick={() => navigate(`/team/${teamId}/assignments/new`)}
+            >
+            <span className="text-white text-lg font-base">+ New Assignment</span>
+            </button>
+        </div>
+
+        {/* Select and Search form */}
                 <div className="flex items-center gap-4 px-6 mb-4">
                     <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
                         <span className="flex-1 text-zinc-600 text-sm font-normal">
@@ -220,60 +315,86 @@ export default function Assignments() {
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-4 px-6 py-4">
-                {/* Mapping over 'filteredAssignments' now */}
-                {filteredAssignments.map((assignment) => (
-                    <div
-                        key={assignment.id}
-                        onClick={() => handleNav(`assignments/${assignment.id}`)} // Fixed navigation path
-                        className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex flex-col justify-start items-start gap-1.5"
-                        >
-
-                        {/* 'semester' from the API */}
-                        <div className="w-60 inline-flex justify-between">
-                            Semester {assignment.semester}
-                            <div className="w-16 h-7 px-4 py-2 bg-slate-100 rounded-[50px] outline outline-1 outline-offset-[-1px] outline-slate-200 inline-flex justify-center items-center gap-2.5">
-                                <div className="justify-start text-slate-900 text-xs font-medium font-['Inter'] leading-normal">{assignment.status}</div>
-                            </div>                        
-                        </div>
-                        
-
-                        {/* Using 'course_name' instead of 'title' */}
-                        <div className="w-36 flex flex-col items-start gap-8">
-                            <div className="w-48 text-offical-black text-2xl font-medium font-['Inter'] leading-7 text-left">{assignment.course_name}</div>
-                        </div>
-                        
-                        {/* Using 'course_code' from the API */}
-                        <div className="text-sm text-gray-500 mb-2">
-                            {assignment.course_code}
-                        </div>
-                        
-                        <div className="justify-start text-black text-xs font-normal font-['Inter'] leading-7">
-                            {assignment.markersAlreadyMarked || 0} / {assignment.markers?.length || 0} 
-                            ({((assignment.markersAlreadyMarked || 0) / (assignment.markers?.length || 0) * 100).toFixed(0)}%)
-                        </div>
-
-                        <div className="flex-grow"></div> {/* Pushes due date to the bottom */}
-                        
-                        <div className="mt-4 text-xs text-gray-400">
-                            {/* Formatting the due date for better readability */}
-                            Due: {new Date(assignment.due_date).toLocaleDateString()}
-                        </div>
-
-                        {/* Delete button outside the clickable area */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation(); // stop click bubbling to card
-                                handleDelete(assignment.id);
-                            }}
-                            className="mt-2 self-end px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
-                        >
-                        Delete
-                        </button>
+        {/* Assignments List */}
+        <div className="flex flex-wrap gap-4 px-6 py-4">
+            {filteredAssignments.map((assignment) => (
+            <div
+                key={assignment.id}
+                onClick={() => handleNav(`assignments/${assignment.id}`)}
+                className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex flex-col justify-start items-start gap-1.5"
+            >
+              {/* Header Row */}
+                <div className="w-60 inline-flex justify-between">
+                Semester {assignment.semester}
+                <div
+                    className={`w-20 h-7 px-4 py-2 rounded-[50px] outline outline-1 outline-offset-[-1px]
+                    ${
+                        currentUserRole === "admin"
+                        ? assignment.status === "Completed"
+                            ? "bg-green-100 outline-green-300"
+                            : "bg-yellow-100 outline-yellow-300"
+                        : assignment.myCompleted
+                        ? "bg-green-100 outline-green-300"
+                        : "bg-yellow-100 outline-yellow-300"
+                    }
+                    inline-flex justify-center items-center gap-2.5`}
+                >
+                    <div className="text-xs font-medium">
+                    {currentUserRole === "admin"
+                        ? assignment.status
+                        : assignment.myCompleted
+                        ? "Completed"
+                        : "Marking"}
                     </div>
-                ))}
                 </div>
             </div>
+
+              {/* Course Info */}
+                <div className="w-36 flex flex-col items-start gap-8">
+                <div className="w-48 text-offical-black text-2xl font-medium leading-7 text-left">
+                    {assignment.course_name}
+                </div>
+                </div>
+            <div className="text-sm text-gray-500 mb-2">
+                {assignment.course_code}
+            </div>
+
+              {/* Progress */}
+                <div className="justify-start text-black text-xs font-normal leading-7">
+                    {assignment.markersAlreadyMarked || 0} / {assignment.markers?.length || 0} (
+                    {assignment.markers?.length
+                    ? (
+                        ((assignment.markersAlreadyMarked || 0) /
+                        assignment.markers.length) *
+                        100
+                        ).toFixed(0)
+                    : 0}
+                %)
+                </div>
+
+              {/* Due Date & Delete */}
+                <div className="flex-grow"></div>
+                <div className="mt-4 text-xs text-gray-400">
+                Due: {new Date(assignment.due_date).toLocaleDateString()}
+                </div>
+
+                {currentUserRole === "admin" && (
+                    <button
+                        onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(assignment.id);
+                }}
+                className="mt-2 self-end px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
+                >
+                    Delete
+                </button>
+            )}
+            </div>
+        ))}
+        </div>
         </div>
     </div>
-    )};
+    </div>
+)
+
+};

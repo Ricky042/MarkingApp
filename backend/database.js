@@ -86,6 +86,23 @@ async function initDB() {
         UNIQUE(assignment_id, user_id)
       );
     `);
+    // Add 'completed' column to assignment_markers if it doesn't exist
+    await pool.query(`
+    DO $$
+    BEGIN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'assignment_markers'
+      AND column_name = 'completed'
+    ) THEN
+      ALTER TABLE assignment_markers ADD COLUMN completed BOOLEAN NOT NULL DEFAULT FALSE;
+        END IF;
+      END
+      $$;
+    `);
+
+    
 
     // RUBRIC_CRITERIA (Each row of the rubric)
     await pool.query(`
