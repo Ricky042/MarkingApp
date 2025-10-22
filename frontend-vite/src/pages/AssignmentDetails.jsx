@@ -88,7 +88,7 @@ function ScoreComparisonTable({ data }) {
   return (
     <div className="mt-8 bg-white p-6 rounded-lg border border-slate-200">
       <h3 className="text-xl font-semibold mb-4 text-slate-900">Marker Score Comparison</h3>
-      
+
       <div className="mb-4">
         <label htmlFor="paper-select" className="block text-sm font-medium text-slate-700 mb-1">
           Showing scores for:
@@ -110,7 +110,7 @@ function ScoreComparisonTable({ data }) {
           <thead className="bg-slate-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-1/4">Rubric Criterion</th>
-              
+
               {standardMarker && (
                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
                   {standardMarker.name} (Standard)
@@ -127,11 +127,11 @@ function ScoreComparisonTable({ data }) {
           <tbody className="bg-white divide-y divide-slate-200">
             {rubric.map(category => {
               const standardScore = standardScores ? getScore(standardMarkerId, category.id) : undefined;
-              
+
               return (
                 <tr key={category.id}>
                   <td className="px-6 py-4 whitespace-normal font-medium text-slate-900">{category.categoryName}</td>
-                  
+
                   {standardMarker && (
                     <td className="px-6 py-4 whitespace-nowrap text-center font-bold bg-slate-50 text-slate-800">
                       {typeof standardScore === 'number' ? standardScore : 'N/A'}
@@ -143,9 +143,10 @@ function ScoreComparisonTable({ data }) {
                     let cellColor = 'bg-white';
                     if (isStandardMarked && typeof markerScore === 'number' && typeof standardScore === 'number') {
                       const difference = Math.abs(markerScore - standardScore);
-                      const deviation = category.deviationScore;
-                      if (difference < deviation) cellColor = 'bg-green-100 text-green-900';
-                      else if (difference === deviation) cellColor = 'bg-yellow-100 text-yellow-900';
+                      const deviationPercentage = category.deviationScore;
+                      const deviationThreshold = (deviationPercentage / 100) * category.maxScore;
+                      if (difference < deviationThreshold) cellColor = 'bg-green-100 text-green-900';
+                      else if (difference === deviationThreshold) cellColor = 'bg-yellow-100 text-yellow-900';
                       else cellColor = 'bg-red-100 text-red-900';
                     }
 
@@ -188,7 +189,7 @@ export default function AssignmentDetails() {
         const response = await api.get(`/team/${teamId}/assignments/${assignmentId}/details`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         const data = response.data;
         setAssignmentData(data);
 
@@ -228,8 +229,8 @@ export default function AssignmentDetails() {
       <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
 
-        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} assignmentName={assignmentDetails.course_name} assignmentSemester={assignmentDetails.semester}/>
-        
+        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} assignmentName={assignmentDetails.course_name} assignmentSemester={assignmentDetails.semester} />
+
         <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
 
           <main className="p-6">
@@ -243,7 +244,7 @@ export default function AssignmentDetails() {
               teamId={teamId}
               assignmentId={assignmentId}
             />
-            
+
             {/* --- THE FIX IS HERE --- */}
             {/* We are now ALWAYS rendering the ScoreComparisonTable for every user. */}
             {/* This removes the dependency on the user's role for now. */}

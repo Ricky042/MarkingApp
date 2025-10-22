@@ -31,8 +31,8 @@ const verificationCodes = {};
 
 // Middleware Setup
 const allowedOrigins = [
-  "http://localhost:5173",      
-  "https://markingapp-frontend.onrender.com"  
+  "http://localhost:5173",
+  "https://markingapp-frontend.onrender.com"
 ];
 
 app.use(
@@ -50,6 +50,7 @@ app.use(
 );
 
 app.use(bodyParser.json());
+
 
 // Nodemailer Configuration
 const transporter = nodemailer.createTransport({
@@ -169,10 +170,10 @@ app.post("/login", async (req, res) => {
     const token = generateToken(user);
 
     // Include minimal user info in the response
-    res.json({ 
-      message: "Login successful", 
-      token, 
-      user: { id: user.id, username: user.username } 
+    res.json({
+      message: "Login successful",
+      token,
+      user: { id: user.id, username: user.username }
     });
   } catch (err) {
     console.error(err);
@@ -343,7 +344,7 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
        WHERE tm.team_id=$1`,
       [teamId]
     );
-    
+
     if (result.rows.length === 0) return res.status(404).json({ error: "No team members found" });
     res.json({ members: result.rows });
   } catch (err) {
@@ -356,7 +357,7 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
 app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   // Destructure both emails and the new message field
-  const { emails, message } = req.body; 
+  const { emails, message } = req.body;
   const inviterId = req.user.id;
 
   if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -397,7 +398,7 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
       );
 
       const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
-      
+
       // --- Start of email message logic ---
       // Build the email HTML dynamically
       let emailHtml = `<p>You have been invited to join a team.</p>`;
@@ -411,7 +412,7 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
           </div>
         `;
       }
-      
+
       emailHtml += `
         <p>Click the button below to accept the invitation:</p>
         <a href="${inviteUrl}" style="display: inline-block; padding: 10px 20px; background-color: #0F172A; color: #ffffff; text-decoration: none; border-radius: 5px;">
@@ -570,7 +571,7 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
        ORDER BY T.criterion_id ASC, T.upper_bound DESC`, // Order is important for assembly
       [assignmentId]
     );
-    
+
     // Run all queries in parallel for better performance
     const [assignmentRes, markersRes, criteriaRes, tiersRes] = await Promise.all([
       assignmentQuery,
@@ -606,7 +607,7 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
       markers: markersRes.rows,
       rubric: finalRubric,
     };
-    
+
     res.json(finalResponse);
 
   } catch (err) {
@@ -625,22 +626,21 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
 // including the S3 file uploads for control papers.
 // ----------------------------------------------------------------------------------
 
-app.post("/assignments", authenticateToken, upload.fields([
-  { name: 'controlPaperA', maxCount: 1 },
-  { name: 'controlPaperB', maxCount: 1 }
-]), async (req, res) => {
+app.post("/assignments", authenticateToken,
+  upload.single('controlPaper'), async (req, res) => {
   const client = await pool.connect();
   try {
     // STEP 1: PARSE INCOMING DATA
-    const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
+    const file = req.file;
     const createdById = req.user.id;
+    const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
+    
+    
 
-    const fileA = req.files.controlPaperA?.[0];
-    const fileB = req.files.controlPaperB?.[0];
-
-    if (!fileA || !fileB) {
-      return res.status(400).json({ message: "Both control papers must be uploaded." });
+    if (!file) {
+      return res.status(400).json({ message: "A control paper must be uploaded." });
     }
+
 
     const fs = require('fs');
     const path = require('path');
@@ -682,7 +682,7 @@ app.post("/assignments", authenticateToken, upload.fields([
 
       await new Promise((resolve, reject) => {
         const originalConsoleWarn = console.warn;
-        console.warn = () => {}; // suppress docx-pdf warnings
+        console.warn = () => { }; // suppress docx-pdf warnings
 
         docxConverter(inputPath, outputPath, (err, result) => {
           console.warn = originalConsoleWarn;
@@ -715,23 +715,26 @@ app.post("/assignments", authenticateToken, upload.fields([
     const cleanupFiles = (files) => {
       files.forEach(file => {
         if (file && fs.existsSync(file)) {
-          try { fs.unlinkSync(file); } 
+          try { fs.unlinkSync(file); }
           catch (err) { console.warn('Failed to delete temp file:', file, err.message); }
         }
       });
     };
 
     // --- PROCESS FILES ---
-    const localA = await downloadS3File(fileA.bucket, fileA.key, fileA.originalname);
-    const localB = await downloadS3File(fileB.bucket, fileB.key, fileB.originalname);
+    const local = await downloadS3File(file.bucket, file.key, file.originalname);
+    //const local = file.path;
 
-    const pdfAPath = await convertToPdf(localA);
-    const pdfBPath = await convertToPdf(localB);
+    
+    const pdfPath = await convertToPdf(local);
+  
 
-    const controlPaperAPath = await uploadPdfToS3(pdfAPath, fileA.originalname);
-    const controlPaperBPath = await uploadPdfToS3(pdfBPath, fileB.originalname);
-
-    cleanupFiles([localA, localB, pdfAPath, pdfBPath]);
+    const controlPaperPath = await uploadPdfToS3(pdfPath, file.originalname);
+   
+    if (!controlPaperPath) {
+      throw new Error("Failed to upload control paper PDF to S3.");
+    }
+    
 
     // --- DATABASE TRANSACTION STARTS ---
     await client.query('BEGIN');
@@ -754,11 +757,11 @@ app.post("/assignments", authenticateToken, upload.fields([
 
     // STEP 3: Create control paper submissions
     const submissionsSql = `
-      INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
-      VALUES ($1, 'cp-A', TRUE, $2), 
-             ($1, 'cp-B', TRUE, $3);
-    `;
-    await client.query(submissionsSql, [newAssignmentId, controlPaperAPath, controlPaperBPath]);
+        INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
+        VALUES ($1, 'cp-A', TRUE, $2);
+      `;
+    await client.query(submissionsSql, [newAssignmentId, controlPaperPath]);
+
 
     // STEP 4: Insert assigned markers
     if (markers?.length > 0) {
@@ -776,7 +779,13 @@ app.post("/assignments", authenticateToken, upload.fields([
       VALUES ($1, $2, $3, $4, $5);
     `;
     for (const criterion of rubric) {
-      const criteriaValues = [newAssignmentId, criterion.criteria, criterion.points, criterion.deviation];
+      const deviationPct = Number(criterion.deviation);
+      if (!Number.isFinite(deviationPct) || deviationPct < 0 || deviationPct > 100) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: `Invalid deviation percentage: ${criterion.deviation}. Must be between 0 and 100.` });
+      }
+
+      const criteriaValues = [newAssignmentId, criterion.criteria, criterion.points, deviationPct];
       const newCriterion = await client.query(criteriaSql, criteriaValues);
       const newCriterionId = newCriterion.rows[0].id;
 
@@ -788,23 +797,28 @@ app.post("/assignments", authenticateToken, upload.fields([
 
     // --- COMMIT TRANSACTION ---
     await client.query('COMMIT');
+    cleanupFiles([local, pdfPath]);
     res.status(201).json({ message: 'Assignment created successfully!', assignmentId: newAssignmentId });
 
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error creating assignment:', error);
-    res.status(500).json({ message: 'Failed to create assignment due to a server error.' });
-  } finally {
-    client.release();
-  }
+    
+  }  catch (error) {
+  await client.query('ROLLBACK');
+  console.error('Error creating assignment:', error.message);
+  console.error(error.stack);
+  res.status(500).json({
+    message: `Server error: ${error.message}`,
+  });
+} finally {
+  client.release();
+}
+
 });
+
 
 
 ////////////////////////////////////////////////////////////////////
 //  Assignments deletion
 ////////////////////////////////////////////////////////////////////
-
-
 
 app.delete("/assignments/:id", authenticateToken, async (req, res) => {
   const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
@@ -908,6 +922,36 @@ app.get("/users/:id", authenticateToken, async (req, res) => {
   }
 });
 
+
+
+////////////////////////////////////////////////////
+// User Role checking
+////////////////////////////////////////////////////
+app.get("/team/:teamId/role", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+
+  try {
+    const teamIdInt = parseInt(teamId, 10);
+    const result = await pool.query(
+      `SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2`,
+      [currentUserId, teamIdInt]
+    );
+
+    
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Role not found for this team" });
+    }
+
+    res.json({ role: result.rows[0].role });
+  } catch (error) {
+    console.error("Error fetching user role:", error);
+    res.status(500).json({ message: "Server error while fetching user role" });
+  }
+});
+
+
 ////////////////////////////////////////////////////
 // Assignment Stuff
 ////////////////////////////////////////////////////
@@ -951,7 +995,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
        ORDER BY id ASC`,
       [assignmentId]
     );
-    
+
     // Query 4: Get all submitted marks for the control papers associated with this assignment.
     const marksQuery = pool.query(
       `SELECT
@@ -990,11 +1034,21 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
-    // Query 6: Get the current user's role ('admin' or 'tutor') for THIS specific team.
+
+    // Query 8: Get the current user's role ('admin' or 'tutor') for THIS specific team.
     const userRoleQuery = pool.query(
       `SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2`,
       [currentUserId, teamId]
     );
+
+    // Query 9: Get current user's completion status for this assignment (from assignment_markers)
+    const personalStatusQuery = pool.query(
+      `SELECT completed 
+      FROM assignment_markers 
+      WHERE assignment_id = $1 AND user_id = $2`,
+      [assignmentId, currentUserId]
+    );
+    console.log("If completed: ", personalStatusQuery);
 
     // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL FOR PERFORMANCE ---
     const [
@@ -1004,7 +1058,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       marksRes,
       submissionsRes,
       userRoleRes,
-      markersAlreadyMarkedRes
+      markersAlreadyMarkedRes,
+      personalStatusRes
     ] = await Promise.all([
       assignmentQuery,
       markersQuery,
@@ -1012,14 +1067,16 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       marksQuery,
       submissionsQuery,
       userRoleQuery,
-      markersAlreadyMarkedQuery
+      markersAlreadyMarkedQuery,
+      personalStatusQuery
     ]);
+    
 
     // If the assignment query returns no rows, the user either doesn't have access or the assignment doesn't exist.
     if (assignmentRes.rows.length === 0) {
       return res.status(404).json({ message: "Assignment not found or you do not have access." });
     }
-    
+
     // Extract the role from the new query result. Default to 'tutor' as a safe fallback.
     const currentUserRole = userRoleRes.rows[0]?.role || 'tutor';
 
@@ -1029,12 +1086,11 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
     const controlPapersMap = new Map();
     const filePaths = {};
     submissionsRes.rows.forEach(row => {
-        filePaths[row.student_identifier] = row.file_path;
+      filePaths[row.student_identifier] = row.file_path;
     });
 
     // Initialize the paper objects with their file paths.
-    controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper A', marks: [], filePath: filePaths['cp-A'] || null });
-    controlPapersMap.set('cp-B', { id: 'cp-B', name: 'Control Paper B', marks: [], filePath: filePaths['cp-B'] || null });
+    controlPapersMap.set('cp-A', { id: 'cp-A', name: 'Control Paper', marks: [], filePath: filePaths['cp-A'] || null });
 
     // Group the raw marks data by marker and paper for easy consumption by the frontend.
     const marksByMarkerAndPaper = new Map();
@@ -1062,7 +1118,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       assignmentDetails: assignmentRes.rows[0], // This object now includes the `created_by` field.
       currentUser: {
         id: currentUserId,
-        role: currentUserRole // This now includes the user's team-specific role.
+        role: currentUserRole, // This now includes the user's team-specific role.
+        personalComplete: personalStatusRes.rows[0]?.completed || false
       },
       markers: markersRes.rows.map(marker => ({
         id: marker.id,
@@ -1144,12 +1201,47 @@ app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) 
       await client.query(insertSql, values);
     }
 
-    // --- STEP 6: COMMIT THE TRANSACTION ---
-    // If all the above queries succeeded, permanently save the changes.
-    await client.query('COMMIT');
+    await client.query(// Mark this tutor as completed in assignment_markers
+      `UPDATE assignment_markers
+       SET completed = TRUE
+       WHERE assignment_id = $1 AND user_id = $2`,
+      [assignmentId, tutorId]
+    );
+    
 
-    // Send a success response.
-    res.status(201).json({ message: `Marks for ${paperId} submitted successfully!` });
+
+    // --- STEP 6: MARK STATUS AS COMPLETED ---
+     const totalRes = await client.query(
+      `SELECT COUNT(*) AS total FROM assignment_markers WHERE assignment_id = $1`,
+      [assignmentId]
+    );
+    const completedRes = await client.query(
+      `SELECT COUNT(*) AS completed FROM assignment_markers WHERE assignment_id = $1 AND completed = TRUE`,
+      [assignmentId]
+    );
+
+    const total = parseInt(totalRes.rows[0].total, 10);
+    const completed = parseInt(completedRes.rows[0].completed, 10);
+
+    let assignmentStatus = "Marking";
+    if (completed === total) {
+      assignmentStatus = "Completed";
+      await client.query(
+        `UPDATE assignments SET status = $1 WHERE id = $2`,
+        [assignmentStatus, assignmentId]
+      );
+    }
+
+    // --- Step 7: Return response to frontend ---
+    res.status(201).json({
+      message: `Marks for ${paperId} submitted successfully!`,
+      myCompleted: true,
+      status: assignmentStatus
+    });
+
+    await client.query("COMMIT");
+
+
 
   } catch (error) {
     // If any error occurred in the 'try' block, undo all database changes.
@@ -1162,6 +1254,32 @@ app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) 
   }
 });
 
+// ==========================
+// GET /team/:teamId/markers
+// ==========================
+app.get("/team/:teamId/markers", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        tm.id AS team_member_id,
+        u.id AS user_id,
+        u.username,
+        tm.role,
+        tm.joined_at
+      FROM team_members tm
+      INNER JOIN users u ON tm.user_id = u.id
+      WHERE tm.team_id = $1
+      ORDER BY tm.joined_at ASC;
+    `, [teamId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching team markers:", err);
+    res.status(500).json({ message: "Failed to fetch markers." });
+  }
+});
 
 /////////////////////
 // Start Server
