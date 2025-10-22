@@ -115,39 +115,6 @@ export default function MarkingPage() {
     }));
   };
 
-  /*const handleSubmitMarks = async () => {
-    const marksForCurrentPaper = marks[selectedPaperId];
-    const rubricCategories = assignmentData.rubric;
-
-    if (!marksForCurrentPaper || rubricCategories.some(cat => marksForCurrentPaper[cat.id] === undefined || marksForCurrentPaper[cat.id] === '')) {
-      alert("Please enter a score for every rubric category before submitting.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        paperId: selectedPaperId,
-        scores: Object.entries(marksForCurrentPaper).map(([criterionId, score]) => ({
-          criterionId: Number(criterionId),
-          score: Number(score)
-        })),
-      };
-
-      const token = localStorage.getItem("token");
-      await api.post(`/assignments/${assignmentId}/mark`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      alert(`Marks for ${selectedPaperId} submitted successfully!`);
-      navigate(`/team/${teamId}/assignments/${assignmentId}`);
-
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to submit marks. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };*/
   const handleSubmitMarks = async () => {
   const marksForCurrentPaper = marks[selectedPaperId];
   const rubricCategories = assignmentData.rubric;

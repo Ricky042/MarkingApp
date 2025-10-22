@@ -246,7 +246,8 @@ export default function CreateAssignment() {
     }
 
     const formData = new FormData();
-    formData.append('controlPaper', controlPaper); 
+    formData.append('controlPaper', controlPaper);
+    console.log('Uploading control paper:');
 
 
     const payload = {

@@ -50,7 +50,7 @@ app.use(
 );
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
 
 // Nodemailer Configuration
 const transporter = nodemailer.createTransport({
@@ -631,11 +631,11 @@ app.post("/assignments", authenticateToken,
   const client = await pool.connect();
   try {
     // STEP 1: PARSE INCOMING DATA
-    const createdById = req.user.id;
     const file = req.file;
+    const createdById = req.user.id;
     const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
-
-
+    
+    
 
     if (!file) {
       return res.status(400).json({ message: "A control paper must be uploaded." });
@@ -722,8 +722,8 @@ app.post("/assignments", authenticateToken,
     };
 
     // --- PROCESS FILES ---
-    //const local = await downloadS3File(file.bucket, file.key, file.originalname);
-    const local = file.path;
+    const local = await downloadS3File(file.bucket, file.key, file.originalname);
+    //const local = file.path;
 
     
     const pdfPath = await convertToPdf(local);
@@ -731,8 +731,10 @@ app.post("/assignments", authenticateToken,
 
     const controlPaperPath = await uploadPdfToS3(pdfPath, file.originalname);
    
-
-    cleanupFiles([local, pdfPath]);
+    if (!controlPaperPath) {
+      throw new Error("Failed to upload control paper PDF to S3.");
+    }
+    
 
     // --- DATABASE TRANSACTION STARTS ---
     await client.query('BEGIN');
@@ -795,6 +797,7 @@ app.post("/assignments", authenticateToken,
 
     // --- COMMIT TRANSACTION ---
     await client.query('COMMIT');
+    cleanupFiles([local, pdfPath]);
     res.status(201).json({ message: 'Assignment created successfully!', assignmentId: newAssignmentId });
 
     
@@ -809,58 +812,6 @@ app.post("/assignments", authenticateToken,
   client.release();
 }
 
-});
-
-////////////////////////////////////////////////////////////////////
-//  Assignments change status
-////////////////////////////////////////////////////////////////////
-
-app.post("/assignments/:assignmentId/mark/complete", authenticateToken, async (req, res) => {
-  const client = await pool.connect();
-  const { assignmentId } = req.params;
-  const tutorId = req.user.id;
-
-  try {
-    await client.query("BEGIN");
-
-    //  Mark this tutor as completed in assignment_markers
-    await client.query(
-      `UPDATE assignment_markers
-       SET completed = TRUE
-       WHERE assignment_id = $1 AND user_id = $2`,
-      [assignmentId, tutorId]
-    );
-
-    // Count how many tutors total and how many have completed
-    const totalRes = await client.query(
-      `SELECT COUNT(*) AS total FROM assignment_markers WHERE assignment_id = $1`,
-      [assignmentId]
-    );
-    const completedRes = await client.query(
-      `SELECT COUNT(*) AS completed FROM assignment_markers WHERE assignment_id = $1 AND completed = TRUE`,
-      [assignmentId]
-    );
-
-    const total = parseInt(totalRes.rows[0].total, 10);
-    const completed = parseInt(completedRes.rows[0].completed, 10);
-
-    // If all tutors have completed, mark the assignment as 'Completed'
-    const newStatus = completed === total ? "Completed" : "Marking";
-    await client.query(
-      `UPDATE assignments SET status = $1 WHERE id = $2`,
-      [newStatus, assignmentId]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({ message: "Marking completion updated.", status: newStatus });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Error updating marking completion:", err);
-    res.status(500).json({ message: "Server error while updating completion status." });
-  } finally {
-    client.release();
-  }
 });
 
 
@@ -979,7 +930,6 @@ app.get("/users/:id", authenticateToken, async (req, res) => {
 app.get("/team/:teamId/role", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
-  //console.log("API /team/:teamId/role", { teamId, currentUserId });
 
   try {
     const teamIdInt = parseInt(teamId, 10);
@@ -1084,11 +1034,21 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId]
     );
 
-    // Query 6: Get the current user's role ('admin' or 'tutor') for THIS specific team.
+
+    // Query 8: Get the current user's role ('admin' or 'tutor') for THIS specific team.
     const userRoleQuery = pool.query(
       `SELECT role FROM team_members WHERE user_id = $1 AND team_id = $2`,
       [currentUserId, teamId]
     );
+
+    // Query 9: Get current user's completion status for this assignment (from assignment_markers)
+    const personalStatusQuery = pool.query(
+      `SELECT completed 
+      FROM assignment_markers 
+      WHERE assignment_id = $1 AND user_id = $2`,
+      [assignmentId, currentUserId]
+    );
+    console.log("If completed: ", personalStatusQuery);
 
     // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL FOR PERFORMANCE ---
     const [
@@ -1098,7 +1058,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       marksRes,
       submissionsRes,
       userRoleRes,
-      markersAlreadyMarkedRes
+      markersAlreadyMarkedRes,
+      personalStatusRes
     ] = await Promise.all([
       assignmentQuery,
       markersQuery,
@@ -1106,8 +1067,10 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       marksQuery,
       submissionsQuery,
       userRoleQuery,
-      markersAlreadyMarkedQuery
+      markersAlreadyMarkedQuery,
+      personalStatusQuery
     ]);
+    
 
     // If the assignment query returns no rows, the user either doesn't have access or the assignment doesn't exist.
     if (assignmentRes.rows.length === 0) {
@@ -1155,7 +1118,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       assignmentDetails: assignmentRes.rows[0], // This object now includes the `created_by` field.
       currentUser: {
         id: currentUserId,
-        role: currentUserRole // This now includes the user's team-specific role.
+        role: currentUserRole, // This now includes the user's team-specific role.
+        personalComplete: personalStatusRes.rows[0]?.completed || false
       },
       markers: markersRes.rows.map(marker => ({
         id: marker.id,
@@ -1237,12 +1201,47 @@ app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) 
       await client.query(insertSql, values);
     }
 
-    // --- STEP 6: COMMIT THE TRANSACTION ---
-    // If all the above queries succeeded, permanently save the changes.
-    await client.query('COMMIT');
+    await client.query(// Mark this tutor as completed in assignment_markers
+      `UPDATE assignment_markers
+       SET completed = TRUE
+       WHERE assignment_id = $1 AND user_id = $2`,
+      [assignmentId, tutorId]
+    );
+    
 
-    // Send a success response.
-    res.status(201).json({ message: `Marks for ${paperId} submitted successfully!` });
+
+    // --- STEP 6: MARK STATUS AS COMPLETED ---
+     const totalRes = await client.query(
+      `SELECT COUNT(*) AS total FROM assignment_markers WHERE assignment_id = $1`,
+      [assignmentId]
+    );
+    const completedRes = await client.query(
+      `SELECT COUNT(*) AS completed FROM assignment_markers WHERE assignment_id = $1 AND completed = TRUE`,
+      [assignmentId]
+    );
+
+    const total = parseInt(totalRes.rows[0].total, 10);
+    const completed = parseInt(completedRes.rows[0].completed, 10);
+
+    let assignmentStatus = "Marking";
+    if (completed === total) {
+      assignmentStatus = "Completed";
+      await client.query(
+        `UPDATE assignments SET status = $1 WHERE id = $2`,
+        [assignmentStatus, assignmentId]
+      );
+    }
+
+    // --- Step 7: Return response to frontend ---
+    res.status(201).json({
+      message: `Marks for ${paperId} submitted successfully!`,
+      myCompleted: true,
+      status: assignmentStatus
+    });
+
+    await client.query("COMMIT");
+
+
 
   } catch (error) {
     // If any error occurred in the 'try' block, undo all database changes.
