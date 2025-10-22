@@ -235,7 +235,7 @@ export default function TeamDashboard() {
                 Dashboard
               </h1>
               <button 
-                className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
+                className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-[#0E796B] transition" 
                 onClick={() => navigate(`/team/${teamId}/assignments/new`)}
               >
                 <span className="text-white text-lg font-base">
@@ -321,19 +321,19 @@ export default function TeamDashboard() {
                     Quick Actions
                   </h4>
                   {/* *** FIX 1: Corrected the layout and nesting of action items *** */}
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
                     
                     {/* Invite Markers */}
                     <button 
                       onClick={() => setIsInviteModalOpen(true)}
-                      className="inline-flex justify-start items-center gap-2 cursor-pointer hover:opacity-80 text-sm font-medium text-left"
+                      className="inline-flex justify-start items-center gap-2 cursor-pointer hover:bg-[#f8f8f8] rounded-lg px-4 py-2 text-sm font-medium text-left"
                     >
                       <img src="/Dashboard/icon/layout.svg" alt="Invite" className="w-4 h-4" />
                       <span className="text-offical-black text-base font-medium">Invite Markers</span>
                     </button>
 
                     {/* Email Markers */}
-                    <div className="inline-flex justify-start items-center gap-2">
+                    <div className="inline-flex justify-start items-center gap-2 cursor-pointer hover:bg-[#f8f8f8] rounded-lg px-4 py-2">
                       <img src="/Dashboard/icon/layout.svg" alt="Email Markers" className="w-4 h-4" />
                       <div className="text-offical-black text-base font-medium">
                         Email Markers
@@ -349,7 +349,7 @@ export default function TeamDashboard() {
                     </div> */}
 
                     {/* Export Reports */}
-                    <div className="inline-flex justify-start items-center gap-2">
+                    <div className="inline-flex justify-start items-center cursor-pointer gap-2 hover:bg-[#f8f8f8] rounded-lg px-4 py-2">
                       <img src="/Dashboard/icon/users.svg" alt="Export Reports" className="w-4 h-4" />
                       <div className="text-offical-black text-base font-medium">
                         Export Reports

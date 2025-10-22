@@ -34,37 +34,83 @@ const ErrorMessage = ({ message }) => (
 );
 
 function RubricCategory({ category, score, onScoreChange }) {
+  const [selectedGrade, setSelectedGrade] = useState(null);
+  const [feedback, setFeedback] = useState('');
+
+  const grades = [
+    { name: 'HD', label: 'High Distinction', color: 'bg-deakinTeal text-white' },
+    { name: 'D', label: 'Distinction', color: 'bg-white text-deakinTeal border border-deakinTeal' },
+    { name: 'C', label: 'Credit', color: 'bg-white text-deakinTeal border border-deakinTeal' },
+    { name: 'P', label: 'Pass', color: 'bg-white text-deakinTeal border border-deakinTeal' },
+    { name: 'F', label: 'Fail', color: 'bg-white text-deakinTeal border border-deakinTeal' }
+  ];
+
+  const handleGradeSelect = (grade) => {
+    setSelectedGrade(grade);
+    // You can add logic here to calculate score based on grade
+  };
+
   return (
-    <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
-      <div className="flex flex-col md:flex-row justify-between md:items-center mb-4 pb-4 border-b border-slate-200">
-        <div>
-          <h3 className="text-xl font-bold text-slate-900">{category.categoryName}</h3>
-          <p className="text-sm text-slate-500">Maximum Score: {category.maxScore}</p>
-        </div>
-        <div className="flex items-center gap-2 mt-3 md:mt-0">
-          <label htmlFor={`score-for-${category.id}`} className="font-semibold text-slate-700">Your Score:</label>
-          <input
-            id={`score-for-${category.id}`}
-            type="number"
-            className="w-28 p-2 border border-slate-300 rounded-md text-center text-lg font-bold focus:ring-2 focus:ring-slate-500 focus:outline-none"
-            max={category.maxScore}
-            min={0}
-            value={score === null || score === undefined ? '' : score}
-            onChange={(e) => onScoreChange(category.id, category.maxScore, e.target.value)}
-            placeholder="Score"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mt-4">
-        {category.tiers.map((tier) => (
-          <div key={tier.name} className="border border-slate-200 rounded-md p-3 bg-slate-50">
-            <h4 className="font-semibold text-slate-800">{tier.name}</h4>
-            <p className="text-xs font-medium text-slate-600 mb-1">
-              ({tier.lowerBound} - {tier.upperBound} pts)
-            </p>
-            <p className="text-sm text-slate-700">{tier.description}</p>
-          </div>
+    <div className="bg-white p-6 rounded-lg">
+      {/* Criteria Title */}
+      <h2 className="text-2xl font-bold text-deakinTeal mb-2">Criteria</h2>
+      
+      {/* Criterion Description */}
+      <p className="text-sm text-slate-600 mb-6">{category.categoryName}</p>
+      
+      {/* Grade Buttons */}
+      <div className="flex gap-2 mb-6">
+        {grades.map((grade) => (
+          <button
+            key={grade.name}
+            onClick={() => handleGradeSelect(grade)}
+            className={`px-4 py-2 rounded-md font-semibold text-sm ${
+              selectedGrade?.name === grade.name 
+                ? grade.color 
+                : 'bg-white text-deakinTeal border border-deakinTeal'
+            }`}
+          >
+            {grade.name}
+          </button>
         ))}
+      </div>
+
+      {/* Selected Grade Details */}
+      {selectedGrade && (
+        <div className="mb-6">
+          <div className="flex items-center gap-4 mb-3">
+            <h3 className="text-lg font-semibold text-deakinTeal">{selectedGrade.label}</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                className="w-20 p-2 border border-slate-300 rounded-md text-center"
+                placeholder="Score"
+                max={category.maxScore}
+                min={0}
+                value={score === null || score === undefined ? '' : score}
+                onChange={(e) => onScoreChange(category.id, category.maxScore, e.target.value)}
+              />
+              <span className="text-deakinTeal font-semibold">/{category.maxScore}</span>
+            </div>
+          </div>
+          
+          {/* Grade Description */}
+          <p className="text-sm text-slate-600">
+            {category.tiers.find(tier => tier.name === selectedGrade.label)?.description || 
+             `Description for ${selectedGrade.label} grade...`}
+          </p>
+        </div>
+      )}
+
+      {/* Feedback Section */}
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold text-deakinTeal mb-3">Criterion Feedback (Optional)</h3>
+        <textarea
+          className="w-full p-3 border border-slate-300 rounded-md h-24 resize-none"
+          placeholder="Add specific feedback for this criterion..."
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+        />
       </div>
     </div>
   );
@@ -178,7 +224,7 @@ export default function MarkingPage() {
           <ResizablePanel defaultSize={50} minSize={30}>
             <div className="flex flex-col h-full bg-slate-200">
               <div className="flex justify-between items-center p-2 bg-white border-b border-slate-300">
-                <h3 className="font-semibold text-slate-800">{selectedPaper?.name || "Document"}</h3>
+                <h3 className="font-semibold text-slate-800 px-4">{selectedPaper?.name || "Document"}</h3>
                 <div className="flex items-center gap-2">
                   <button onClick={zoomOut} className="p-1 rounded hover:bg-slate-200"><ZoomOut className="w-5 h-5"/></button>
                   <span className="text-sm font-medium w-12 text-center">{(pdfScale * 100).toFixed(0)}%</span>
@@ -186,13 +232,13 @@ export default function MarkingPage() {
                 </div>
               </div>
               
-              <div className="flex-1 overflow-auto p-4">
+              <div className="flex-1 overflow-auto p-4 h-full">
                 {selectedPaper?.filePath ? (
                   <Document
                     file={selectedPaper.filePath}
                     onLoadSuccess={onDocumentLoadSuccess}
                     loading={<div className="flex justify-center items-center h-full"><p>Loading PDF...</p></div>}
-                    error={<div className="flex justify-center items-center h-full"><p className="text-red-600">Failed to load PDF. Please check the file URL.</p></div>}
+                    error={<div className="flex flex-col justify-center items-center min-h-[1000px] w-full"><img src="/broken-file-icon.png" alt="Broken file" className="w-19 mb-4 opacity-40" /><p className="text-[#A7A9AC] text-center">Failed to load PDF. Please check the file URL.</p></div>}
                   >
                     {Array.from(new Array(numPages), (el, index) => (
                       <Page
@@ -253,7 +299,7 @@ export default function MarkingPage() {
                   <button
                     onClick={handleSubmitMarks}
                     disabled={isSubmitting}
-                    className="px-6 py-2 bg-slate-900 text-white font-medium rounded-md hover:bg-slate-800 disabled:bg-slate-400"
+                    className="px-6 py-2 bg-deakinTeal cursor-pointer text-white font-medium rounded-md hover:bg-[#0E796B] disabled:bg-slate-400"
                   >
                     {isSubmitting ? 'Submitting...' : `Submit Marks for ${selectedPaper?.name || ''}`}
                   </button>

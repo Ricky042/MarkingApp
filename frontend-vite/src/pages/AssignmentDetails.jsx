@@ -32,12 +32,12 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
 
   if (status === 'incomplete') {
     return (
-      <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6" role="alert">
+      <div className="bg-green-50 border-l-4 border-deakinTeal text-deakinTeal p-4 mb-6" role="alert">
         <p className="font-bold">Action Required</p>
         <p>You have not yet submitted your marks for the control papers. Please complete this whenever possible.</p>
         <button
           onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}/mark`)}
-          className="mt-2 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-800"
+          className="mt-2 px-4 py-2 bg-deakinTeal text-white text-sm font-medium rounded-md hover:bg-[#0E796B] cursor-pointer"
         >
           Mark Control Papers
         </button>
@@ -161,7 +161,7 @@ function ScoreComparisonTable({ data }) {
           </tbody>
         </table>
         {!isStandardMarked && (
-            <div className="mt-4 p-3 bg-blue-100 text-blue-700 rounded-md text-sm">
+            <div className="mt-4 p-3 bg-lime-100 text-deakinTeal rounded-md text-sm">
                 The standard marker has not yet marked this control paper. Score coloring is disabled until the standard is set.
             </div>
         )}

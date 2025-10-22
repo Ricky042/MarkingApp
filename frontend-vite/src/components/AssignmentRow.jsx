@@ -28,7 +28,7 @@ export default function AssignmentRow({
       </div>
       <div className="text-[var(--deakinTeal)] text-md">{flagsText}</div>
       <button
-        className="bg-[var(--deakinTeal)] text-white text-md font-light rounded-lg px-4 py-2"
+        className="bg-[var(--deakinTeal)] text-white text-md font-light rounded-lg px-4 py-2 cursor-pointer hover:bg-[#0E796B] transition"
         onClick={onViewDetails}
       >
         <div>View Details</div>

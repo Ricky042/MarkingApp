@@ -35,7 +35,7 @@ const AutoTextarea = ({ value, onChange, placeholder, onContextMenu }) => {
       onChange={onChange}
       onContextMenu={onContextMenu}
       placeholder={placeholder}
-      className="w-full h-full bg-transparent resize-none focus:outline-none text-black text-xs font-normal font-['Inter'] leading-normal p-3"
+      className="w-full h-full bg-transparent resize-none focus:outline-none text-sm font-normal text-slate-900 p-3 placeholder:text-zinc-600"
       rows={4}
     />
   );
@@ -243,7 +243,7 @@ export default function CreateAssignment() {
 
     const formData = new FormData();
     formData.append('controlPaperA', controlPaperA);
-    formData.append('controlPaperB', controlPaperB);
+    formData.append('controlPaperB', controlPaperB );
 
     const payload = {
       assignmentDetails: { ...assignmentDetails, teamId: teamId },
@@ -286,10 +286,10 @@ export default function CreateAssignment() {
                 <>
                 {/* Header */}
                 <div className="w-72 justify-start mb-6">
-                    <span className="text-bg-[#0F172A] text-2xl font-semibold leading-7">
+                    <span className="text-slate-900 text-2xl font-semibold leading-7">
                     Create New Assignment/<br />
                     </span>
-                    <span className="text-bg-[#0F172A] text-2xl font-medium leading-7">
+                    <span className="text-slate-900 text-2xl font-medium leading-7">
                     Assignment Info<br />
                     </span>
                 </div>
@@ -300,12 +300,12 @@ export default function CreateAssignment() {
                     <div className="flex items-start gap-4">
                         {/* Course Code */}
                         <div className="flex flex-col">
-                        <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
+                        <div className="text-slate-900 text-base font-semibold mb-2">
                             Course Code
                         </div>
                         <input
                             type="text"
-                            className="w-72 px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className= "text-sm font-normal text-slate-900 w-72 px-3 py-2 rounded-md bg-white rounded-md placeholder:text-zinc-600"
                             placeholder="Enter course code"
                             value={assignmentDetails.courseCode}
                             onChange={(e) =>
@@ -316,12 +316,12 @@ export default function CreateAssignment() {
 
                         {/* Course Name */}
                         <div className="flex flex-col">
-                        <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
+                        <div className="text-slate-900 text-base font-semibold mb-2">
                             Course Name
                         </div>
                         <input
                             type="text"
-                            className="w-72 px-3 py-2 rounded-md border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="text-sm font-normal text-slate-900 w-72 px-3 py-2 bg-white rounded-md placeholder:text-zinc-600"
                             placeholder="Enter course name"
                             value={assignmentDetails.courseName}
                             onChange={(e) =>
@@ -333,7 +333,7 @@ export default function CreateAssignment() {
 
                     {/* Due Date */}
                     <div className="flex flex-col">
-                        <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
+                        <div className="text-slate-900 text-base font-semibold mb-2">
                         Due Date
                         </div>
                         <Popover>
@@ -349,7 +349,7 @@ export default function CreateAssignment() {
                             {assignmentDetails.dueDate ? (
                                 format(assignmentDetails.dueDate, "PPP")
                             ) : (
-                                <span>Pick a date</span>
+                                <span className="text-zinc-600">Pick a date</span>
                             )}
                             </Button>
                         </PopoverTrigger>
@@ -366,11 +366,11 @@ export default function CreateAssignment() {
 
                     {/* Semester */}
                     <div className="flex flex-col">
-                        <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
+                        <div className="text-slate-900 text-base font-semibold mb-2">
                         Semester
                         </div>
-                        <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
-                        <span className="flex-1 text-zinc-600 text-sm font-normal">
+                        <div className="relative w-52 px-3 py-2 bg-white rounded-md inline-flex justify-between items-center">
+                        <span className={`flex-1 text-sm font-normal ${assignmentDetails.semester ? 'text-slate-900' : 'text-zinc-600'}`}>
                             {assignmentDetails.semester
                             ? `Semester ${assignmentDetails.semester}`
                             : "Select semester"}
@@ -400,23 +400,23 @@ export default function CreateAssignment() {
 
                 {/* Markers */}
                 <div className="flex flex-col gap-2 mt-6">
-                    <div className="text-bg-[#0F172A] text-base font-semibold mb-2">
+                    <div className="text-slate-900 text-base font-semibold mb-2">
                     Markers
                     </div>
 
                     {/* Marker Cards */}
-                    <div className="flex flex-wrap gap-4 p-4 bg-white rounded-lg border border-slate-300 min-h-[360px] w-245">
+                    <div className="flex flex-wrap gap-4 p-4 bg-white rounded-lg min-h-[360px] w-245">
                     {markers.map((marker) => (
                         <div
                         key={marker.id}
                         className="w-56 h-[7rem] px-4 pt-2.5 pb-1.5 bg-white rounded-md outline outline-[0.67px] outline-offset-[-0.67px] outline-slate-300 flex flex-col justify-start gap-2"
                         >
                         <div className="flex justify-between items-start">
-                            <div className="text-zinc-600 text-[8px] font-semibold">
+                            <div className="text-sm font-semibold text-zinc-600">
                             {marker.id}
                             </div>
                             <div
-                            className={`text-zinc-600 text-[8px] font-normal underline ${currentUser && String(marker.id) === String(currentUser.id) ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer'}`}
+                            className={`text-sm font-normal text-zinc-600 underline ${currentUser && String(marker.id) === String(currentUser.id) ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer'}`}
                             onClick={() => removeMarker(marker.id)}
                             >
                             {currentUser && String(marker.id) === String(currentUser.id) ? 'Creator (Cannot Remove)' : 'Remove'}
@@ -424,7 +424,7 @@ export default function CreateAssignment() {
                         </div>
                         <div className="flex items-center gap-3.5">
                             <div className="w-9 h-9 bg-black rounded-full flex-shrink-0" />
-                            <div className="text-bg-[#0F172A] text-base font-medium truncate">
+                            <div className="text-sm font-medium text-slate-900 truncate">
                             {marker.username}
                             </div>
                         </div>
@@ -436,17 +436,17 @@ export default function CreateAssignment() {
                         className="w-56 h-28 px-4 pt-2.5 pb-1.5 bg-slate-50 rounded-md outline outline-1 outline-offset-[-0.67px] outline-slate-300 flex justify-center items-center cursor-pointer hover:bg-slate-100 transition"
                         onClick={() => setShowMarkerList(!showMarkerList)}
                     >
-                        <div className="text-3xl font-bold text-zinc-600">+</div>
+                        <div className="text-5xl font-light text-deakinTeal mb-2">+</div>
                     </div>
                     </div>
 
                     {/* Marker List Dropdown */}
                     {showMarkerList && (
-                    <div className="mt-3 flex flex-col gap-2 p-3 bg-white rounded-md outline outline-1 outline-slate-300 w-full">
+                    <div className="mt-3 w-245 flex flex-col gap-2 p-3 bg-white rounded-md outline outline-1 outline-slate-300">
                         {loadingMembers ? (
                         <div>Loading team members...</div>
                         ) : availableMembers.length === 0 ? (
-                        <div className="text-sm text-zinc-600">
+                        <div className="text-sm font-normal text-zinc-600">
                             No other team members available to add.
                         </div>
                         ) : (
@@ -455,25 +455,25 @@ export default function CreateAssignment() {
                             key={member.id}
                             className="flex justify-between items-center px-3 py-2 bg-slate-50 rounded-md"
                             >
-                            <div className="flex items-center gap-3.5">
-                                <div className="w-9 h-9 bg-black rounded-full flex-shrink-0" />
-                                <div className="text-sm font-medium truncate">
-                                {member.username}
-                                </div>
-                            </div>
-                            <button
-                                className="px-2 py-1 bg-blue-500 text-white rounded-md"
-                                onClick={() => addMarker(member)}
-                            >
-                                +
-                            </button>
+                              <div className="flex items-center gap-3.5">
+                                  <div className="w-9 h-9 bg-black rounded-full flex-shrink-0" />
+                                  <div className="text-sm font-medium text-slate-900 truncate">
+                                  {member.username}
+                                  </div>
+                              </div>
+                              <button
+                                  className="px-5 py-1 bg-deakinTeal text-white rounded-md cursor-pointer hover:bg-[#0E796B]"
+                                  onClick={() => addMarker(member)}
+                              >
+                                  +
+                              </button>
                             </div>
                         ))
                         )}
 
                         <div className="text-right mt-2">
                         <button
-                            className="text-zinc-600 underline text-sm"
+                            className="text-sm font-normal text-zinc-600 underline cursor-pointer"
                             onClick={() => setShowMarkerList(false)}
                         >
                             Close
@@ -487,31 +487,31 @@ export default function CreateAssignment() {
 
             {step === 2 && (
              <div className="w-full mb-6">
-              <span className="text-bg-[#0F172A] text-2xl font-semibold leading-7">Create New Assignment/<br /></span><span className="text-bg-[#0F172A] text-2xl font-medium leading-7">Rubric Setup<br /></span>
-              <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Assignment Criteria</div>
+              <span className="text-slate-900 text-2xl font-semibold leading-7">Create New Assignment/<br /></span><span className="text-slate-900 text-2xl font-medium leading-7">Rubric Setup<br /></span>
+              <div className="justify-start text-slate-900 text-base font-semibold leading-7 pt-8 pb-4">Assignment Criteria</div>
             
               <div className="w-full flex flex-col">
                 {/* Header Row */}
-                <div className="flex bg-black/5 rounded-t-lg border border-zinc-400 border-b-0">
-                  <div className="p-3" style={{ flexBasis: '12%' }}><div className="text-black text-xs font-semibold">Criteria</div></div>
-                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">High Distinction</div></div>
-                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Distinction</div></div>
-                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Credit</div></div>
-                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Pass</div></div>
-                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Fail</div></div>
-                  <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '8%' }}><div className="text-black text-xs font-semibold">Pts</div></div>
-                  <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '12%' }}><div className="text-black text-xs font-semibold">Deviation</div></div>
+                <div className="flex bg-deakinTeal rounded-t-lg ">
+                  <div className="p-3" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Criteria Description</div></div>
+                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">High Distinction</div></div>
+                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Distinction</div></div>
+                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Credit</div></div>
+                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Pass</div></div>
+                  <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Fail</div></div>
+                  <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '8%' }}><div className="text-white text-xs font-semibold">Pts</div></div>
+                  <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Deviation</div></div>
                 </div>
 
                 {/* Dynamic Data Rows */}
                 {rubric.map((criterion) => (
-                  <div className="flex bg-white border-l border-r border-b border-zinc-400 last:rounded-b-lg" key={criterion.id}>
+                  <div className="flex bg-white border-l border-r border-b border-zinc-300 last:rounded-b-lg" key={criterion.id}>
                     <div className="flex" style={{ flexBasis: '12%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
                       <AutoTextarea value={criterion.criteria} onChange={(e) => updateCriterionText(criterion.id, e.target.value)} placeholder="Criterion..."/>
                     </div>
                     
                     {criterion.tiers.map((tier, tierIndex) => (
-                        <div key={tier.id} className="border-l border-zinc-400 flex flex-col justify-between bg-white/40 min-w-[120px] min-h-[120px]" style={{ flex: 1 }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
+                        <div key={tier.id} className="border-l border-zinc-300 flex flex-col justify-between bg-white/40 min-w-[120px] min-h-[120px]" style={{ flex: 1 }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
                             <AutoTextarea value={tier.description} onChange={(e) => updateTierDescription(criterion.id, tierIndex, e.target.value)} placeholder={`Describe ${tier.name}...`}/>
                             <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
                                 <input 
@@ -519,7 +519,7 @@ export default function CreateAssignment() {
                                     step="0.5"
                                     value={tier.lowerBound} 
                                     onChange={(e) => updateTierLowerBound(criterion.id, tierIndex, e.target.value)}
-                                    className="w-12 text-center text-xs bg-transparent focus:outline-none"
+                                    className="w-12 text-center text-xs text-slate-900 bg-transparent focus:outline-none"
                                     disabled={tierIndex === criterion.tiers.length - 1}
                                 />
                                 <span className="text-xs mx-1">-</span>
@@ -528,21 +528,21 @@ export default function CreateAssignment() {
                         </div>
                     ))}
                     
-                    <div className="border-l border-zinc-400 relative flex items-center justify-center p-2" style={{ flexBasis: '8%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
-                      <input type="number" step="0.5" value={criterion.points} onChange={(e) => updatePoints(criterion.id, e.target.value)} className="w-full text-center bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] text-xs p-2" placeholder="Pts"/>
+                    <div className="border-l border-zinc-300 relative flex items-center justify-center p-2" style={{ flexBasis: '8%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
+                      <input type="number" step="0.5" value={criterion.points} onChange={(e) => updatePoints(criterion.id, e.target.value)} className="w-full text-center bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] text-xs text-slate-900 p-2 placeholder:text-zinc-600" placeholder="Pts"/>
                     </div>
 
-                    <div className="border-l border-zinc-400 flex items-center justify-center p-2" style={{ flexBasis: '12%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
+                    <div className="border-l border-zinc-300 flex items-center justify-center p-2" style={{ flexBasis: '12%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
                       <div className="w-full flex items-center gap-1 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] p-2">
-                        <span className="text-[#0F172A] font-normal">±</span>
-                        <input type="number" step="0.5" value={criterion.deviation} onChange={(e) => updateDeviation(criterion.id, e.target.value)} className="w-full text-center text-xs" placeholder="Dev"/>
+                        <span className="text-slate-900 font-normal">±</span>
+                        <input type="number" step="0.5" value={criterion.deviation} onChange={(e) => updateDeviation(criterion.id, e.target.value)} className="w-full text-center text-xs text-slate-900 placeholder:text-zinc-600" placeholder="Dev"/>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="w-36 h-12 bg-slate-50 border border-zinc-400 rounded-lg flex justify-center items-center mt-5 cursor-pointer hover:bg-slate-100" onClick={addCriterion} title="Add New Criterion Row"><div className="w-8 h-8 relative"><img src="/CreateAssignment/icon/plus.svg" alt="plus sign" className="w-full h-full" /></div></div>
+              <div className="w-61 h-12 bg-deakinTeal text-white border-zinc-400 rounded-lg flex justify-center items-center mt-5 cursor-pointer text-5xl font-extralight mb-5 pb-2 hover:bg-slate-100" onClick={addCriterion} title="Add New Criterion Row">+</div>
               
               {contextMenu && (
                 <div className="absolute bg-white border rounded shadow-lg z-10" style={{ top: contextMenu.y, left: contextMenu.x }}>
@@ -566,7 +566,7 @@ export default function CreateAssignment() {
                   <div className="flex flex-col gap-2">
                     <label className="text-bg-[#0F172A] text-base font-semibold">Control Paper A</label>
                     {controlPaperA ? (
-                      <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
+                      <div className="p-4 bg-white rounded-lg flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <File className="w-6 h-6 text-blue-600"/>
                           <span className="text-sm font-medium text-slate-800">{controlPaperA.name}</span>
@@ -591,7 +591,7 @@ export default function CreateAssignment() {
                   <div className="flex flex-col gap-2">
                     <label className="text-bg-[#0F172A] text-base font-semibold">Control Paper B</label>
                     {controlPaperB ? (
-                       <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
+                       <div className="p-4 bg-white rounded-lg flex items-center justify-between">
                          <div className="flex items-center gap-3">
                            <File className="w-6 h-6 text-green-600"/>
                            <span className="text-sm font-medium text-slate-800">{controlPaperB.name}</span>
@@ -625,7 +625,7 @@ export default function CreateAssignment() {
 
                     {/* Assignment Details Review */}
                     <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-2 pb-4">Assignment Information</div>
-                    <div className="p-4 bg-white rounded-lg border border-slate-300 grid grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="p-4 bg-white rounded-lg grid grid-cols-2 gap-x-6 gap-y-4">
                         <div><span className="font-semibold">Course Code:</span> {assignmentDetails.courseCode}</div>
                         <div><span className="font-semibold">Course Name:</span> {assignmentDetails.courseName}</div>
                         <div><span className="font-semibold">Semester:</span> Semester {assignmentDetails.semester}</div>
@@ -636,7 +636,7 @@ export default function CreateAssignment() {
                     <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Assigned Markers</div>
                     <div className="flex flex-wrap gap-2">
                       {markers.map((marker) => (
-                          <div key={marker.id} className="w-56 h-[7rem] px-4 pt-2.5 pb-1.5 bg-white rounded-md outline outline-[0.67px] outline-offset-[-0.67px] outline-slate-300 flex flex-col justify-start gap-2">
+                          <div key={marker.id} className="w-56 h-[7rem] px-4 pt-2.5 pb-1.5 bg-white rounded-md flex flex-col justify-start gap-2">
                               <div className="flex justify-between items-start">
                                   <div className="text-zinc-600 text-[8px] font-semibold">{marker.id}</div>
                               </div>
@@ -652,7 +652,7 @@ export default function CreateAssignment() {
 
                     {/* Control Papers Review */}
                     <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Control Papers</div>
-                    <div className="p-4 bg-white rounded-lg border border-slate-300 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-white rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="flex items-center gap-3">
                         <File className="w-5 h-5 text-blue-600"/>
                         <div>
@@ -673,23 +673,23 @@ export default function CreateAssignment() {
                     <div className="justify-start text-bg-[#0F172A] text-base font-semibold font-['Inter'] leading-7 pt-8 pb-4">Final Rubric</div>
                     <div className="w-full flex flex-col">
                         {/* Header Row */}
-                        <div className="flex bg-black/5 rounded-t-lg border border-zinc-400 border-b-0">
-                          <div className="p-3" style={{ flexBasis: '12%' }}><div className="text-black text-xs font-semibold">Criteria</div></div>
-                          <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">High Distinction</div></div>
-                          <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Distinction</div></div>
-                          <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Credit</div></div>
-                          <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Pass</div></div>
-                          <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-black text-xs font-semibold">Fail</div></div>
-                          <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '8%' }}><div className="text-black text-xs font-semibold">Pts</div></div>
-                          <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '12%' }}><div className="text-black text-xs font-semibold">Deviation</div></div>
+                        <div className="flex bg-deakinTeal rounded-t-lg border border-zinc-300 border-b-0">
+                          <div className="p-3" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Criteria</div></div>
+                          <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">High Distinction</div></div>
+                          <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Distinction</div></div>
+                          <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Credit</div></div>
+                          <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Pass</div></div>
+                          <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Fail</div></div>
+                          <div className="p-3 border-l border-zinc-300" style={{ flexBasis: '8%' }}><div className="text-white text-xs font-semibold">Pts</div></div>
+                          <div className="p-3 border-l border-zinc-300" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Deviation</div></div>
                         </div>
 
                         {/* Data Rows */}
                         {rubric.map((criterion) => (
-                          <div className="flex bg-white border-l border-r border-b border-zinc-400 last:rounded-b-lg" key={criterion.id}>
+                          <div className="flex bg-white border-l border-r border-b border-zinc-300 last:rounded-b-lg" key={criterion.id}>
                             <div className="p-3" style={{ flexBasis: '12%' }}><p className="text-xs">{criterion.criteria}</p></div>
                             {criterion.tiers.map((tier) => (
-                                <div key={tier.id} className="border-l border-zinc-400 flex flex-col justify-between min-w-[120px]" style={{ flex: 1 }}>
+                                <div key={tier.id} className="border-l border-zinc-300 flex flex-col justify-between min-w-[120px]" style={{ flex: 1 }}>
                                     <p className="text-xs p-3">{tier.description}</p>
                                     <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
                                         <span className="w-12 text-center text-xs">{tier.lowerBound}</span>
@@ -698,8 +698,8 @@ export default function CreateAssignment() {
                                     </div>
                                 </div>
                             ))}
-                            <div className="border-l border-zinc-400 flex items-center justify-center p-2" style={{ flexBasis: '8%' }}><p className="text-xs">{criterion.points}</p></div>
-                            <div className="border-l border-zinc-400 flex items-center justify-center p-2" style={{ flexBasis: '12%' }}><p className="text-xs">± {criterion.deviation}</p></div>
+                            <div className="border-l border-zinc-300 flex items-center justify-center p-2" style={{ flexBasis: '8%' }}><p className="text-xs">{criterion.points}</p></div>
+                            <div className="border-l border-zinc-300 flex items-center justify-center p-2" style={{ flexBasis: '12%' }}><p className="text-xs">± {criterion.deviation}</p></div>
                           </div>
                         ))}
                     </div>
@@ -709,21 +709,21 @@ export default function CreateAssignment() {
             <div className="flex justify-end gap-4 px-6 mt-8">
                 {step > 1 && (
                     <button 
-                        className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-zinc-900 hover:bg-gray-50" 
+                        className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-zinc-900 hover:bg-gray-50 cursor-pointer" 
                         onClick={() => setStep(step - 1)}>
                         Back
                     </button>
                 )}
                 {step < 4 && (
                     <button 
-                        className="px-4 py-2 bg-neutral-900 rounded-lg text-sm font-medium text-white hover:bg-neutral-800" 
+                        className="px-4 py-2 bg-deakinTeal rounded-lg text-sm font-base text-white hover:bg-[#0E796B] cursor-pointer" 
                         onClick={handleNextStep}>
                         {step === 3 ? 'Review' : 'Next'}
                     </button>
                 )}
                 {step === 4 && (
                     <button 
-                        className="px-4 py-2 bg-neutral-900 rounded-lg text-sm font-medium text-white hover:bg-neutral-800"
+                        className="px-4 py-2 bg-deakinTeal rounded-lg text-sm font-medium text-white hover:bg-[#0E796B] cursor-pointer"
                         onClick={handleCreate}>
                         Create Assignment
                     </button>

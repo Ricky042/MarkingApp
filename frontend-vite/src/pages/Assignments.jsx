@@ -4,6 +4,7 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import AssignmentCard from "../components/AssignmentCard";
 
 export default function Assignments() {
     const { teamId } = useParams();
@@ -132,13 +133,13 @@ export default function Assignments() {
                 menuOpen={menuOpen}
                 onClose={() => setMenuOpen(false)}
             />
-            <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-white ${menuOpen ? "ml-56" : "mr-0"}`}>
+            <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
                 <div className="flex justify-between items-center mb-0 px-6 py-6">
                     <div className="text-offical-black text-3xl font-bold pt-4 pb-4">
                         Assignments
                     </div>
                     <button 
-                        className="px-4 py-2 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-slate-800 transition" 
+                        className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-[#0E796B] transition" 
                         onClick={() => navigate(`/team/${teamId}/assignments/new`)}
                     >
                         <span className="text-white text-lg font-base">
@@ -149,43 +150,11 @@ export default function Assignments() {
                
 
                 {/* Select and Search form */}
-                <div className="flex items-center gap-4 px-6 mb-4">
-                    <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
-                        <span className="flex-1 text-zinc-600 text-sm font-normal">
-                            {selectedSemester || "Select semester"}
-                        </span>
-                        <img src="/AssignmentIcon/chevron-down.svg" alt="Dropdown arrow" className="w-4 h-4" />
-                        <select
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            value={selectedSemester}
-                            onChange={(e) => setSelectedSemester(e.target.value)}
-                        >
-                            <option value="" disabled>Select semester</option>
-                            <option value="All Semesters">All Semesters</option>
-                            <option value="Semester 1">Semester 1</option>
-                            <option value="Semester 2">Semester 2</option>
-                        </select>
-                    </div>
-                    {/* Status filter is visually present but disabled in logic for now */}
-                    <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
-                        <span className="flex-1 text-zinc-600 text-sm font-normal">
-                            {selectedStatus || "Select status"}
-                        </span>
-                        <img src="/AssignmentIcon/chevron-down.svg" alt="Dropdown arrow" className="w-4 h-4" />
-                        <select
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            value={selectedStatus}
-                            onChange={(e) => setSelectedStatus(e.target.value)}
-                        >
-                            <option value="" disabled>Select status</option>
-                            <option value="All Status">All Status</option>
-                            <option value="MARKING">MARKING</option>
-                            <option value="COMPLETED">COMLETED</option>
-                        </select>
-                    </div>
-                    {/* Search */}
-                    <div className="flex max-w-72 ml-auto">
-                        <div className="w-full min-h-8 px-3 py-1.5 bg-neutral-100 rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
+                <div className="flex items-center gap-4 px-6 mb-4 justify-between">
+                   
+                    {/* Search Bar*/}
+                    <div className="flex max-w-72">
+                        <div className="min-h-8 px-3 py-2 bg-white rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
                         <img
                             src="/navBarIcon/navBar_searchIcon.svg"
                             alt="Menu Icon"
@@ -200,59 +169,53 @@ export default function Assignments() {
                         />
                         </div>
                     </div>
+                    <div className="flex items-center gap-4">
+                        <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
+                            <span className="flex-1 text-zinc-600 text-sm font-normal">
+                                {selectedSemester || "Select semester"}
+                            </span>
+                            <img src="/AssignmentIcon/chevron-down.svg" alt="Dropdown arrow" className="w-4 h-4" />
+                            <select
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                value={selectedSemester}
+                                onChange={(e) => setSelectedSemester(e.target.value)}
+                            >
+                                <option value="" disabled>Select semester</option>
+                                <option value="All Semesters">All Semesters</option>
+                                <option value="Semester 1">Semester 1</option>
+                                <option value="Semester 2">Semester 2</option>
+                            </select>
+                        </div>
+
+                        {/* Status filter is visually present but disabled in logic for now */}
+                        <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
+                            <span className="flex-1 text-zinc-600 text-sm font-normal">
+                                {selectedStatus || "Select status"}
+                            </span>
+                            <img src="/AssignmentIcon/chevron-down.svg" alt="Dropdown arrow" className="w-4 h-4" />
+                            <select
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                value={selectedStatus}
+                                onChange={(e) => setSelectedStatus(e.target.value)}
+                            >
+                                <option value="" disabled>Select status</option>
+                                <option value="All Status">All Status</option>
+                                <option value="MARKING">MARKING</option>
+                                <option value="COMPLETED">COMPLETED</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-4 px-6 py-4">
                 {/* Mapping over 'filteredAssignments' now */}
                 {filteredAssignments.map((assignment) => (
-                    <div
+                    <AssignmentCard
                         key={assignment.id}
-                        onClick={() => handleNav(`assignments/${assignment.id}`)} // Fixed navigation path
-                        className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex flex-col justify-start items-start gap-1.5"
-                        >
-
-                        {/* 'semester' from the API */}
-                        <div className="w-60 inline-flex justify-between">
-                            Semester {assignment.semester}
-                            <div className="w-16 h-7 px-4 py-2 bg-slate-100 rounded-[50px] outline outline-1 outline-offset-[-1px] outline-slate-200 inline-flex justify-center items-center gap-2.5">
-                                <div className="justify-start text-slate-900 text-xs font-medium font-['Inter'] leading-normal">{assignment.status}</div>
-                            </div>                        
-                        </div>
-                        
-
-                        {/* Using 'course_name' instead of 'title' */}
-                        <div className="w-36 flex flex-col items-start gap-8">
-                            <div className="w-48 text-offical-black text-2xl font-medium font-['Inter'] leading-7 text-left">{assignment.course_name}</div>
-                        </div>
-                        
-                        {/* Using 'course_code' from the API */}
-                        <div className="text-sm text-gray-500 mb-2">
-                            {assignment.course_code}
-                        </div>
-                        
-                        <div className="justify-start text-black text-xs font-normal font-['Inter'] leading-7">
-                            {assignment.markersAlreadyMarked || 0} / {assignment.markers?.length || 0} 
-                            ({((assignment.markersAlreadyMarked || 0) / (assignment.markers?.length || 0) * 100).toFixed(0)}%)
-                        </div>
-
-                        <div className="flex-grow"></div> {/* Pushes due date to the bottom */}
-                        
-                        <div className="mt-4 text-xs text-gray-400">
-                            {/* Formatting the due date for better readability */}
-                            Due: {new Date(assignment.due_date).toLocaleDateString()}
-                        </div>
-
-                        {/* Delete button outside the clickable area */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation(); // stop click bubbling to card
-                                handleDelete(assignment.id);
-                            }}
-                            className="mt-2 self-end px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md text-xs"
-                        >
-                        Delete
-                        </button>
-                    </div>
+                        assignment={assignment}
+                        onNavigate={handleNav}
+                        onDelete={handleDelete}
+                    />
                 ))}
                 </div>
             </div>

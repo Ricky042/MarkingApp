@@ -11,6 +11,8 @@ export default function Markers() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("default");
 
   useEffect(() => {
     // Simple auth check - just verify token exists
@@ -27,10 +29,10 @@ export default function Markers() {
   return (
     <> {/* Use a fragment to render modal outside the main layout div */}
       <div className="flex flex-row min-h-screen">
-        <div className="flex flex-row min-h-screen w-80">
-          <div className=" fixed h-screen w-80 border-r border-slate-200 z-50">
-            <Sidebar activeTab={2} />
-          </div>
+        <div className="flex flex-row min-h-screen w-56">
+           <div className=" fixed h-screen w-56 border-r border-slate-200 z-50">
+             <Sidebar activeTab={2} />
+           </div>
         </div>
         <div className="flex-1 flex flex-col bg-neutral-00">
           <Navbar onBurgerClick = {() => setMenuOpen(v => !v)}/>
@@ -41,7 +43,7 @@ export default function Markers() {
 
           <main className={`transition-all duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : ""}`}>
             {/* Page Header Section */}
-            <div className="flex justify-between items-center mb-6 px-6 py-6">
+            <div className="flex justify-between items-center px-6 py-6">
               <h1 className="text-offical-black text-3xl font-bold pt-4 pb-4">
                 Markers
               </h1>
@@ -56,35 +58,48 @@ export default function Markers() {
             </div>
 
             {/* Filter Section */}
-            <div className="flex justify-end items-center gap-6 mb-6 px-6">
-              <div className="relative">
-                <select className="appearance-none bg-transparent text-gray-700 text-md font-medium pr-6 cursor-pointer border-none outline-none">
-                  <option value="all">All Assignments</option>
-                  <option value="semester1">Semester 1 2025</option>
-                  <option value="semester2">Semester 2 2025</option>
-                </select>
-                <div className="absolute right-0 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
+            <div className="flex items-center gap-4 px-6 mb-4 justify-between">
+                
+                {/* Search Bar*/}
+                <div className="flex max-w-72">
+                    <div className="min-h-8 px-3 py-2 bg-white rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
+                    <img
+                        src="/navBarIcon/navBar_searchIcon.svg"
+                        alt="Menu Icon"
+                        className="h-3 w-3"
+                    />
+                    <input
+                        className="bg-transparent outline-none placeholder-zinc-500 text-sm w-full"
+                        placeholder="Search markers"
+                        aria-label="Search markers"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                    />
+                    </div>
                 </div>
-              </div>
-              <div className="relative">
-                <select className="appearance-none bg-transparent text-gray-700 text-md font-medium pr-6 cursor-pointer border-none outline-none">
-                  <option value="default">Sort By</option>
-                  <option value="alphabetical">Alphabetical Order</option>
-                  <option value="date">Date Added</option>
-                </select>
-                <div className="absolute right-0 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
+                <div className="flex items-center gap-4">
+                    <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
+                        <span className="flex-1 text-zinc-600 text-sm font-normal">
+                            {sortBy === "default" ? "Sort By" : 
+                             sortBy === "alphabetical" ? "Alphabetical Order" : 
+                             sortBy === "date" ? "Date Added" : "Sort By"}
+                        </span>
+                        <img src="/AssignmentIcon/chevron-down.svg" alt="Dropdown arrow" className="w-4 h-4" />
+                        <select
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                        >
+                            <option value="default">Sort By</option>
+                            <option value="alphabetical">Alphabetical Order</option>
+                            <option value="date">Date Added</option>
+                        </select>
+                    </div>
                 </div>
-              </div>
             </div>
 
             {/* Page Content - Marker Cards Grid */}
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-6 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <MarkerCard
                   id="0415132"
