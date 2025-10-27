@@ -4,6 +4,10 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
 import api from "../utils/axios";
+import * as XLSX from "xlsx";
+
+
+
 
 // SHADCN & DATE-DNS IMPORTS
 import { format } from "date-fns";
@@ -16,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
 
 // Helper component for auto-expanding textareas
 const AutoTextarea = ({ value, onChange, placeholder, onContextMenu }) => {
@@ -56,11 +61,13 @@ const generateTiersWithPercentages = (points) => {
   ];
 };
 
+
 export default function CreateAssignment() {
   const { teamId } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [uploadedRubricFile, setUploadedRubricFile] = useState(null);
 
   // --- STEP 1: ASSIGNMENT DETAILS STATE ---
   const [assignmentDetails, setAssignmentDetails] = useState({
@@ -69,6 +76,108 @@ export default function CreateAssignment() {
     semester: "",
     dueDate: undefined,
   });
+  
+  const handleRubricUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadedRubricFile(file);
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+    
+      // Obtain the first worksheet
+      const worksheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[worksheetName];
+    
+      // For consistency, convert the sheet to JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+    
+      if (jsonData.length === 0) {
+        alert("Excel file is empty. Please upload a valid rubric file.");
+        return;
+      }
+
+  
+      const parsedRubric = jsonData.map((row, index) => {
+        // try multiple possible column names for each field
+        const criteria = row.Criteria || row.Criterion || row["Criteria Description"] || "";
+        const points = parseFloat(row.Points || row["Total Points"] || row.Score || 20);
+        const deviation = row.Deviation ? parseFloat(row.Deviation) : "";
+      
+        // Try multiple possible column names for each tier description
+        const hdDesc = row.HD || row["High Distinction"] || row["HD Description"] || "";
+        const dDesc = row.D || row.Distinction || row["D Description"] || "";
+        const cDesc = row.C || row.Credit || row["C Description"] || "";
+        const pDesc = row.P || row.Pass || row["P Description"] || "";
+        const fDesc = row.F || row.Fail || row["F Description"] || "";
+
+        const totalPoints = isNaN(points) || points <= 0 ? 20 : points;
+
+        return {
+          id: crypto.randomUUID(),
+          criteria: criteria || `Criterion ${index + 1}`,
+          points: totalPoints,
+          deviation: isNaN(deviation) ? "" : deviation,
+          tiers: [
+          { 
+            id: crypto.randomUUID(), 
+            name: "High Distinction", 
+            description: hdDesc, 
+            lowerBound: roundToHalf(totalPoints * 0.85), 
+            upperBound: totalPoints 
+          },
+          { 
+            id: crypto.randomUUID(), 
+            name: "Distinction", 
+            description: dDesc, 
+            lowerBound: roundToHalf(totalPoints * 0.75), 
+            upperBound: roundToHalf(totalPoints * 0.85) - 0.5 
+          },
+          { 
+            id: crypto.randomUUID(), 
+            name: "Credit", 
+            description: cDesc, 
+            lowerBound: roundToHalf(totalPoints * 0.65), 
+            upperBound: roundToHalf(totalPoints * 0.75) - 0.5 
+          },
+          { 
+            id: crypto.randomUUID(), 
+            name: "Pass", 
+            description: pDesc, 
+            lowerBound: roundToHalf(totalPoints * 0.50), 
+            upperBound: roundToHalf(totalPoints * 0.65) - 0.5 
+          },
+          { 
+            id: crypto.randomUUID(), 
+            name: "Fail", 
+            description: fDesc, 
+            lowerBound: 0, 
+            upperBound: roundToHalf(totalPoints * 0.50) - 0.5 
+          },
+        ],
+      };
+    });
+
+      // Ignore empty criteria or tiers
+      const validRubric = parsedRubric.filter(item => 
+        item.criteria.trim() !== "" || 
+        item.tiers.some(tier => tier.description.trim() !== "")
+      );
+
+      if (validRubric.length === 0) {
+        alert("Couldn't find valid rubric data in the uploaded file. Please check the file format.");
+        return;
+      }
+
+      setRubric(validRubric);
+    
+    } catch (err) {
+      console.error("Error occurs when reading data:", err);
+      alert(`Fail to read: ${err.message}. Please ensure the file is a valid Excel format.`);
+    }
+  };
 
   const handleDetailsChange = (field, value) => {
     setAssignmentDetails((prev) => ({ ...prev, [field]: value }));
@@ -79,6 +188,8 @@ export default function CreateAssignment() {
   const [showMarkerList, setShowMarkerList] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingMembers, setLoadingMembers] = useState(true);
+
+
 
   // FETCH CURRENT USER AND TEAM MEMBERS
   useEffect(() => {
@@ -189,9 +300,14 @@ export default function CreateAssignment() {
       return newRubric;
     });
   };
-  const deleteRow = (criterionId) => setRubric(rubric.filter((c) => c.id !== criterionId));
-  const handleRightClick = (e, criterionId) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, criterionId }); };
-  const handleContextMenuAction = (action) => {
+  const deleteRow = (criterionId) => {
+    /*if (rubric.length < 2) {
+      window.alert("At least one row of rubric is required.");
+      return;
+    }*/
+    setRubric(rubric.filter((c) => c.id !== criterionId))};
+    const handleRightClick = (e, criterionId) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, criterionId }); };
+    const handleContextMenuAction = (action) => {
     if (!contextMenu) return;
     const { criterionId } = contextMenu;
     if (action === "delete-row") {
@@ -276,6 +392,8 @@ export default function CreateAssignment() {
       alert(`Error: ${errorMessage}`);
     }
   };
+
+    
 
   return (
     <div className="bg-neutral-100 min-h-screen">
@@ -491,71 +609,226 @@ export default function CreateAssignment() {
             )}
 
             {step === 2 && (
-              <div className="w-full mb-6">
-                <span className="text-slate-900 text-2xl font-semibold leading-7">Create New Assignment/<br /></span><span className="text-slate-900 text-2xl font-medium leading-7">Rubric Setup<br /></span>
-                <div className="justify-start text-slate-900 text-base font-semibold leading-7 pt-8 pb-4">Assignment Criteria</div>
-              
-                <div className="w-full flex flex-col">
-                  {/* Header Row */}
-                  <div className="flex bg-deakinTeal rounded-t-lg ">
-                    <div className="p-3" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Criteria Description</div></div>
-                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">High Distinction</div></div>
-                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Distinction</div></div>
-                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Credit</div></div>
-                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Pass</div></div>
-                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Fail</div></div>
-                    <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '8%' }}><div className="text-white text-xs font-semibold">Pts</div></div>
-                    <div className="p-3 border-l border-zinc-400" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Deviation</div></div>
-                  </div>
+  <div className="w-full mb-6">
+    <span className="text-slate-900 text-2xl font-semibold leading-7">
+      Create New Assignment/<br />
+    </span>
+    <span className="text-slate-900 text-2xl font-medium leading-7">
+      Rubric Setup<br />
+    </span>
 
-                  {/* Dynamic Data Rows */}
-                  {rubric.map((criterion) => (
-                    <div className="flex bg-white border-l border-r border-b border-zinc-300 last:rounded-b-lg" key={criterion.id}>
-                      <div className="flex" style={{ flexBasis: '12%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
-                        <AutoTextarea value={criterion.criteria} onChange={(e) => updateCriterionText(criterion.id, e.target.value)} placeholder="Criterion..."/>
-                      </div>
-                      
-                      {criterion.tiers.map((tier, tierIndex) => (
-                          <div key={tier.id} className="border-l border-zinc-300 flex flex-col justify-between bg-white/40 min-w-[120px] min-h-[120px]" style={{ flex: 1 }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
-                              <AutoTextarea value={tier.description} onChange={(e) => updateTierDescription(criterion.id, tierIndex, e.target.value)} placeholder={`Describe ${tier.name}...`}/>
-                              <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
-                                  <input 
-                                      type="number" 
-                                      step="0.5"
-                                      value={tier.lowerBound} 
-                                      onChange={(e) => updateTierLowerBound(criterion.id, tierIndex, e.target.value)}
-                                      className="w-12 text-center text-xs text-slate-900 bg-transparent focus:outline-none"
-                                      disabled={tierIndex === criterion.tiers.length - 1}
-                                  />
-                                  <span className="text-xs mx-1">-</span>
-                                  <span className="w-12 text-center text-xs">{tier.upperBound}</span>
-                              </div>
-                          </div>
-                      ))}
-                      
-                      <div className="border-l border-zinc-300 relative flex items-center justify-center p-2" style={{ flexBasis: '8%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
-                        <input type="number" step="0.5" value={criterion.points} onChange={(e) => updatePoints(criterion.id, e.target.value)} className="w-full text-center bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] text-xs text-slate-900 p-2 placeholder:text-zinc-600" placeholder="Pts"/>
-                      </div>
+    {/* Upload Rubric XLSX */}
+    <div className="mt-8 mb-6">
+      <label className="text-slate-900 text-base font-semibold mb-2 block">
+        Upload Rubric File (.xlsx) to Auto-Fill Criteria (Please ensure the file follows template format)
+      </label>
 
-                      <div className="border-l border-zinc-300 flex items-center justify-center p-2" style={{ flexBasis: '12%' }} onContextMenu={(e) => handleRightClick(e, criterion.id)}>
-                        <div className="w-full flex items-center gap-1 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] p-2">
-                          <span className="text-slate-900 font-normal">±</span>
-                          <input type="number" step="0.5" value={criterion.deviation} onChange={(e) => updateDeviation(criterion.id, e.target.value)} className="w-full text-center text-xs text-slate-900 placeholder:text-zinc-600" placeholder="Dev"/>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      {uploadedRubricFile ? (
+        <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <File className="w-6 h-6 text-blue-600" />
+            <span className="text-sm font-medium text-slate-800">
+              {uploadedRubricFile.name}
+            </span>
+          </div>
+          <button
+            onClick={() => setUploadedRubricFile(null)}
+            className="p-1 rounded-full hover:bg-slate-100"
+          >
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+      ) : (
+        <label
+          htmlFor="rubric-upload"
+          className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100"
+        >
+          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+            <UploadCloud className="w-10 h-10 mb-3 text-slate-400" />
+            <p className="mb-2 text-sm text-slate-500">
+              <span className="font-semibold">Click to upload</span> or drag and drop
+            </p>
+            <p className="text-xs text-slate-500">Only .xlsx files supported and file size should less than 5 MB</p>
+          </div>
+          <input
+            id="rubric-upload"
+            type="file"
+            accept=".xlsx"
+            className="absolute inset-0 w-full h-full opacity-0"
+            onChange={handleRubricUpload}
+          />
+        </label>
+      )}
+    </div>
 
-                <div className="w-61 h-12 bg-deakinTeal text-white border-zinc-400 rounded-lg flex justify-center items-center mt-5 cursor-pointer text-5xl font-extralight mb-5 pb-2 hover:bg-slate-100" onClick={addCriterion} title="Add New Criterion Row">+</div>
-                
-                {contextMenu && (
-                  <div className="absolute bg-white border rounded shadow-lg z-10" style={{ top: contextMenu.y, left: contextMenu.x }}>
-                    <div className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-red-600" onClick={() => handleContextMenuAction('delete-row')}>Delete this Criterion Row</div>
-                  </div>
-                )}
+    {/* Rubric Table Header */}
+    <div className="justify-start text-slate-900 text-base font-semibold leading-7 pt-4 pb-4">
+      Assignment Criteria
+    </div>
+
+    <div className="w-full flex flex-col">
+      {/* Header Row */}
+      <div className="flex bg-deakinTeal rounded-t-lg">
+        <div className="p-3" style={{ flexBasis: "5%" }}>
+          <div className="text-white text-xs font-semibold"></div>
+        </div>
+        <div className="p-3" style={{ flexBasis: "12%" }}>
+          <div className="text-white text-xs font-semibold">
+            Criteria Description
+          </div>
+        </div>
+        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+          <div className="text-white text-xs font-semibold">High Distinction</div>
+        </div>
+        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+          <div className="text-white text-xs font-semibold">Distinction</div>
+        </div>
+        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+          <div className="text-white text-xs font-semibold">Credit</div>
+        </div>
+        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+          <div className="text-white text-xs font-semibold">Pass</div>
+        </div>
+        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+          <div className="text-white text-xs font-semibold">Fail</div>
+        </div>
+        <div className="p-3 border-l border-zinc-400" style={{ flexBasis: "8%" }}>
+          <div className="text-white text-xs font-semibold">Pts</div>
+        </div>
+        <div className="p-3 border-l border-zinc-400" style={{ flexBasis: "12%" }}>
+          <div className="text-white text-xs font-semibold">Deviation</div>
+        </div>
+      </div>
+
+      {/* Dynamic Rubric Rows */}
+      {rubric.map((criterion) => (
+        <div
+          className="flex bg-white border-l border-r border-b border-zinc-300 last:rounded-b-lg"
+          key={criterion.id}
+        >
+          <div
+            className="flex items-center justify-center p-2 border-r border-zinc-300"
+            style={{ flexBasis: "5%" }}
+          >
+            <button
+              onClick={() => deleteRow(criterion.id)}
+              className="p-1 rounded-full hover:bg-green-100 text-green-600 hover:text-green-800"
+              title="Delete this criterion row"
+              disabled={rubric.length <= 1}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div
+            className="flex"
+            style={{ flexBasis: "12%" }}
+            onContextMenu={(e) => handleRightClick(e, criterion.id)}
+          >
+            <AutoTextarea
+              value={criterion.criteria}
+              onChange={(e) =>
+                updateCriterionText(criterion.id, e.target.value)
+              }
+              placeholder="Criterion..."
+            />
+          </div>
+
+
+          {criterion.tiers.map((tier, tierIndex) => (
+            <div
+              key={tier.id}
+              className="border-l border-zinc-300 flex flex-col justify-between bg-white/40 min-w-[120px] min-h-[120px]"
+              style={{ flex: 1 }}
+              onContextMenu={(e) => handleRightClick(e, criterion.id)}
+            >
+              <AutoTextarea
+                value={tier.description}
+                onChange={(e) =>
+                  updateTierDescription(criterion.id, tierIndex, e.target.value)
+                }
+                placeholder={`Describe ${tier.name}...`}
+              />
+              <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
+                <input
+                  type="number"
+                  step="0.5"
+                  value={tier.lowerBound}
+                  onChange={(e) =>
+                    updateTierLowerBound(criterion.id, tierIndex, e.target.value)
+                  }
+                  className="w-12 text-center text-xs text-slate-900 bg-transparent focus:outline-none"
+                  disabled={tierIndex === criterion.tiers.length - 1}
+                />
+                <span className="text-xs mx-1">-</span>
+                <span className="w-12 text-center text-xs">
+                  {tier.upperBound}
+                </span>
               </div>
-            )}
+            </div>
+          ))}
+
+          <div
+            className="border-l border-zinc-300 relative flex items-center justify-center p-2"
+            style={{ flexBasis: "8%" }}
+            onContextMenu={(e) => handleRightClick(e, criterion.id)}
+          >
+            <input
+              type="number"
+              step="0.5"
+              value={criterion.points}
+              onChange={(e) => updatePoints(criterion.id, e.target.value)}
+              className="w-full text-center bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] text-xs text-slate-900 p-2 placeholder:text-zinc-600"
+              placeholder="Pts"
+            />
+          </div>
+
+          <div
+            className="border-l border-zinc-300 flex items-center justify-center p-2"
+            style={{ flexBasis: "12%" }}
+            onContextMenu={(e) => handleRightClick(e, criterion.id)}
+          >
+            <div className="w-full flex items-center gap-1 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] p-2">
+              <span className="text-slate-900 font-normal">±</span>
+              <input
+                type="number"
+                step="0.5"
+                value={criterion.deviation}
+                onChange={(e) =>
+                  updateDeviation(criterion.id, e.target.value)
+                }
+                className="w-full text-center text-xs text-slate-900 placeholder:text-zinc-600"
+                placeholder="Dev"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div
+      className="w-61 h-12 bg-deakinTeal text-white border-zinc-400 rounded-lg flex justify-center items-center mt-5 cursor-pointer text-5xl font-extralight mb-5 pb-2 hover:bg-slate-100"
+      onClick={addCriterion}
+      title="Add New Criterion Row"
+    >
+      +
+    </div>
+
+    {contextMenu && (
+      <div
+        className="absolute bg-white border rounded shadow-lg z-10"
+        style={{ top: contextMenu.y, left: contextMenu.x }}
+      >
+        <div
+          className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-red-600"
+          onClick={() => handleContextMenuAction("delete-row")}
+        >
+          Delete this Criterion Row
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
             {step === 3 && (
               <div className="w-full mb-6">
@@ -657,6 +930,7 @@ export default function CreateAssignment() {
                 <div className="w-full flex flex-col">
                   {/* Header Row */}
                   <div className="flex bg-deakinTeal rounded-t-lg border border-zinc-300 border-b-0">
+                    <div className="p-3" style={{ flexBasis: '5%' }}><div className="text-white text-xs font-semibold"></div></div>
                     <div className="p-3" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Criteria</div></div>
                     <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">High Distinction</div></div>
                     <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Distinction</div></div>
