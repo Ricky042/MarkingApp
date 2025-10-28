@@ -7,19 +7,21 @@ import MenuItem from "../components/NavbarMenu";
 
 export default function ReportPage() {
   const { teamId } = useParams();
-  const [completedAssignments, setCompletedAssignments] = useState([]);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const navigate = useNavigate();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState(null);
-  const navigate = useNavigate();
+  const [completedAssignments, setCompletedAssignments] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [reportStats, setReportStats] = useState(null);
+  const [reportData, setReportData] = useState(null);
 
-  // Fetch admin role first
+  // get current user role
   useEffect(() => {
     const fetchUserRole = async () => {
       const token = localStorage.getItem("token");
       if (!token) return navigate("/login");
-
       try {
         const res = await api.get(`/team/${teamId}/role`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -29,50 +31,89 @@ export default function ReportPage() {
         console.error("Error fetching user role:", err);
       }
     };
-
     fetchUserRole();
   }, [teamId, navigate]);
 
-  // Fetch completed assignments (admin only)
+  //  obtain completed assignments list
   useEffect(() => {
-    const fetchCompletedAssignments = async () => {
+    const fetchAssignments = async () => {
       if (currentUserRole !== "admin") return;
       const token = localStorage.getItem("token");
       if (!token) return navigate("/login");
-
       setIsLoading(true);
       try {
         const res = await api.get(`/team/${teamId}/assignments`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
-        // Filter to show only completed ones
         const completed = (res.data.assignments || []).filter(
-          (a) => a.status?.toUpperCase() === "COMPLETED"
+          (a) => a.status?.toLowerCase() === "completed"
         );
-
         setCompletedAssignments(completed);
       } catch (err) {
-        console.error("Error fetching completed assignments:", err);
+        console.error("Error fetching assignments:", err);
       } finally {
         setIsLoading(false);
       }
     };
+    fetchAssignments();
+  }, [teamId, currentUserRole, navigate]);
 
-    fetchCompletedAssignments();
-  }, [teamId, navigate, currentUserRole]);
+  //  get selected assignment details & compute stats
+  useEffect(() => {
+    if (!selectedAssignment) return;
+    const fetchDetails = async () => {
+      const token = localStorage.getItem("token");
+      try {
+        const res = await api.get(
+          `/team/${teamId}/assignments/${selectedAssignment.id}/details`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = res.data;
 
-  // Simulated stats for now (to replace with backend data later)
-  const reportStats = selectedAssignment
-    ? {
-        totalSubmissions: 8,
-        averageScore: 18,
-        withinDeviation: 6,
-        outsideDeviation: 2,
-        flagsOpen: 3,
+        // avg score calculation
+        const marksArray = [];
+        data.controlPapers?.forEach((paper) => {
+          paper.marks?.forEach((m) => {
+            m.scores?.forEach((s) => marksArray.push(Number(s.score)));
+          });
+        });
+
+        let averageScore = 0;
+        if (marksArray.length > 0) {
+          const sum = marksArray.reduce((acc, val) => acc + val, 0);
+          const maxPoints = data.rubric?.reduce(
+            (acc, r) => acc + Number(r.maxScore || 0),
+            0
+          );
+          averageScore = ((sum / marksArray.length) / maxPoints) * 100;
+          averageScore = Math.round(averageScore * 10) / 10;
+        }
+
+        // Wrap up stats
+        const totalSubmissions = data.controlPapers?.length || 0;
+        const markers = data.markers?.length || 0;
+        const markersCompleted = data.markersAlreadyMarked || 0;
+        const withinDeviation =
+          data.rubric?.filter((r) => r.deviationScore <= 10)?.length || 0;
+
+        setReportStats({
+          totalSubmissions,
+          averageScore: isNaN(averageScore) ? 0 : averageScore,
+          withinDeviation,
+          outsideDeviation:
+            (data.rubric?.length || 0) - withinDeviation,
+          flagsOpen: Math.max(0, markers - markersCompleted),
+        });
+
+        setReportData(data);
+      } catch (err) {
+        console.error("Error fetching assignment details:", err);
       }
-    : null;
+    };
+    fetchDetails();
+  }, [selectedAssignment, teamId]);
 
+  // Loading
   if (isLoading)
     return (
       <div className="ml-56 flex justify-center items-center h-screen">
@@ -80,13 +121,15 @@ export default function ReportPage() {
       </div>
     );
 
-  if (currentUserRole !== "admin") {
+  // Access Control
+  /*
+  if (currentUserRole !== "admin" && !selectedAssignment) {
     return (
       <div className="ml-56 flex justify-center items-center h-screen text-lg font-semibold">
         Access denied. Admins only.
       </div>
     );
-  }
+  }*/
 
   return (
     <div className="flex min-h-screen">
@@ -106,12 +149,10 @@ export default function ReportPage() {
           }`}
         >
           <div className="flex justify-between items-center px-6 py-6">
-            <div className="text-offical-black text-3xl font-bold">
-              Reports
-            </div>
+            <div className="text-offical-black text-3xl font-bold">Reports</div>
           </div>
 
-          {/* --- Assignment Selection View --- */}
+          {/* Assignment List */}
           {!selectedAssignment && (
             <div className="px-6 pb-8">
               <h2 className="text-lg font-semibold mb-4 text-zinc-700">
@@ -139,8 +180,8 @@ export default function ReportPage() {
             </div>
           )}
 
-          {/* --- Selected Assignment Report View --- */}
-          {selectedAssignment && (
+          {/* Report Detail */}
+          {selectedAssignment && reportStats && (
             <div className="px-6 pb-8">
               <div className="flex justify-between items-center mb-6">
                 <div>
@@ -153,59 +194,148 @@ export default function ReportPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => setSelectedAssignment(null)}
+                  onClick={() => {
+                    setSelectedAssignment(null);
+                    setReportStats(null);
+                    setReportData(null);
+                  }}
                   className="text-[var(--deakinTeal)] hover:underline"
                 >
                   ← Back to list
                 </button>
               </div>
 
-              {/* Stats Boxes */}
+              {/* Stats Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                <div className="bg-white p-5 rounded-2xl shadow flex flex-col items-center justify-center">
-                  <p className="text-3xl font-bold text-slate-800">
-                    {reportStats.totalSubmissions}
-                  </p>
-                  <p className="text-sm text-zinc-600">Total submissions</p>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow flex flex-col items-center justify-center">
-                  <p className="text-3xl font-bold text-slate-800">
-                    {reportStats.averageScore}%
-                  </p>
-                  <p className="text-sm text-zinc-600">Average score</p>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow flex flex-col items-center justify-center">
-                  <p className="text-3xl font-bold text-slate-800">
-                    {reportStats.withinDeviation}
-                  </p>
-                  <p className="text-sm text-zinc-600">
-                    Within deviation
-                  </p>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow flex flex-col items-center justify-center">
-                  <p className="text-3xl font-bold text-slate-800">
-                    {reportStats.outsideDeviation}
-                  </p>
-                  <p className="text-sm text-zinc-600">
-                    Outside deviation
-                  </p>
-                </div>
-                <div className="bg-white p-5 rounded-2xl shadow flex flex-col items-center justify-center">
-                  <p className="text-3xl font-bold text-slate-800">
-                    {reportStats.flagsOpen}
-                  </p>
-                  <p className="text-sm text-zinc-600">Flags open</p>
-                </div>
+                <StatCard value={reportStats.totalSubmissions} label="Total submissions" />
+                <StatCard value={`${reportStats.averageScore}%`} label="Average score" />
+                <StatCard value={reportStats.withinDeviation} label="Within deviation" />
+                <StatCard value={reportStats.outsideDeviation} label="Outside deviation" />
+                <StatCard value={reportStats.flagsOpen} label="Flags open" />
               </div>
 
-              {/* Placeholder for charts / future data */}
-              <div className="bg-white rounded-2xl shadow p-6 text-center text-zinc-500">
-                Detailed report visualization coming soon...
-              </div>
+              {/* 对比分数表格 */}
+              {reportData && (
+                <DeviationTable
+                  data={reportData}
+                  currentUserRole={currentUserRole}
+                />
+              )}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// 小组件：统计卡片
+function StatCard({ value, label }) {
+  return (
+    <div className="bg-white p-5 rounded-2xl shadow flex flex-col items-center justify-center">
+      <p className="text-3xl font-bold text-slate-800">{value}</p>
+      <p className="text-sm text-zinc-600">{label}</p>
+    </div>
+  );
+}
+
+// 小组件：对比分数表格
+function DeviationTable({ data, currentUserRole }) {
+  const rubric = data.rubric || [];
+  const markers = data.markers || [];
+  const papers = data.controlPapers || [];
+
+  const controlPaper = papers[0];
+  if (!controlPaper) return null;
+
+  // 构建 markerId -> criterion -> score 映射
+  const scoresMap = {};
+  controlPaper.marks.forEach((m) => {
+    scoresMap[m.markerId] = {};
+    m.scores.forEach((s) => {
+      scoresMap[m.markerId][s.rubricCategoryId] = Number(s.score);
+    });
+  });
+
+  // 找出 admin (假设第一位或名字中含 admin)
+  const adminMarker =
+    markers.find((m) => m.name?.toLowerCase().includes("admin")) || markers[0];
+  const adminId = adminMarker.id;
+
+  return (
+    <div className="bg-white rounded-2xl shadow p-6 overflow-x-auto">
+      <h3 className="text-xl font-semibold mb-4 text-slate-800">
+        Mark Comparison Table
+      </h3>
+      <table className="min-w-full border border-gray-200 text-sm">
+        <thead className="bg-gray-100 text-left">
+          <tr>
+            <th className="p-2 border-r">Marker</th>
+            {rubric.map((r) => (
+              <th key={r.id} className="p-2 border-r text-center">
+                {r.categoryName}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {markers.map((marker) => {
+            // tutor 视图：只显示自己 + admin
+            if (
+              currentUserRole !== "admin" &&
+              marker.id !== adminId &&
+              marker.id !== data.currentUser.id
+            ) {
+              return null;
+            }
+
+            return (
+              <tr key={marker.id} className="border-t">
+                <td className="p-2 border-r font-medium text-slate-700">
+                  {marker.name}
+                </td>
+                {rubric.map((r) => {
+                  const adminScore = scoresMap[adminId]?.[r.id];
+                  const thisScore = scoresMap[marker.id]?.[r.id];
+                  let bg = "bg-gray-100";
+                  let tooltip = "";
+
+                  if (thisScore !== undefined && adminScore !== undefined) {
+                    const diff = Math.abs(thisScore - adminScore);
+                    if (marker.id === adminId) {
+                      bg = "bg-blue-200";
+                      tooltip = "Admin score";
+                    } else if (diff === 0) {
+                      bg = "bg-green-200";
+                      tooltip = "Same as admin";
+                    } else if (diff <= r.deviationScore) {
+                      bg = "bg-yellow-200";
+                      tooltip = `Within deviation (Δ ${diff.toFixed(2)})`;
+                    } else {
+                      bg = "bg-red-200";
+                      tooltip = `Outside deviation (Δ ${diff.toFixed(2)})`;
+                    }
+                  }
+
+                  return (
+                    <td
+                      key={r.id}
+                      className={`relative p-2 text-center border-r ${bg} group cursor-default`}
+                    >
+                      {thisScore !== undefined ? thisScore : "-"}
+                      {tooltip && (
+                        <div className="absolute hidden group-hover:flex items-center justify-center bg-gray-800 text-white text-xs px-2 py-1 rounded-lg shadow-lg -top-8 left-1/2 transform -translate-x-1/2 z-10 whitespace-nowrap">
+                          {tooltip}
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
