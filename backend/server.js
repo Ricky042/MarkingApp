@@ -1048,7 +1048,6 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       WHERE assignment_id = $1 AND user_id = $2`,
       [assignmentId, currentUserId]
     );
-    console.log("If completed: ", personalStatusQuery);
 
     // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL FOR PERFORMANCE ---
     const [
