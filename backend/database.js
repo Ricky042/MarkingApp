@@ -83,23 +83,9 @@ async function initDB() {
         id SERIAL PRIMARY KEY,
         assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        completed BOOLEAN NOT NULL DEFAULT FALSE,
         UNIQUE(assignment_id, user_id)
       );
-    `);
-    // Add 'completed' column to assignment_markers if it doesn't exist
-    await pool.query(`
-    DO $$
-    BEGIN
-    IF NOT EXISTS (
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_name = 'assignment_markers'
-      AND column_name = 'completed'
-    ) THEN
-      ALTER TABLE assignment_markers ADD COLUMN completed BOOLEAN NOT NULL DEFAULT FALSE;
-        END IF;
-      END
-      $$;
     `);
 
     
@@ -111,7 +97,8 @@ async function initDB() {
         assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
         criterion_description TEXT NOT NULL,
         points NUMERIC(5, 2) NOT NULL,
-        deviation_threshold NUMERIC(5, 2) NOT NULL DEFAULT 0
+        deviation_threshold NUMERIC(5, 2) NOT NULL DEFAULT 0,
+        admin_comments TEXT
       );
     `);
 
