@@ -623,11 +623,11 @@ function DetailedMarksTable({ data, currentUserRole, markers, reportData }) {
         const markerId = markerMarks[0]?.markerId;
         
         // tutor view: only show self and admin
-        /*if (currentUserRole !== "admin" && 
+        if (currentUserRole !== "admin" && 
             markerId !== adminMarker?.id && 
             markerId !== data[0]?.currentUserId) {
           return null;
-        } abondoned*/
+        }
 
         return (
           <div key={markerName} className="mb-8 border border-gray-200 rounded-lg">
