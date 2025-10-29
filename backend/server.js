@@ -887,6 +887,36 @@ app.delete("/assignments/:id", authenticateToken, async (req, res) => {
 });
 
 
+////////////////////////////////////////////////////////////////////
+// Admin Comments on Rubric Criteria
+////////////////////////////////////////////////////////////////////
+
+
+app.post("/team/:teamId/assignments/:assignmentId/rubric-criteria/:criterionId/admin-comment", authenticateToken, async (req, res) => {
+  const { teamId, assignmentId, criterionId } = req.params;
+  const { adminComment } = req.body;
+  //console.log("Updating admin comment:", { teamId, assignmentId, criterionId, adminComment });
+  try {
+    const result = await pool.query(`
+      UPDATE rubric_criteria 
+      SET admin_comments = $1
+      WHERE id = $2 AND assignment_id = $3
+      RETURNING id, criterion_description, points, deviation_threshold, admin_comments
+    `, [adminComment, criterionId, assignmentId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Rubric criterion not found" });
+    }
+
+    res.json({
+      message: "Admin comment updated successfully",
+      rubricCriterion: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Error updating admin comment:", err);
+    res.status(500).json({ message: "Failed to update admin comment." });
+  }
+});
 
 ////////////////////////////////////////////////////////////////////
 // User Management
@@ -989,7 +1019,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
 
     // Query 3: Get all rubric criteria for the assignment.
     const criteriaQuery = pool.query(
-      `SELECT id, criterion_description, points, deviation_threshold
+      `SELECT id, criterion_description, points, deviation_threshold, admin_comments
        FROM rubric_criteria
        WHERE assignment_id = $1
        ORDER BY id ASC`,
@@ -1129,6 +1159,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
         categoryName: criterion.criterion_description,
         maxScore: parseFloat(criterion.points),
         deviationScore: parseFloat(criterion.deviation_threshold),
+        adminComments: criterion.admin_comments,
         tiers: [] // Tiers are not needed for the details page, keeping payload smaller.
       })),
       controlPapers: Array.from(controlPapersMap.values()),
