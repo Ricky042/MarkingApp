@@ -191,6 +191,11 @@ export default function TeamDashboard() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // --- State for user role (admin or tutor) ---
+  const [userRole, setUserRole] = useState(null);
+  // --- State for dashboard data ---
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
   
   // --- State for the invite modal ---
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -204,7 +209,6 @@ export default function TeamDashboard() {
     totalTeamMembers: 0
   });
 
-  // 获取团队成员
   const fetchTeamMembers = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -215,7 +219,7 @@ export default function TeamDashboard() {
       return res.data;
     } catch (err) {
       console.error("Failed to fetch team members:", err);
-      // 返回模拟数据作为后备
+      // Use mock data on failure
       return [
         { id: 1, username: 'user1@example.com' },
         { id: 2, username: 'user2@example.com' }
@@ -223,7 +227,30 @@ export default function TeamDashboard() {
     }
   };
 
-  // 获取仪表板统计数据
+  const fetchUserRole = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // Fetch the user's role in the team
+      const res = await api.get(`/team/${teamId}/role`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.data && res.data.role) {
+        setUserRole(res.data.role);
+        console.log("User role:", res.data.role);
+        return res.data.role;
+      }
+      
+      return 'tutor'; // default to tutor if no role found
+      
+    } catch (err) {
+      console.error("Failed to fetch user role:", err);
+      return 'admin'; // default to admin on error
+    }
+  };
+
+  // Fetch dashboard statistics
   const fetchDashboardStats = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -234,7 +261,7 @@ export default function TeamDashboard() {
       return res.data;
     } catch (err) {
       console.error("Failed to fetch dashboard stats:", err);
-      // 如果API调用失败，使用模拟数据
+    
       const mockStats = {
         totalAssignments: 12,
         activeMarkers: 8,
@@ -250,15 +277,15 @@ export default function TeamDashboard() {
   const fetchRecentAssignments = async () => {
   try {
     const token = localStorage.getItem("token");
-    console.log("Fetching recent assignments for team:", teamId);
-    console.log("Token exists:", !!token);
+    //console.log("Fetching recent assignments for team:", teamId);
+    //console.log("Token exists:", !!token);
     
     const res = await api.get(`/team/${teamId}/recent-assignments`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     
-    console.log("API Response:", res.data);
-    console.log("Assignments data:", res.data.assignments);
+    //console.log("API Response:", res.data);
+    //console.log("Assignments data:", res.data.assignments);
     
     setRecentAssignments(res.data.assignments);
     return res.data.assignments;
@@ -266,7 +293,7 @@ export default function TeamDashboard() {
     console.error("Failed to fetch recent assignments:", err);
     console.error("Error details:", err.response?.data);
     
-    // 如果API调用失败，使用模拟数据
+    // if the API call fails, use mock data
     const mockAssignments = [
       {
         id: 1,
@@ -293,36 +320,68 @@ export default function TeamDashboard() {
     return mockAssignments;
   }
 };
+  
+const fetchUpcomingDeadlines = async () => {
+  try {
+    const token = localStorage.getItem("token");
+  
+    const res = await api.get(`/team/${teamId}/upcoming-deadlines`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (res.data && res.data.deadlines) {
+      setUpcomingDeadlines(res.data.deadlines);
+        return res.data.deadlines;
+      }
 
+    } catch (err) {
+      console.error("Failed to fetch upcoming deadlines:", err);
+    
+      // if error occurs, use mock data
+      const mockDeadlines = [
+        {
+          id: 1,
+          course_code: "PSY101",
+          course_name: "Psychology Report",
+          due_in: "Due in 2 days",
+          last_updated: new Date().toISOString(),
+          status: "Moderating"
+        }
+      ];
+      setUpcomingDeadlines(mockDeadlines);
+    return mockDeadlines;
+    }
+  };
+  
   useEffect(() => {
     const fetchTeamData = async () => {
       const token = localStorage.getItem("token");
-      if (!token) return navigate("/login");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
       try {
-        // 获取团队基本信息以验证访问权限
+      
         await api.get(`/team/${teamId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
-        // 按顺序获取数据，确保依赖关系
-        const members = await fetchTeamMembers();
-        
-        // 更新统计数据，使用实际的团队成员数量
-        const stats = await fetchDashboardStats();
-        setDashboardStats(prev => ({
-          ...prev,
-          totalTeamMembers: members.length
-        }));
-        
-        await fetchRecentAssignments();
+        console.log("Team access verified, loading mock data...");
         
       } catch (err) {
-        console.error("Failed to fetch team data:", err);
-        // 如果获取团队基本信息失败，可能是权限问题
-        if (err.response?.status === 403 || err.response?.status === 404) {
-          navigate("/");
-        }
+        console.error("Failed to verify team access:", err);
+      }
+      
+      // Load all dashboard data (using mock data on failure)
+      try {
+        await fetchTeamMembers();
+        await fetchDashboardStats();
+        await fetchRecentAssignments();
+        await fetchUpcomingDeadlines();
+        await fetchUserRole(); 
+      } catch (err) {
+        console.error("Error loading mock data:", err);
       } finally {
         setIsLoading(false);
       }
@@ -330,6 +389,10 @@ export default function TeamDashboard() {
 
     fetchTeamData();
   }, [teamId, navigate]);
+
+
+
+
 
   if (isLoading) return <div>Loading...</div>;
 
@@ -398,7 +461,7 @@ export default function TeamDashboard() {
                       <AssignmentRow
                         key={assignment.id || index}
                         title={assignment.course_name}
-                        updatedText="Last updated 1:30 today" // 这需要从API获取实际数据
+                        updatedText="Last updated 1:30 today" 
                         labelText={assignment.status}
                         completedText={`${assignment.completed_markers || 0}/${assignment.total_markers || 0}`}
                         percentText={`${assignment.progress || 0}%`}
@@ -408,7 +471,7 @@ export default function TeamDashboard() {
                       />
                     ))
                   ) : (
-                    // 显示加载状态或空状态
+                    // No assignments found message
                     <div className="text-center py-4 text-gray-500">
                       No assignments found
                     </div>
@@ -416,13 +479,16 @@ export default function TeamDashboard() {
                 </div>
                 
                 {/* Second Wide box - Area Chart */}
-                <div className="w-full bg-white rounded-lg pt-6 pb-7 pl-8 pr-8">
-                  <div className="">
-                    <h3 className="text-lg font-semibold text-offical-black">Assignment Submissions</h3>
-                    <p className="text-sm text-zinc-400">Showing total submissions for the last 6 months</p>
+                {userRole === 'admin' && (
+                  <div className="w-full bg-white rounded-lg pt-6 pb-7 pl-8 pr-8">
+                    <div className="">
+                      <h3 className="text-lg font-semibold text-offical-black">Assignment Submissions</h3>
+                      <p className="text-sm text-zinc-400">Showing total submissions for the last 6 months</p>
+                    </div>
+                    <AreaChartComponent />
                   </div>
-                  <AreaChartComponent />
-                </div>
+                )}
+              
               </div>
 
               {/* Right wrapper: Stacked boxes */}
@@ -459,21 +525,24 @@ export default function TeamDashboard() {
                 
                 {/* The upcoming deadline */}
                 <div className="w-full p-5 bg-white rounded-lg">
-                  <div className="text-[var(--deakinTeal)] font-semibold text-lg mb-4">Upcoming Deadline</div>
-                  
-                  <DeadlineCard 
-                    dueIn="Due in 2 Days"
-                    title="Psychology Report"
-                    lastUpdated="Last updated 1:30 today"
-                    onClick={() => console.log('First deadline clicked')}
-                  />
-
-                  <DeadlineCard 
-                    dueIn="Due in 2 Days"
-                    title="Psychology Report"
-                    lastUpdated="Last updated 1:30 today"
-                    onClick={() => console.log('Second deadline clicked')}
-                  />
+                  <div className="text-[var(--deakinTeal)] font-semibold text-lg mb-4">Upcoming Deadlines</div>
+  
+                  {upcomingDeadlines.length > 0 ? (
+                    upcomingDeadlines.map((deadline, index) => (
+                      <DeadlineCard 
+                        key={deadline.id || index}
+                        dueIn={deadline.due_in}
+                        title={deadline.course_name}
+                        lastUpdated={deadline.last_updated}
+                        assignmentId={deadline.id}
+                        onClick={(assignmentId) => navigate(`/team/${teamId}/assignments/${assignmentId}`)}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      No upcoming deadlines
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

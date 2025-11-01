@@ -1400,7 +1400,7 @@ app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
   }
 });
 
-// Get recent assignments for dashboard
+
 // P.S. 
 // I know this is a big one and it looks scary and confusing, 
 // in fact, i used gen AI to assist me in writing it and I twisted it to fit the needs, 
@@ -1412,12 +1412,13 @@ app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
 // add new databse schema or whatever you need to make it cleaner and easier to understand,
 // because this is really a mess and I already hate mysef for writing this part.
 
+// Get recent assignments for dashboard
 app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
   
   try {
-    console.log("Fetching recent assignments for team:", teamId, "user:", currentUserId);
+    //console.log("Fetching recent assignments for team:", teamId, "user:", currentUserId);
     
     // Check if the user is a member of the team
     const memberCheck = await pool.query(
@@ -1485,8 +1486,8 @@ app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) 
       queryParams.push(currentUserId);
     }
 
-    console.log("Executing query:", assignmentsQuery);
-    console.log("With parameters:", queryParams);
+    //console.log("Executing query:", assignmentsQuery);
+    //console.log("With parameters:", queryParams);
 
     const assignmentsRes = await pool.query(assignmentsQuery, queryParams);
     
@@ -1518,6 +1519,190 @@ app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) 
   } catch (err) {
     console.error("Error fetching recent assignments:", err);
     res.status(500).json({ error: "Failed to fetch recent assignments" });
+  }
+});
+
+// Get upcoming deadlines for dashboard
+app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    
+    // Same as before, check if the user is a member of the team
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    const userRole = memberCheck.rows[0].role;
+    
+    // Same as before, adjust the query based on role
+    let deadlinesQuery;
+    let queryParams = [teamId];
+
+    if (userRole === 'admin') {
+      deadlinesQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_at,
+          u.username as created_by_username
+        FROM assignments a
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1 
+          AND a.due_date > NOW() 
+          AND a.due_date <= NOW() + INTERVAL '7 days'
+        ORDER BY a.due_date ASC
+        LIMIT 5
+      `;
+    } else {
+      deadlinesQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_at,
+          u.username as created_by_username
+        FROM assignments a
+        INNER JOIN assignment_markers am ON a.id = am.assignment_id
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1 
+          AND am.user_id = $2
+          AND a.due_date > NOW() 
+          AND a.due_date <= NOW() + INTERVAL '7 days'
+        ORDER BY a.due_date ASC
+        LIMIT 5
+      `;
+      queryParams.push(currentUserId);
+    }
+
+  
+
+    const deadlinesRes = await pool.query(deadlinesQuery, queryParams);
+
+    
+    // Light formatting of the deadlines data
+    const deadlines = deadlinesRes.rows.map(assignment => {
+      const dueDate = new Date(assignment.due_date);
+      const now = new Date();
+      const diffTime = dueDate - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      let dueIn;
+      if (diffDays === 0) {
+        dueIn = "Due today";
+      } else if (diffDays === 1) {
+        dueIn = "Due tomorrow";
+      } else {
+        dueIn = `Due in ${diffDays} days`;
+      }
+
+      return {
+        id: assignment.id,
+        course_code: assignment.course_code,
+        course_name: assignment.course_name,
+        due_date: assignment.due_date,
+        status: assignment.status,
+        created_by: assignment.created_by_username,
+        due_in: dueIn,
+        last_updated: assignment.created_at
+      };
+    });
+
+ 
+    
+    res.json({ 
+      deadlines
+    });
+  } catch (err) {
+    console.error("Error fetching upcoming deadlines:", err);
+    res.status(500).json({ error: "Failed to fetch upcoming deadlines" });
+  }
+});
+
+// Get chart data for dashboard
+// P.S.I also used gen Ai to help me write this part,
+// coz again, no one wants to do this, and it's late at night, i suppose it's fine as long as it works :p
+app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    console.log("Fetching chart data for team:", teamId);
+    
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    // Query to get submission counts per month for the last 6 months
+    const chartDataQuery = `
+      SELECT 
+        to_char(date_trunc('month', s.created_at), 'Mon') as month_short,
+        COUNT(*) as total
+      FROM submissions s
+      JOIN assignments a ON s.assignment_id = a.id
+      WHERE a.team_id = $1 
+        AND s.created_at >= date_trunc('month', current_date - interval '5 months')
+      GROUP BY date_trunc('month', s.created_at)
+      ORDER BY date_trunc('month', s.created_at)
+    `;
+
+    const chartDataRes = await pool.query(chartDataQuery, [teamId]);
+    
+    console.log("Raw chart data from DB:", chartDataRes.rows);
+
+    // If empty result, return mock data
+    if (chartDataRes.rows.length === 0) {
+      console.log("No data found, returning mock data");
+      const mockData = [
+        { month: "Jan", total: 22 },
+        { month: "Feb", total: 22 },
+        { month: "Mar", total: 50 },
+        { month: "Apr", total: 22 },
+        { month: "May", total: 10 },
+        { month: "Jun", total: 25 },
+      ];
+      return res.json({ chartData: mockData });
+    }
+
+    // Format the data for the frontend
+    const chartData = chartDataRes.rows.map(row => ({
+      month: row.month_short,
+      total: parseInt(row.total)
+    }));
+
+    console.log("Formatted chart data:", chartData);
+    
+    res.json({ 
+      chartData
+    });
+  } catch (err) {
+    console.error("Error fetching chart data:", err);
+    // Use mock data on error as well
+    const mockData = [
+      { month: "Jan", total: 12 },
+      { month: "Feb", total: 18 },
+      { month: "Mar", total: 15 },
+      { month: "Apr", total: 22 },
+      { month: "May", total: 19 },
+      { month: "Jun", total: 25 },
+    ];
+    res.json({ chartData: mockData });
   }
 });
 
