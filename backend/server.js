@@ -1312,6 +1312,216 @@ app.get("/team/:teamId/markers", authenticateToken, async (req, res) => {
 });
 
 /////////////////////
+// Team Dashboard used
+/////////////////////
+// Get team statistics for dashboard
+// P.S. I never thought Dashboard integration would be this complicated and time-consuming
+app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    // Check if the user is a member of the team
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    const userRole = memberCheck.rows[0].role;
+
+    // Based on role, adjust the queries accordingly
+    let assignmentsCondition = "a.team_id = $1";
+    let queryParams = [teamId];
+    
+    if (userRole !== 'admin') {
+  
+      assignmentsCondition = "a.team_id = $1 AND am.user_id = $2";
+      queryParams.push(currentUserId);
+    }
+
+    // Total Assignments
+    let assignmentsQuery = `
+      SELECT COUNT(DISTINCT a.id) 
+      FROM assignments a
+      ${userRole !== 'admin' ? 'INNER JOIN assignment_markers am ON a.id = am.assignment_id' : ''}
+      WHERE ${assignmentsCondition}
+    `;
+    const assignmentsRes = await pool.query(assignmentsQuery, queryParams);
+    
+    // Active Markers: number of unique markers who have submitted marks in the last 24 hours
+    const activeMarkersQuery = `
+      SELECT COUNT(DISTINCT m.tutor_id) 
+      FROM marks m
+      JOIN submissions s ON m.submission_id = s.id
+      JOIN assignments a ON s.assignment_id = a.id
+      WHERE a.team_id = $1 AND m.created_at >= NOW() - INTERVAL '24 hours'
+    `;
+    const activeMarkersRes = await pool.query(activeMarkersQuery, [teamId]);
+    
+    // Submissions Graded: total number of submissions that have been graded
+    const gradedRes = await pool.query(
+      `SELECT COUNT(*) 
+       FROM marks m
+       JOIN submissions s ON m.submission_id = s.id
+       JOIN assignments a ON s.assignment_id = a.id
+       WHERE a.team_id = $1`,
+      [teamId]
+    );
+    
+    // Flags Open: uncompleted markers across all assignments
+    const flagsOpenQuery = `
+      SELECT COUNT(DISTINCT am.user_id) 
+      FROM assignment_markers am
+      JOIN assignments a ON am.assignment_id = a.id
+      WHERE a.team_id = $1 AND am.completed = false
+    `;
+    const flagsOpenRes = await pool.query(flagsOpenQuery, [teamId]);
+
+    // Total Team Members
+    const teamMembersRes = await pool.query(
+      `SELECT COUNT(*) FROM team_members WHERE team_id = $1`,
+      [teamId]
+    );
+
+    res.json({
+      totalAssignments: parseInt(assignmentsRes.rows[0].count),
+      activeMarkers: parseInt(activeMarkersRes.rows[0].count),
+      submissionsGraded: parseInt(gradedRes.rows[0].count),
+      flagsOpen: parseInt(flagsOpenRes.rows[0].count),
+      totalTeamMembers: parseInt(teamMembersRes.rows[0].count)
+    });
+  } catch (err) {
+    console.error("Error fetching team stats:", err);
+    res.status(500).json({ error: "Failed to fetch team statistics" });
+  }
+});
+
+// Get recent assignments for dashboard
+// P.S. 
+// I know this is a big one and it looks scary and confusing, 
+// in fact, i used gen AI to assist me in writing it and I twisted it to fit the needs, 
+// even then it took me a while to understand it for myself, and I'll probably forget it after the handover meeting. 
+// And most imporantly, no one wants to write this part, the whole dashboard integration thing, i have to stay up late to do it,  
+// so don't judge me if anyone tries to read it or even understand it. :p
+// also, if this website really has a future or 
+// this part of logic being used somewhere else, please refactor this endpoint
+// add new databse schema or whatever you need to make it cleaner and easier to understand,
+// because this is really a mess and I already hate mysef for writing this part.
+
+app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    console.log("Fetching recent assignments for team:", teamId, "user:", currentUserId);
+    
+    // Check if the user is a member of the team
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    const userRole = memberCheck.rows[0].role;
+    
+    // Based on role, adjust the queries accordingly
+    let assignmentsQuery;
+    let queryParams = [teamId];
+
+    if (userRole === 'admin') {
+      // Admins can see all assignments
+      assignmentsQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_by,
+          COUNT(DISTINCT am.user_id) as total_markers,
+          COUNT(DISTINCT CASE WHEN am.completed = true THEN am.user_id END) as completed_markers,
+          u.username as created_by_username,
+          COUNT(DISTINCT CASE WHEN am.completed = false THEN am.user_id END) as flags_count,
+          a.created_at
+        FROM assignments a
+        LEFT JOIN assignment_markers am ON a.id = am.assignment_id
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1
+        GROUP BY a.id, u.username, a.created_at
+        ORDER BY a.created_at DESC
+        LIMIT 5
+      `;
+    } else {
+      // Tutors can only see assignments assigned to them
+      assignmentsQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_by,
+          COUNT(DISTINCT am.user_id) as total_markers,
+          COUNT(DISTINCT CASE WHEN am.completed = true THEN am.user_id END) as completed_markers,
+          u.username as created_by_username,
+          am.completed as user_completed,
+          COUNT(DISTINCT CASE WHEN am.completed = false THEN am.user_id END) as flags_count,
+          a.created_at
+        FROM assignments a
+        INNER JOIN assignment_markers am ON a.id = am.assignment_id
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1 AND am.user_id = $2
+        GROUP BY a.id, u.username, am.completed, a.created_at
+        ORDER BY a.created_at DESC
+        LIMIT 5
+      `;
+      queryParams.push(currentUserId);
+    }
+
+    console.log("Executing query:", assignmentsQuery);
+    console.log("With parameters:", queryParams);
+
+    const assignmentsRes = await pool.query(assignmentsQuery, queryParams);
+    
+    //console.log("Database query result:", assignmentsRes.rows);
+    
+    // Light formatting of the assignments data
+    const assignments = assignmentsRes.rows.map(assignment => ({
+      id: assignment.id,
+      course_code: assignment.course_code,
+      course_name: assignment.course_name,
+      due_date: assignment.due_date,
+      status: assignment.status,
+      created_by: assignment.created_by_username,
+      total_markers: parseInt(assignment.total_markers) || 0,
+      completed_markers: parseInt(assignment.completed_markers) || 0,
+      progress: assignment.total_markers > 0 
+        ? Math.round((assignment.completed_markers / assignment.total_markers) * 100)
+        : 0,
+      flags: parseInt(assignment.flags_count) || 0,
+      user_completed: assignment.user_completed || false
+    }));
+
+    //console.log("Formatted assignments:", assignments);
+    
+    res.json({ 
+      assignments,
+      userRole
+    });
+  } catch (err) {
+    console.error("Error fetching recent assignments:", err);
+    res.status(500).json({ error: "Failed to fetch recent assignments" });
+  }
+});
+
+/////////////////////
 // Start Server
 /////////////////////
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

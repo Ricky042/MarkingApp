@@ -148,26 +148,7 @@ export default function Assignments() {
             console.log("assignment", a);
         });
 
-        // Implemented frontend filtering
-        /*
-        const filteredAssignments = useMemo(() => {
-            return assignments.filter(assignment => {
-                // Semester filter logic
-                const semesterMatch = !selectedSemester || 
-                    selectedSemester === "All Semesters" || 
-                    `Semester ${assignment.semester}` === selectedSemester;
-                const statusMatch = !selectedStatus || 
-                    selectedStatus === "All Status" || 
-                    `${assignment.status}` === selectedStatus;
-
-                // Search query logic (now matches course_name and course_code)
-                const searchMatch =
-                    assignment.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    assignment.course_code.toLowerCase().includes(searchQuery.toLowerCase());
-
-                return semesterMatch && statusMatch && searchMatch;
-            });
-        }, [assignments, selectedSemester, selectedStatus, searchQuery]);*/
+        
         // --- Filtering logic ---
         const filteredAssignments = useMemo(() => {
             return assignments.filter((assignment) => {
