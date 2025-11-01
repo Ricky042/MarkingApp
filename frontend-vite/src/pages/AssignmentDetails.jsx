@@ -223,7 +223,7 @@ export default function AssignmentDetails() {
   return (
     <div className="flex min-h-screen">
       <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
-        <Sidebar />
+        <Sidebar activeTab={1} />
       </aside>
 
       <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
@@ -235,8 +235,8 @@ export default function AssignmentDetails() {
 
           <main className="p-6">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.title}</h1>
-              <p className="text-slate-600 mt-1">{assignmentDetails.description}</p>
+              <p className="text-slate-600 text-sm">{assignmentDetails.course_code}</p>
+              <h1 className="text-3xl font-bold text-offical-black">{assignmentDetails.course_name}</h1>
             </div>
 
             <CompletionPrompt
