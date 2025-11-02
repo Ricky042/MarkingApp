@@ -15,6 +15,7 @@ import IndividualDashboard from "./pages/IndividualDashboard";
 import AssignmentMakers from "./pages/AssignmentMakers";
 import Setting from "./pages/Setting";
 import Markers from "./pages/Markers";
+import Reports from "./pages/Reports";
 import api from "./utils/axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -161,6 +162,7 @@ function App() {
           <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
           <Route path="/team/:teamId/settings" element={<Setting />} />
           <Route path="/team/:teamId/markers" element={<Markers />} />
+          <Route path="/team/:teamId/reports" element={<Reports />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     </Router>

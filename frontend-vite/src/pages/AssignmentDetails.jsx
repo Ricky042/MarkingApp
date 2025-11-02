@@ -24,7 +24,108 @@ const ErrorMessage = ({ message }) => (
   </div>
 );
 
-// --- Sub-components for the Assignment Details Page ---
+// --- Admin Comments Display ---
+function AdminCommentsDisplay({ rubric, currentUserRole }) {
+  // Display only admin comments rubric criteria
+  const criteriaWithComments = rubric?.filter(criterion => 
+    criterion.adminComments && criterion.adminComments.trim() !== ""
+  ) || [];
+
+  if (criteriaWithComments.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-6 bg-white p-6 rounded-lg border border-slate-200">
+      <h3 className="text-xl font-semibold mb-4 text-slate-900 flex items-center">
+        <span>Admin Feedback</span>
+        {currentUserRole === 'tutor' && (
+          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+            From Admin
+          </span>
+        )}
+      </h3>
+      
+      <div className="space-y-4">
+        {criteriaWithComments.map((criterion) => (
+          <div key={criterion.id} className="border-l-4 border-deakinTeal pl-4 py-2 bg-blue-50 rounded">
+            <h4 className="font-semibold text-slate-800 mb-1">
+              {criterion.categoryName}
+            </h4>
+            <p className="text-slate-700 whitespace-pre-wrap text-sm">
+              {criterion.adminComments}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Admin Report Section  ---
+function AdminReportSection({ teamId, assignmentId, data, currentUserRole }) {
+  const navigate = useNavigate();
+
+  if (currentUserRole !== 'admin') {
+    return null;
+  }
+
+  const { assignmentDetails, rubric, markers, controlPapers } = data;
+
+  return (
+    <div className="mt-6 bg-white p-6 rounded-lg border border-slate-200">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-semibold text-slate-900">Reports & Analytics</h3>
+        <button
+          onClick={() => navigate(`/team/${teamId}/reports`, { 
+            state: { preSelectedAssignmentId: assignmentId } 
+          })}
+          className="px-4 py-2 bg-deakinTeal text-white text-sm font-medium rounded-md hover:bg-[#0E796B] cursor-pointer flex items-center"
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          View Detailed Reports
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div className="bg-slate-50 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-slate-800">{controlPapers?.length || 0}</div>
+          <div className="text-sm text-slate-600">Control Papers</div>
+        </div>
+        <div className="bg-slate-50 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-slate-800">{markers?.length || 0}</div>
+          <div className="text-sm text-slate-600">Markers</div>
+        </div>
+        <div className="bg-slate-50 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-slate-800">{rubric?.length || 0}</div>
+          <div className="text-sm text-slate-600">Criteria</div>
+        </div>
+        <div className="bg-slate-50 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-slate-800">
+            {(() => {
+              const completedMarkers = markers?.filter(marker => {
+                const allPapersMarked = controlPapers?.every(paper => 
+                  paper.marks?.some(mark => mark.markerId === marker.id)
+                );
+                return allPapersMarked;
+              }).length || 0;
+              return `${completedMarkers}/${markers?.length || 0}`;
+            })()}
+          </div>
+          <div className="text-sm text-slate-600">Completed</div>
+        </div>
+      </div>
+
+      <p className="text-slate-600 text-sm">
+        Access comprehensive reports including deviation analysis, detailed marks comparison, and performance statistics.
+      </p>
+    </div>
+  );
+}
+
+
 
 // 1. The prompt header for control paper marking status
 function CompletionPrompt({ status, teamId, assignmentId }) {
@@ -171,8 +272,7 @@ function ScoreComparisonTable({ data }) {
   );
 }
 
-
-// --- THE MAIN PAGE COMPONENT (Updated with No Role-Based Rendering) ---
+// --- THE MAIN PAGE COMPONENT (Updated with new components) ---
 export default function AssignmentDetails() {
   const { teamId, assignmentId } = useParams();
   const [isLoading, setIsLoading] = useState(true);
@@ -180,6 +280,7 @@ export default function AssignmentDetails() {
   const [assignmentData, setAssignmentData] = useState(null);
   const [userCompletionStatus, setUserCompletionStatus] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -192,6 +293,7 @@ export default function AssignmentDetails() {
 
         const data = response.data;
         setAssignmentData(data);
+        setCurrentUserRole(data.currentUser?.role);
 
         // This logic can stay, as the prompt is useful for all users
         const { currentUser, controlPapers } = data;
@@ -218,7 +320,6 @@ export default function AssignmentDetails() {
   if (!assignmentData) return null;
 
   const { assignmentDetails } = assignmentData;
-  console.log(assignmentDetails);
 
   return (
     <div className="flex min-h-screen">
@@ -235,8 +336,10 @@ export default function AssignmentDetails() {
 
           <main className="p-6">
             <div className="mb-6">
-              <p className="text-slate-600 text-sm">{assignmentDetails.course_code}</p>
-              <h1 className="text-3xl font-bold text-offical-black">{assignmentDetails.course_name}</h1>
+              <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.course_name}</h1>
+              <p className="text-slate-600 mt-1">
+                {assignmentDetails.course_code} • Semester {assignmentDetails.semester}
+              </p>
             </div>
 
             <CompletionPrompt
@@ -245,12 +348,22 @@ export default function AssignmentDetails() {
               assignmentId={assignmentId}
             />
 
-            {/* --- THE FIX IS HERE --- */}
-            {/* We are now ALWAYS rendering the ScoreComparisonTable for every user. */}
-            {/* This removes the dependency on the user's role for now. */}
+            {/* Score Comparison Table */}
             <ScoreComparisonTable data={assignmentData} />
 
-            {/* The old, simple rubric has been completely removed to avoid confusion. */}
+            {/* Admin Comments - for tutor viw only*/}
+            <AdminCommentsDisplay 
+              rubric={assignmentData.rubric} 
+              currentUserRole={currentUserRole} 
+            />
+
+            {/* Admin Report Section*/}
+            <AdminReportSection 
+              teamId={teamId}
+              assignmentId={assignmentId}
+              data={assignmentData}
+              currentUserRole={currentUserRole}
+            />
 
           </main>
         </div>
