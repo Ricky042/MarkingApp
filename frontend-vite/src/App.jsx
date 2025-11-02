@@ -13,6 +13,7 @@ import AssignmentDetails from "./pages/AssignmentDetails";
 import MarkingPage from "./pages/MarkingPage";
 import IndividualDashboard from "./pages/IndividualDashboard";
 import AssignmentMakers from "./pages/AssignmentMakers";
+import ReportsDetails from "./pages/ReportsDetails";
 import Setting from "./pages/Setting";
 import Markers from "./pages/Markers";
 import Reports from "./pages/Reports";
@@ -163,6 +164,7 @@ function App() {
           <Route path="/team/:teamId/settings" element={<Setting />} />
           <Route path="/team/:teamId/markers" element={<Markers />} />
           <Route path="/team/:teamId/reports" element={<Reports />} />
+          <Route path="/team/:teamId/reports/:assignmentId" element={<ReportsDetails />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     </Router>

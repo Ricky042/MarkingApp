@@ -77,7 +77,7 @@ function AdminReportSection({ teamId, assignmentId, data, currentUserRole }) {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-semibold text-slate-900">Reports & Analytics</h3>
         <button
-          onClick={() => navigate(`/team/${teamId}/reports`, { 
+          onClick={() => navigate(`/team/${teamId}/reports/${assignmentId}`, { 
             state: { preSelectedAssignmentId: assignmentId } 
           })}
           className="px-4 py-2 bg-deakinTeal text-white text-sm font-medium rounded-md hover:bg-[#0E796B] cursor-pointer flex items-center"
@@ -126,8 +126,6 @@ function AdminReportSection({ teamId, assignmentId, data, currentUserRole }) {
 }
 
 
-
-// 1. The prompt header for control paper marking status
 function CompletionPrompt({ status, teamId, assignmentId }) {
   const navigate = useNavigate();
 
@@ -150,7 +148,7 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
     return (
       <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
         <p className="font-bold">All Done!</p>
-        <p>You have successfully completed marking for both control papers.</p>
+        <p>You have successfully completed marking for the control paper.</p>
       </div>
     );
   }
@@ -158,8 +156,8 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
   return null;
 }
 
-// 2. The Score Comparison Table (Now shown to everyone)
-function ScoreComparisonTable({ data }) {
+
+function ScoreComparisonTable({ data, currentUserRole }) {
   const [selectedPaperId, setSelectedPaperId] = useState('cp-A');
   const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
   const { assignmentDetails, rubric, markers, controlPapers } = data;
@@ -175,10 +173,13 @@ function ScoreComparisonTable({ data }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isPaperDropdownOpen]);
 
-  const standardMarkerId = assignmentDetails.created_by;
-  const standardMarker = markers.find(m => m.id === standardMarkerId);
+  // Get admin marker (standard) and others
+  const adminMarker = markers?.find((m) => m.name?.toLowerCase().includes("admin")) || markers?.[0];
+  const adminId = adminMarker?.id;
+  
+  
   const otherMarkers = markers
-    .filter(m => m.id !== standardMarkerId)
+    .filter(m => m.id !== adminId)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const selectedPaperData = controlPapers.find(p => p.id === selectedPaperId);
@@ -195,8 +196,8 @@ function ScoreComparisonTable({ data }) {
     return scoresMap.get(markerId)?.get(criterionId);
   };
 
-  const standardScores = scoresMap.get(standardMarkerId);
-  const isStandardMarked = standardScores && standardScores.size > 0;
+  const adminScores = scoresMap.get(adminId);
+  const isAdminMarked = adminScores && adminScores.size > 0;
 
   return (
     <div className="mt-8 bg-white p-6 rounded-lg border border-slate-200">
@@ -262,38 +263,56 @@ function ScoreComparisonTable({ data }) {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-1/4">Rubric Criterion</th>
 
-              {standardMarker && (
+              {adminMarker && (
                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  {standardMarker.name} (Standard)
+                  {adminMarker.name} (Standard)
                 </th>
               )}
 
-              {otherMarkers.map(marker => (
-                <th key={marker.id} className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  {marker.name}
-                </th>
-              ))}
+              {otherMarkers.map(marker => {
+                // tutor view: only show self and admin
+                if (
+                  currentUserRole !== "admin" &&
+                  marker.id !== data.currentUser?.id
+                ) {
+                  return null;
+                }
+
+                return (
+                  <th key={marker.id} className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    {marker.name}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
             {rubric.map(category => {
-              const standardScore = standardScores ? getScore(standardMarkerId, category.id) : undefined;
+              const adminScore = adminScores ? getScore(adminId, category.id) : undefined;
 
               return (
                 <tr key={category.id}>
                   <td className="px-6 py-4 whitespace-normal font-medium text-slate-900">{category.categoryName}</td>
 
-                  {standardMarker && (
+                  {adminMarker && (
                     <td className="px-6 py-4 whitespace-nowrap text-center font-bold bg-slate-50 text-slate-800">
-                      {typeof standardScore === 'number' ? standardScore : 'N/A'}
+                      {typeof adminScore === 'number' ? adminScore : 'N/A'}
                     </td>
                   )}
 
                   {otherMarkers.map(marker => {
+                    // tutor 视图：只显示自己和admin
+                    if (
+                      currentUserRole !== "admin" &&
+                      marker.id !== data.currentUser?.id
+                    ) {
+                      return null;
+                    }
+
                     const markerScore = getScore(marker.id, category.id);
                     let cellColor = 'bg-white';
-                    if (isStandardMarked && typeof markerScore === 'number' && typeof standardScore === 'number') {
-                      const difference = Math.abs(markerScore - standardScore);
+                    if (isAdminMarked && typeof markerScore === 'number' && typeof adminScore === 'number') {
+                      const difference = Math.abs(markerScore - adminScore);
                       const deviationPercentage = category.deviationScore;
                       const deviationThreshold = (deviationPercentage / 100) * category.maxScore;
                       if (difference < deviationThreshold) cellColor = 'bg-green-100 text-green-900';
@@ -312,7 +331,7 @@ function ScoreComparisonTable({ data }) {
             })}
           </tbody>
         </table>
-        {!isStandardMarked && (
+        {!isAdminMarked && (
             <div className="mt-4 p-3 bg-lime-100 text-deakinTeal rounded-md text-sm">
                 The standard marker has not yet marked this control paper. Score coloring is disabled until the standard is set.
             </div>
@@ -398,10 +417,13 @@ export default function AssignmentDetails() {
               assignmentId={assignmentId}
             />
 
-            {/* Score Comparison Table */}
-            <ScoreComparisonTable data={assignmentData} />
+            {/* Score Comparison Table - 现在传递 currentUserRole */}
+            <ScoreComparisonTable 
+              data={assignmentData} 
+              currentUserRole={currentUserRole}
+            />
 
-            {/* Admin Comments - for tutor viw only*/}
+            {/* Admin Comments - for tutor view only*/}
             <AdminCommentsDisplay 
               rubric={assignmentData.rubric} 
               currentUserRole={currentUserRole} 
