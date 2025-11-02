@@ -1312,6 +1312,401 @@ app.get("/team/:teamId/markers", authenticateToken, async (req, res) => {
 });
 
 /////////////////////
+// Team Dashboard used
+/////////////////////
+// Get team statistics for dashboard
+// P.S. I never thought Dashboard integration would be this complicated and time-consuming
+app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    // Check if the user is a member of the team
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    const userRole = memberCheck.rows[0].role;
+
+    // Based on role, adjust the queries accordingly
+    let assignmentsCondition = "a.team_id = $1";
+    let queryParams = [teamId];
+    
+    if (userRole !== 'admin') {
+  
+      assignmentsCondition = "a.team_id = $1 AND am.user_id = $2";
+      queryParams.push(currentUserId);
+    }
+
+    // Total Assignments
+    let assignmentsQuery = `
+      SELECT COUNT(DISTINCT a.id) 
+      FROM assignments a
+      ${userRole !== 'admin' ? 'INNER JOIN assignment_markers am ON a.id = am.assignment_id' : ''}
+      WHERE ${assignmentsCondition}
+    `;
+    const assignmentsRes = await pool.query(assignmentsQuery, queryParams);
+    
+    // Active Markers: number of unique markers who have submitted marks in the last 24 hours
+    const activeMarkersQuery = `
+      SELECT COUNT(DISTINCT m.tutor_id) 
+      FROM marks m
+      JOIN submissions s ON m.submission_id = s.id
+      JOIN assignments a ON s.assignment_id = a.id
+      WHERE a.team_id = $1 AND m.created_at >= NOW() - INTERVAL '24 hours'
+    `;
+    const activeMarkersRes = await pool.query(activeMarkersQuery, [teamId]);
+    
+    // Submissions Graded: total number of submissions that have been graded
+    const gradedRes = await pool.query(
+      `SELECT COUNT(*) 
+       FROM marks m
+       JOIN submissions s ON m.submission_id = s.id
+       JOIN assignments a ON s.assignment_id = a.id
+       WHERE a.team_id = $1`,
+      [teamId]
+    );
+    
+    // Flags Open: uncompleted markers across all assignments
+    const flagsOpenQuery = `
+      SELECT COUNT(DISTINCT am.user_id) 
+      FROM assignment_markers am
+      JOIN assignments a ON am.assignment_id = a.id
+      WHERE a.team_id = $1 AND am.completed = false
+    `;
+    const flagsOpenRes = await pool.query(flagsOpenQuery, [teamId]);
+
+    // Total Team Members
+    const teamMembersRes = await pool.query(
+      `SELECT COUNT(*) FROM team_members WHERE team_id = $1`,
+      [teamId]
+    );
+
+    res.json({
+      totalAssignments: parseInt(assignmentsRes.rows[0].count),
+      activeMarkers: parseInt(activeMarkersRes.rows[0].count),
+      submissionsGraded: parseInt(gradedRes.rows[0].count),
+      flagsOpen: parseInt(flagsOpenRes.rows[0].count),
+      totalTeamMembers: parseInt(teamMembersRes.rows[0].count)
+    });
+  } catch (err) {
+    console.error("Error fetching team stats:", err);
+    res.status(500).json({ error: "Failed to fetch team statistics" });
+  }
+});
+
+
+// P.S. 
+// I know this is a big one and it looks scary and confusing, 
+// in fact, i used gen AI to assist me in writing it and I twisted it to fit the needs, 
+// even then it took me a while to understand it for myself, and I'll probably forget it after the handover meeting. 
+// And most imporantly, no one wants to write this part, the whole dashboard integration thing, i have to stay up late to do it,  
+// so don't judge me if anyone tries to read it or even understand it. :p
+// also, if this website really has a future or 
+// this part of logic being used somewhere else, please refactor this endpoint
+// add new databse schema or whatever you need to make it cleaner and easier to understand,
+// because this is really a mess and I already hate mysef for writing this part.
+
+// Get recent assignments for dashboard
+app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    //console.log("Fetching recent assignments for team:", teamId, "user:", currentUserId);
+    
+    // Check if the user is a member of the team
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    const userRole = memberCheck.rows[0].role;
+    
+    // Based on role, adjust the queries accordingly
+    let assignmentsQuery;
+    let queryParams = [teamId];
+
+    if (userRole === 'admin') {
+      // Admins can see all assignments
+      assignmentsQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_by,
+          COUNT(DISTINCT am.user_id) as total_markers,
+          COUNT(DISTINCT CASE WHEN am.completed = true THEN am.user_id END) as completed_markers,
+          u.username as created_by_username,
+          COUNT(DISTINCT CASE WHEN am.completed = false THEN am.user_id END) as flags_count,
+          a.created_at
+        FROM assignments a
+        LEFT JOIN assignment_markers am ON a.id = am.assignment_id
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1
+        GROUP BY a.id, u.username, a.created_at
+        ORDER BY a.created_at DESC
+        LIMIT 5
+      `;
+    } else {
+      // Tutors can only see assignments assigned to them
+      assignmentsQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_by,
+          COUNT(DISTINCT am.user_id) as total_markers,
+          COUNT(DISTINCT CASE WHEN am.completed = true THEN am.user_id END) as completed_markers,
+          u.username as created_by_username,
+          am.completed as user_completed,
+          COUNT(DISTINCT CASE WHEN am.completed = false THEN am.user_id END) as flags_count,
+          a.created_at
+        FROM assignments a
+        INNER JOIN assignment_markers am ON a.id = am.assignment_id
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1 AND am.user_id = $2
+        GROUP BY a.id, u.username, am.completed, a.created_at
+        ORDER BY a.created_at DESC
+        LIMIT 5
+      `;
+      queryParams.push(currentUserId);
+    }
+
+    //console.log("Executing query:", assignmentsQuery);
+    //console.log("With parameters:", queryParams);
+
+    const assignmentsRes = await pool.query(assignmentsQuery, queryParams);
+    
+    //console.log("Database query result:", assignmentsRes.rows);
+    
+    // Light formatting of the assignments data
+    const assignments = assignmentsRes.rows.map(assignment => ({
+      id: assignment.id,
+      course_code: assignment.course_code,
+      course_name: assignment.course_name,
+      due_date: assignment.due_date,
+      status: assignment.status,
+      created_by: assignment.created_by_username,
+      total_markers: parseInt(assignment.total_markers) || 0,
+      completed_markers: parseInt(assignment.completed_markers) || 0,
+      progress: assignment.total_markers > 0 
+        ? Math.round((assignment.completed_markers / assignment.total_markers) * 100)
+        : 0,
+      flags: parseInt(assignment.flags_count) || 0,
+      user_completed: assignment.user_completed || false
+    }));
+
+    //console.log("Formatted assignments:", assignments);
+    
+    res.json({ 
+      assignments,
+      userRole
+    });
+  } catch (err) {
+    console.error("Error fetching recent assignments:", err);
+    res.status(500).json({ error: "Failed to fetch recent assignments" });
+  }
+});
+
+// Get upcoming deadlines for dashboard
+app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    
+    // Same as before, check if the user is a member of the team
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    const userRole = memberCheck.rows[0].role;
+    
+    // Same as before, adjust the query based on role
+    let deadlinesQuery;
+    let queryParams = [teamId];
+
+    if (userRole === 'admin') {
+      deadlinesQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_at,
+          u.username as created_by_username
+        FROM assignments a
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1 
+          AND a.due_date > NOW() 
+          AND a.due_date <= NOW() + INTERVAL '7 days'
+        ORDER BY a.due_date ASC
+        LIMIT 5
+      `;
+    } else {
+      deadlinesQuery = `
+        SELECT 
+          a.id, 
+          a.course_code, 
+          a.course_name, 
+          a.due_date, 
+          a.status,
+          a.created_at,
+          u.username as created_by_username
+        FROM assignments a
+        INNER JOIN assignment_markers am ON a.id = am.assignment_id
+        LEFT JOIN users u ON a.created_by = u.id
+        WHERE a.team_id = $1 
+          AND am.user_id = $2
+          AND a.due_date > NOW() 
+          AND a.due_date <= NOW() + INTERVAL '7 days'
+        ORDER BY a.due_date ASC
+        LIMIT 5
+      `;
+      queryParams.push(currentUserId);
+    }
+
+  
+
+    const deadlinesRes = await pool.query(deadlinesQuery, queryParams);
+
+    
+    // Light formatting of the deadlines data
+    const deadlines = deadlinesRes.rows.map(assignment => {
+      const dueDate = new Date(assignment.due_date);
+      const now = new Date();
+      const diffTime = dueDate - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      let dueIn;
+      if (diffDays === 0) {
+        dueIn = "Due today";
+      } else if (diffDays === 1) {
+        dueIn = "Due tomorrow";
+      } else {
+        dueIn = `Due in ${diffDays} days`;
+      }
+
+      return {
+        id: assignment.id,
+        course_code: assignment.course_code,
+        course_name: assignment.course_name,
+        due_date: assignment.due_date,
+        status: assignment.status,
+        created_by: assignment.created_by_username,
+        due_in: dueIn,
+        last_updated: assignment.created_at
+      };
+    });
+
+ 
+    
+    res.json({ 
+      deadlines
+    });
+  } catch (err) {
+    console.error("Error fetching upcoming deadlines:", err);
+    res.status(500).json({ error: "Failed to fetch upcoming deadlines" });
+  }
+});
+
+// Get chart data for dashboard
+// P.S.I also used gen Ai to help me write this part,
+// coz again, no one wants to do this, and it's late at night, i suppose it's fine as long as it works :p
+app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    console.log("Fetching chart data for team:", teamId);
+    
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    // Query to get submission counts per month for the last 6 months
+    const chartDataQuery = `
+      SELECT 
+        to_char(date_trunc('month', s.created_at), 'Mon') as month_short,
+        COUNT(*) as total
+      FROM submissions s
+      JOIN assignments a ON s.assignment_id = a.id
+      WHERE a.team_id = $1 
+        AND s.created_at >= date_trunc('month', current_date - interval '5 months')
+      GROUP BY date_trunc('month', s.created_at)
+      ORDER BY date_trunc('month', s.created_at)
+    `;
+
+    const chartDataRes = await pool.query(chartDataQuery, [teamId]);
+    
+    console.log("Raw chart data from DB:", chartDataRes.rows);
+
+    // If empty result, return mock data
+    if (chartDataRes.rows.length === 0) {
+      console.log("No data found, returning mock data");
+      const mockData = [
+        { month: "Jan", total: 22 },
+        { month: "Feb", total: 22 },
+        { month: "Mar", total: 50 },
+        { month: "Apr", total: 22 },
+        { month: "May", total: 10 },
+        { month: "Jun", total: 25 },
+      ];
+      return res.json({ chartData: mockData });
+    }
+
+    // Format the data for the frontend
+    const chartData = chartDataRes.rows.map(row => ({
+      month: row.month_short,
+      total: parseInt(row.total)
+    }));
+
+    console.log("Formatted chart data:", chartData);
+    
+    res.json({ 
+      chartData
+    });
+  } catch (err) {
+    console.error("Error fetching chart data:", err);
+    // Use mock data on error as well
+    const mockData = [
+      { month: "Jan", total: 12 },
+      { month: "Feb", total: 18 },
+      { month: "Mar", total: 15 },
+      { month: "Apr", total: 22 },
+      { month: "May", total: 19 },
+      { month: "Jun", total: 25 },
+    ];
+    res.json({ chartData: mockData });
+  }
+});
+
+/////////////////////
 // Start Server
 /////////////////////
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

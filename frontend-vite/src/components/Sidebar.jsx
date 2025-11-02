@@ -1,7 +1,8 @@
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 
-const navItems = [
+
+const allNavItems = [
   { label: "Dashboard", path: "dashboard", icon: "/Sidebar/icon/layout.svg" },
   { label: "Assignments", path: "assignments", icon: "/Sidebar/icon/clipboard-signature.svg" },
   { label: "Markers", path: "markers", icon: "/Sidebar/icon/users.svg" },
@@ -15,6 +16,74 @@ export default function Sidebar({ activeTab = 0 }) {
   const navigate = useNavigate();
   const { teamId } = useParams();
   const [username, setUsername] = useState("");
+  const [userRole, setUserRole] = useState(null);
+  const [navItems, setNavItems] = useState(allNavItems.filter(item => item.path !== "reports")); // 默认不显示reports
+
+
+  const fetchUserRole = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token || !teamId) {
+        console.log("No token or teamId available");
+        return;
+      }
+
+
+      let response;
+      try {
+        response = await fetch(`/api/team/${teamId}/role`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+      } catch (networkError) {
+        console.error("Network error:", networkError);
+
+        try {
+          response = await fetch(`/team/${teamId}/role`, {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+        } catch (fallbackError) {
+          console.error("Fallback request also failed:", fallbackError);
+          return;
+        }
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Expected JSON but got:", contentType);
+        console.log("Response status:", response.status);
+        return;
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Fetched user role:", data.role);
+        setUserRole(data.role);
+        
+        // Based on role, set navigation items
+        if (data.role === "admin") {
+
+          setNavItems(allNavItems);
+        } else {
+
+          setNavItems(allNavItems.filter(item => item.path !== "reports"));
+        }
+      } else {
+        console.error("Failed to fetch user role, status:", response.status);
+
+      }
+    } catch (error) {
+      console.error("Error fetching user role:", error);
+
+    }
+  };
 
   const handleNav = (i, path) => {
     setActiveIndex(i);
@@ -22,14 +91,9 @@ export default function Sidebar({ activeTab = 0 }) {
   };
 
   const handleLogout = () => {
-    // Clear user authentication data from storage
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
-    // Notify the app that authentication state has changed
     window.dispatchEvent(new Event("authChange"));
-
-    // Navigate to the login page
     navigate("/login");
   };
 
@@ -45,16 +109,22 @@ export default function Sidebar({ activeTab = 0 }) {
     setActiveIndex(activeTab);
   }, [activeTab]);
 
+  useEffect(() => {
+    if (teamId) {
+      console.log("Fetching role for team:", teamId);
+      fetchUserRole();
+    }
+  }, [teamId]);
+
   return (
     <div className="min-h-full bg-[#201f30] flex flex-col p-4 font-['Inter'] w-full">
       {/* Logo / Title */}
       <div
         className="flex items-center gap-2 mb-6 justify-start cursor-pointer hover:opacity-80 transition"
-        onClick={handleLogout} // <-- ADDED: Logout functionality
-        title="Logout" // <-- ADDED: Tooltip for better user experience
+        onClick={handleLogout}
+        title="Logout"
       >
         <div className="relative w-7 h-7 flex items-center justify-center">
-          {/* Circle from public assets */}
           <img
             src="/Sidebar/Ellipse 1.svg"
             alt="Profile Circle"

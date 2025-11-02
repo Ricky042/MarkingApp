@@ -20,6 +20,8 @@ const CloseIcon = () => (
   </svg>
 );
 
+
+
 // --- Invite Modal Component (Fully Updated) ---
 
 function InviteModal({ isOpen, onClose, teamId }) {
@@ -189,20 +191,197 @@ export default function TeamDashboard() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // --- State for user role (admin or tutor) ---
+  const [userRole, setUserRole] = useState(null);
+  // --- State for dashboard data ---
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
   
   // --- State for the invite modal ---
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [recentAssignments, setRecentAssignments] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalAssignments: 0,
+    activeMarkers: 0,
+    submissionsGraded: 0,
+    flagsOpen: 0,
+    totalTeamMembers: 0
+  });
 
+  const fetchTeamMembers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await api.get(`/team/${teamId}/markers`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTeamMembers(res.data);
+      return res.data;
+    } catch (err) {
+      console.error("Failed to fetch team members:", err);
+      // Use mock data on failure
+      return [
+        { id: 1, username: 'user1@example.com' },
+        { id: 2, username: 'user2@example.com' }
+      ];
+    }
+  };
+
+  const fetchUserRole = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // Fetch the user's role in the team
+      const res = await api.get(`/team/${teamId}/role`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (res.data && res.data.role) {
+        setUserRole(res.data.role);
+        console.log("User role:", res.data.role);
+        return res.data.role;
+      }
+      
+      return 'tutor'; // default to tutor if no role found
+      
+    } catch (err) {
+      console.error("Failed to fetch user role:", err);
+      return 'admin'; // default to admin on error
+    }
+  };
+
+  // Fetch dashboard statistics
+  const fetchDashboardStats = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await api.get(`/team/${teamId}/stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDashboardStats(res.data);
+      return res.data;
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats:", err);
+    
+      const mockStats = {
+        totalAssignments: 12,
+        activeMarkers: 8,
+        submissionsGraded: 156,
+        flagsOpen: 3,
+        totalTeamMembers: teamMembers.length || 10
+      };
+      setDashboardStats(mockStats);
+      return mockStats;
+    }
+  };
+
+  const fetchRecentAssignments = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    //console.log("Fetching recent assignments for team:", teamId);
+    //console.log("Token exists:", !!token);
+    
+    const res = await api.get(`/team/${teamId}/recent-assignments`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    //console.log("API Response:", res.data);
+    //console.log("Assignments data:", res.data.assignments);
+    
+    setRecentAssignments(res.data.assignments);
+    return res.data.assignments;
+  } catch (err) {
+    console.error("Failed to fetch recent assignments:", err);
+    console.error("Error details:", err.response?.data);
+    
+    // if the API call fails, use mock data
+    const mockAssignments = [
+      {
+        id: 1,
+        course_code: "PSY101",
+        course_name: "Psychology Report",
+        status: "Moderating",
+        progress: 70,
+        flags: 2,
+        total_markers: 5,
+        completed_markers: 3
+      },
+      {
+        id: 2,
+        course_code: "BIO202",
+        course_name: "Biology Lab Report",
+        status: "Grading",
+        progress: 45,
+        flags: 1,
+        total_markers: 4,
+        completed_markers: 2
+      }
+    ];
+    setRecentAssignments(mockAssignments);
+    return mockAssignments;
+  }
+};
+  
+const fetchUpcomingDeadlines = async () => {
+  try {
+    const token = localStorage.getItem("token");
+  
+    const res = await api.get(`/team/${teamId}/upcoming-deadlines`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (res.data && res.data.deadlines) {
+      setUpcomingDeadlines(res.data.deadlines);
+        return res.data.deadlines;
+      }
+
+    } catch (err) {
+      console.error("Failed to fetch upcoming deadlines:", err);
+    
+      // if error occurs, use mock data
+      const mockDeadlines = [
+        {
+          id: 1,
+          course_code: "PSY101",
+          course_name: "Psychology Report",
+          due_in: "Due in 2 days",
+          last_updated: new Date().toISOString(),
+          status: "Moderating"
+        }
+      ];
+      setUpcomingDeadlines(mockDeadlines);
+    return mockDeadlines;
+    }
+  };
+  
   useEffect(() => {
     const fetchTeamData = async () => {
       const token = localStorage.getItem("token");
-      if (!token) return navigate("/login");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
       try {
-        // Your existing API call to fetch dashboard data would go here
+      
+        await api.get(`/team/${teamId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log("Team access verified, loading mock data...");
+        
       } catch (err) {
-        console.error("Failed to fetch team data:", err);
-        navigate("/");
+        console.error("Failed to verify team access:", err);
+      }
+      
+      // Load all dashboard data (using mock data on failure)
+      try {
+        await fetchTeamMembers();
+        await fetchDashboardStats();
+        await fetchRecentAssignments();
+        await fetchUpcomingDeadlines();
+        await fetchUserRole(); 
+      } catch (err) {
+        console.error("Error loading mock data:", err);
       } finally {
         setIsLoading(false);
       }
@@ -210,6 +389,10 @@ export default function TeamDashboard() {
 
     fetchTeamData();
   }, [teamId, navigate]);
+
+
+
+
 
   if (isLoading) return <div>Loading...</div>;
 
@@ -251,19 +434,19 @@ export default function TeamDashboard() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                   <DashboardCard 
                     title="Total Assignments"
-                    value="48"
+                    value={dashboardStats.totalAssignments.toString()}
                   />
                   <DashboardCard 
                     title="Markers Active"
-                    value="12/18"
+                    value={`${dashboardStats.activeMarkers}/${dashboardStats.totalTeamMembers || teamMembers.length}`}
                   />
                   <DashboardCard 
                     title="Submissions Graded"
-                    value="342/450"
+                    value={dashboardStats.submissionsGraded.toString()}
                   />
                   <DashboardCard 
                     title="Flags Open"
-                    value="3"
+                    value={dashboardStats.flagsOpen.toString()}
                   />
                 </div>
 
@@ -273,45 +456,39 @@ export default function TeamDashboard() {
                   <h2 className="text-official-black text-lg font-semibold mb-4 h-fit">
                     Recent Assignments
                   </h2>
-                  <AssignmentRow
-                    title="Psychology Report"
-                    updatedText="Last updated 1:30 today"
-                    labelText="Moderating"
-                    completedText="23/45"
-                    percentText="45%"
-                    progressValue={70}
-                    flagsText="2 Flags"
-                    onViewDetails={() => {}}
-                  />
-                  <AssignmentRow
-                    title="Psychology Report"
-                    updatedText="Last updated 1:30 today"
-                    labelText="Moderating"
-                    completedText="23/45"
-                    percentText="45%"
-                    progressValue={70}
-                    flagsText="2 Flags"
-                    onViewDetails={() => {}}
-                  />
-                  <AssignmentRow
-                    title="Psychology Report"
-                    updatedText="Last updated 1:30 today"
-                    labelText="Moderating"
-                    completedText="23/45"
-                    percentText="45%"
-                    progressValue={70}
-                    flagsText="2 Flags"
-                    onViewDetails={() => {}}
-                  />
+                  {recentAssignments.length > 0 ? (
+                    recentAssignments.map((assignment, index) => (
+                      <AssignmentRow
+                        key={assignment.id || index}
+                        title={assignment.course_name}
+                        updatedText="Last updated 1:30 today" 
+                        labelText={assignment.status}
+                        completedText={`${assignment.completed_markers || 0}/${assignment.total_markers || 0}`}
+                        percentText={`${assignment.progress || 0}%`}
+                        progressValue={assignment.progress || 0}
+                        flagsText={`${assignment.flags || 0} Flags`}
+                        onViewDetails={() => navigate(`/team/${teamId}/assignments/${assignment.id}`)}
+                      />
+                    ))
+                  ) : (
+                    // No assignments found message
+                    <div className="text-center py-4 text-gray-500">
+                      No assignments found
+                    </div>
+                  )}
                 </div>
+                
                 {/* Second Wide box - Area Chart */}
-                <div className="w-full bg-white rounded-lg pt-6 pb-7 pl-8 pr-8">
-                <div className="">
-                  <h3 className="text-lg font-semibold text-offical-black">Assignment Submissions</h3>
-                  <p className="text-sm text-zinc-400">Showing total submissions for the last 6 months</p>
-                </div>
-                  <AreaChartComponent />
-                </div>
+                {userRole === 'admin' && (
+                  <div className="w-full bg-white rounded-lg pt-6 pb-7 pl-8 pr-8">
+                    <div className="">
+                      <h3 className="text-lg font-semibold text-offical-black">Assignment Submissions</h3>
+                      <p className="text-sm text-zinc-400">Showing total submissions for the last 6 months</p>
+                    </div>
+                    <AreaChartComponent />
+                  </div>
+                )}
+              
               </div>
 
               {/* Right wrapper: Stacked boxes */}
@@ -320,9 +497,7 @@ export default function TeamDashboard() {
                   <h4 className="text-[var(--deakinTeal)] text-xl font-semibold mb-4">
                     Quick Actions
                   </h4>
-                  {/* *** FIX 1: Corrected the layout and nesting of action items *** */}
                   <div className="flex flex-col gap-2">
-                    
                     {/* Invite Markers */}
                     <button 
                       onClick={() => setIsInviteModalOpen(true)}
@@ -332,51 +507,42 @@ export default function TeamDashboard() {
                       <span className="text-offical-black text-base font-medium">Invite Markers</span>
                     </button>
 
-                    {/* Email Markers */}
-                    <div className="inline-flex justify-start items-center gap-2 cursor-pointer hover:bg-[#f8f8f8] rounded-lg px-4 py-2">
-                      <img src="/Dashboard/icon/layout.svg" alt="Email Markers" className="w-4 h-4" />
-                      <div className="text-offical-black text-base font-medium">
-                        Email Markers
-                      </div>
-                    </div>
-
-                    {/* Upcoming Deadlines
-                    <div className="inline-flex justify-start items-center gap-2">
-                      <img src="/Dashboard/icon/clipboard-signature.svg" alt="Upcoming Deadlines" className="w-4 h-4" />
-                      <div className="text-offical-black text-sm font-medium">
-                        Upcoming Deadlines
-                      </div>
-                    </div> */}
-
                     {/* Export Reports */}
-                    <div className="inline-flex justify-start items-center cursor-pointer gap-2 hover:bg-[#f8f8f8] rounded-lg px-4 py-2">
+                    <button 
+                      className="inline-flex justify-start items-center cursor-pointer gap-2 hover:bg-[#f8f8f8] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onClick={() => navigate(`/team/${teamId}/reports`)}
+                    >
                       <img src="/Dashboard/icon/users.svg" alt="Export Reports" className="w-4 h-4" />
                       <div className="text-offical-black text-base font-medium">
                         Export Reports
                       </div>
-                    </div>
-
+                    </button>
                   </div>
                 </div>
+                
                 {/* The calendar */}
                 <Calendar className="w-full rounded-lg p-5"/>
+                
                 {/* The upcoming deadline */}
                 <div className="w-full p-5 bg-white rounded-lg">
-                  <div className="text-[var(--deakinTeal)] font-semibold text-lg mb-4">Upcoming Deadline</div>
-                  
-                  <DeadlineCard 
-                    dueIn="Due in 2 Days"
-                    title="Psychology Report"
-                    lastUpdated="Last updated 1:30 today"
-                    onClick={() => console.log('First deadline clicked')}
-                  />
-
-                  <DeadlineCard 
-                    dueIn="Due in 2 Days"
-                    title="Psychology Report"
-                    lastUpdated="Last updated 1:30 today"
-                    onClick={() => console.log('Second deadline clicked')}
-                  />
+                  <div className="text-[var(--deakinTeal)] font-semibold text-lg mb-4">Upcoming Deadlines</div>
+  
+                  {upcomingDeadlines.length > 0 ? (
+                    upcomingDeadlines.map((deadline, index) => (
+                      <DeadlineCard 
+                        key={deadline.id || index}
+                        dueIn={deadline.due_in}
+                        title={deadline.course_name}
+                        lastUpdated={deadline.last_updated}
+                        assignmentId={deadline.id}
+                        onClick={(assignmentId) => navigate(`/team/${teamId}/assignments/${assignmentId}`)}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      No upcoming deadlines
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
