@@ -44,12 +44,12 @@ export default function IndividualDashboard() {
   return (
     <div className="flex min-h-screen">
       {/* Sidebar fixed to the left */}
-      <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
+      <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
         <Sidebar />
       </aside>
 
       {/* Main content area */}
-      <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
+      <div className="ml-72 flex-1 flex flex-col bg-neutral-100">
         {/* Navbar sits on top */}
         <Navbar onBurgerClick = {() => setMenuOpen(v => !v)}/>
         <MenuItem 
@@ -58,7 +58,7 @@ export default function IndividualDashboard() {
         />
         <div
           className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100
-                      ${menuOpen ? "ml-64" : "mr-0"}`}
+                      ${menuOpen ? "ml-72" : "mr-0"}`}
         >
 
           {/* Page Header Section */}

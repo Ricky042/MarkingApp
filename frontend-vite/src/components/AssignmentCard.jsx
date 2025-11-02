@@ -16,7 +16,7 @@ export default function AssignmentCard({ assignment, onNavigate, onDelete }) {
         <div
             key={assignment.id}
             onClick={() => onNavigate(`assignments/${assignment.id}`)}
-            className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex flex-col justify-start items-start gap-1.5 cursor-pointer"
+            className="px-6 pt-3.5 pb-2 bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-200 inline-flex flex-col justify-start items-start gap-1.5 cursor-pointer"
         >
             {/* 'semester' from the API */}
             <div className="w-60 inline-flex justify-between items-center">

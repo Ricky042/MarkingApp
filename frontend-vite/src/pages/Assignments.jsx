@@ -17,9 +17,25 @@ export default function Assignments() {
     const [searchQuery, setSearchQuery] = useState("");
     const [currentUserRole, setCurrentUserRole] = useState(null);
     const [currentUserId, setCurrentUserId] = useState(null);
+    const [isSemesterDropdownOpen, setIsSemesterDropdownOpen] = useState(false);
+    const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
 
 
 
+
+    // Close dropdowns when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (isSemesterDropdownOpen && !event.target.closest('.semester-dropdown-container')) {
+                setIsSemesterDropdownOpen(false);
+            }
+            if (isStatusDropdownOpen && !event.target.closest('.status-dropdown-container')) {
+                setIsStatusDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isSemesterDropdownOpen, isStatusDropdownOpen]);
 
     useEffect(() => {
         const fetchUserRole = async () => { // Fetch current user's role in the team
@@ -209,7 +225,7 @@ export default function Assignments() {
 
 
         if (isLoading) {
-            return <div className="ml-56 flex justify-center items-center h-screen">Loading assignments...</div>;
+            return <div className="ml-72 flex justify-center items-center h-screen">Loading assignments...</div>;
         }
 
         const handleNav = (path) => {
@@ -235,19 +251,19 @@ export default function Assignments() {
     return (
         <div className="flex min-h-screen">
             {/* Sidebar */}
-            <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
+            <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
                 <Sidebar activeTab={1} />
             </aside>
 
             {/* Main Content */}
-            <div className="ml-56 flex-1 flex flex-col bg-white">
+            <div className="ml-72 flex-1 flex flex-col bg-white">
                 <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
                 <MenuItem 
                     menuOpen={menuOpen}
                     onClose={() => setMenuOpen(false)}
                 />
                 
-                <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
+                <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : "mr-0"}`}>
                     {/* Header & New Assignment Button */}
                     <div className="flex justify-between items-center mb-0 px-6 py-6">
                         <div className="text-offical-black text-3xl font-bold pt-4 pb-4">
@@ -266,51 +282,141 @@ export default function Assignments() {
                     {/* Filters and Search */}
                     <div className="flex items-center gap-4 px-6 mb-4 justify-between">
                         {/* Semester Filter */}
-                        <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
-                            <span className="flex-1 text-zinc-600 text-sm font-normal">
-                                {selectedSemester || "Select semester"}
-                            </span>
-                            <img src="/AssignmentIcon/chevron-down.svg" alt="Dropdown arrow" className="w-4 h-4" />
-                            <select
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                value={selectedSemester}
-                                onChange={(e) => setSelectedSemester(e.target.value)}
+                        <div className="relative w-52 semester-dropdown-container">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsSemesterDropdownOpen(!isSemesterDropdownOpen);
+                                    setIsStatusDropdownOpen(false);
+                                }}
+                                className="w-full px-3 py-2.5 bg-white rounded-lg border border-slate-300 hover:focus:ring-offset-1 transition-all duration-200 flex items-center justify-between"
                             >
-                                <option value="" disabled>Select semester</option>
-                                <option value="All Semesters">All Semesters</option>
-                                <option value="Semester 1">Semester 1</option>
-                                <option value="Semester 2">Semester 2</option>
-                            </select>
+                                <span className={`text-sm font-medium ${selectedSemester ? 'text-slate-900' : 'text-slate-500'}`}>
+                                    {selectedSemester || "Select semester"}
+                                </span>
+                                <img 
+                                    src="/AssignmentIcon/chevron-down.svg" 
+                                    alt="Dropdown arrow" 
+                                    className={`w-4 h-4 transition-transform duration-200 ${isSemesterDropdownOpen ? 'transform rotate-180' : ''}`}
+                                />
+                            </button>
+                            
+                            {isSemesterDropdownOpen && (
+                                <div className="absolute z-50 w-full mt-1 bg-white rounded-lg border border-slate-200 shadow-lg py-1 max-h-60 overflow-auto">
+                                    {[
+                                        { value: "", label: "Select semester", disabled: true },
+                                        { value: "All Semesters", label: "All Semesters" },
+                                        { value: "Semester 1", label: "Semester 1" },
+                                        { value: "Semester 2", label: "Semester 2" }
+                                    ].map((option) => {
+                                        const isSelected = selectedSemester === option.value;
+                                        return (
+                                            <button
+                                                key={option.value || "default"}
+                                                type="button"
+                                                disabled={option.disabled}
+                                                onClick={() => {
+                                                    if (!option.disabled) {
+                                                        setSelectedSemester(option.value);
+                                                        setIsSemesterDropdownOpen(false);
+                                                    }
+                                                }}
+                                                className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
+                                                    option.disabled 
+                                                        ? 'text-slate-400 cursor-not-allowed' 
+                                                        : isSelected 
+                                                            ? 'bg-slate-100 text-slate-900 font-semibold' 
+                                                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span>{option.label}</span>
+                                                    {isSelected && !option.disabled && (
+                                                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Status Filter */}
-                        <div className="relative w-52 px-3 py-2 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-slate-300 inline-flex justify-between items-center">
-                            <span className="flex-1 text-zinc-600 text-sm font-normal">
-                                {selectedStatus || "Select status"}
-                            </span>
-                            <img src="/AssignmentIcon/chevron-down.svg" alt="Dropdown arrow" className="w-4 h-4" />
-                            <select
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                value={selectedStatus}
-                                onChange={(e) => setSelectedStatus(e.target.value)}
+                        <div className="relative w-52 status-dropdown-container">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsStatusDropdownOpen(!isStatusDropdownOpen);
+                                    setIsSemesterDropdownOpen(false);
+                                }}
+                                className="w-full px-3 py-2.5 bg-white rounded-lg border border-slate-300 hover:focus:ring-offset-1 transition-all duration-200 flex items-center justify-between"
                             >
-                                <option value="" disabled>Select status</option>
-                                <option value="All Status">All Status</option>
-                                <option value="MARKING">MARKING</option>
-                                <option value="COMPLETED">COMPLETED</option>
-                            </select>
+                                <span className={`text-sm font-medium ${selectedStatus ? 'text-slate-900' : 'text-slate-500'}`}>
+                                    {selectedStatus || "Select status"}
+                                </span>
+                                <img 
+                                    src="/AssignmentIcon/chevron-down.svg" 
+                                    alt="Dropdown arrow" 
+                                    className={`w-4 h-4 transition-transform duration-200 ${isStatusDropdownOpen ? 'transform rotate-180' : ''}`}
+                                />
+                            </button>
+                            
+                            {isStatusDropdownOpen && (
+                                <div className="absolute z-50 w-full mt-1 bg-white rounded-lg border border-slate-200 shadow-lg py-1 max-h-60 overflow-auto">
+                                    {[
+                                        { value: "", label: "Select status", disabled: true },
+                                        { value: "All Status", label: "All Status" },
+                                        { value: "MARKING", label: "MARKING" },
+                                        { value: "COMPLETED", label: "COMPLETED" }
+                                    ].map((option) => {
+                                        const isSelected = selectedStatus === option.value;
+                                        return (
+                                            <button
+                                                key={option.value || "default"}
+                                                type="button"
+                                                disabled={option.disabled}
+                                                onClick={() => {
+                                                    if (!option.disabled) {
+                                                        setSelectedStatus(option.value);
+                                                        setIsStatusDropdownOpen(false);
+                                                    }
+                                                }}
+                                                className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
+                                                    option.disabled 
+                                                        ? 'text-slate-400 cursor-not-allowed' 
+                                                        : isSelected 
+                                                            ? 'bg-slate-100 text-slate-900 font-semibold' 
+                                                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span>{option.label}</span>
+                                                    {isSelected && !option.disabled && (
+                                                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Search Bar */}
                         <div className="flex max-w-72 ml-auto">
-                            <div className="w-full min-h-8 px-3 py-2 bg-white rounded-lg flex items-center gap-1.5 ring-1 ring-inset ring-neutral-200 focus-within:ring-slate-400">
+                            <div className="w-full min-h-8 px-3 py-2.5 bg-white border border-slate-300 rounded-lg flex items-center gap-1.5">
                                 <img
                                     src="/navBarIcon/navBar_searchIcon.svg"
                                     alt="Search Icon"
                                     className="h-3 w-3"
                                 />
                                 <input
-                                    className="bg-transparent outline-none placeholder-zinc-500 text-sm w-full"
+                                    className="bg-transparent outline-none placeholder-slate-500 text-sm w-full"
                                     placeholder="Search assignments"
                                     aria-label="Search assignments"
                                     value={searchQuery}

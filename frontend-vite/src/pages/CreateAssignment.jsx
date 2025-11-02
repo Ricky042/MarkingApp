@@ -70,6 +70,7 @@ export default function CreateAssignment() {
   const [uploadedRubricFile, setUploadedRubricFile] = useState(null);
 
   // --- STEP 1: ASSIGNMENT DETAILS STATE ---
+  const [isSemesterDropdownOpen, setIsSemesterDropdownOpen] = useState(false);
   const [assignmentDetails, setAssignmentDetails] = useState({
     courseCode: "",
     courseName: "",
@@ -191,6 +192,17 @@ export default function CreateAssignment() {
 
 
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isSemesterDropdownOpen && !event.target.closest('.semester-dropdown-container')) {
+        setIsSemesterDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSemesterDropdownOpen]);
+
   // FETCH CURRENT USER AND TEAM MEMBERS
   useEffect(() => {
     const fetchUserData = async () => {
@@ -256,6 +268,17 @@ export default function CreateAssignment() {
   // --- STEP 2: RUBRIC STATE & FUNCTIONS ---
   const [rubric, setRubric] = useState([{ id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: "", },]);
   const [contextMenu, setContextMenu] = useState(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isSemesterDropdownOpen && !event.target.closest('.semester-dropdown-container')) {
+        setIsSemesterDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSemesterDropdownOpen]);
 
   useEffect(() => {
     const handleClickOutside = () => setContextMenu(null);
@@ -397,13 +420,13 @@ export default function CreateAssignment() {
 
   return (
     <div className="bg-neutral-100 min-h-screen">
-      <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
+      <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
         <Sidebar />
       </aside>
-      <div className="ml-56 flex flex-col min-h-screen">
+      <div className="ml-72 flex flex-col min-h-screen">
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
         <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
-        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
+        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : "mr-0"}`}>
           <div className="px-6 py-6 flex-1 overflow-auto">
             {step === 1 && (
               <>
@@ -492,30 +515,64 @@ export default function CreateAssignment() {
                       <div className="text-slate-900 text-base font-semibold mb-2">
                         Semester
                       </div>
-                      <div className="relative w-52 px-3 py-2 bg-white rounded-md inline-flex justify-between items-center">
-                        <span className={`flex-1 text-sm font-normal ${assignmentDetails.semester ? 'text-slate-900' : 'text-zinc-600'}`}>
-                          {assignmentDetails.semester
-                            ? `Semester ${assignmentDetails.semester}`
-                            : "Select semester"}
-                        </span>
-                        <img
-                          src="/CreateAssignment/icon/chevron-down.svg"
-                          alt="Dropdown arrow"
-                          className="w-4 h-4"
-                        />
-                        <select
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          value={assignmentDetails.semester}
-                          onChange={(e) =>
-                            handleDetailsChange("semester", e.target.value)
-                          }
+                      <div className="relative w-52 semester-dropdown-container">
+                        <button
+                          type="button"
+                          onClick={() => setIsSemesterDropdownOpen(!isSemesterDropdownOpen)}
+                          className="w-full px-3 py-2.5 bg-white rounded-lg border border-slate-300 hover:focus:ring-offset-1 transition-all duration-200 flex items-center justify-between"
                         >
-                          <option value="" disabled>
-                            Select semester
-                          </option>
-                          <option value="1">Semester 1</option>
-                          <option value="2">Semester 2</option>
-                        </select>
+                          <span className={`text-sm font-medium ${assignmentDetails.semester ? 'text-slate-900' : 'text-slate-500'}`}>
+                            {assignmentDetails.semester
+                              ? `Semester ${assignmentDetails.semester}`
+                              : "Select semester"}
+                          </span>
+                          <img
+                            src="/CreateAssignment/icon/chevron-down.svg"
+                            alt="Dropdown arrow"
+                            className={`w-4 h-4 transition-transform duration-200 ${isSemesterDropdownOpen ? 'transform rotate-180' : ''}`}
+                          />
+                        </button>
+                        
+                        {isSemesterDropdownOpen && (
+                          <div className="absolute z-50 w-full mt-1 bg-white rounded-lg border border-slate-200 shadow-lg py-1 max-h-60 overflow-auto">
+                            {[
+                              { value: "", label: "Select semester", disabled: true },
+                              { value: "1", label: "Semester 1" },
+                              { value: "2", label: "Semester 2" }
+                            ].map((option) => {
+                              const isSelected = assignmentDetails.semester === option.value;
+                              return (
+                                <button
+                                  key={option.value || "default"}
+                                  type="button"
+                                  disabled={option.disabled}
+                                  onClick={() => {
+                                    if (!option.disabled) {
+                                      handleDetailsChange("semester", option.value);
+                                      setIsSemesterDropdownOpen(false);
+                                    }
+                                  }}
+                                  className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
+                                    option.disabled 
+                                      ? 'text-slate-400 cursor-not-allowed' 
+                                      : isSelected 
+                                        ? 'bg-slate-100 text-slate-900 font-semibold' 
+                                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span>{option.label}</span>
+                                    {isSelected && !option.disabled && (
+                                      <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

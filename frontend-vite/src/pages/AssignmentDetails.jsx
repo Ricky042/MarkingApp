@@ -161,7 +161,19 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
 // 2. The Score Comparison Table (Now shown to everyone)
 function ScoreComparisonTable({ data }) {
   const [selectedPaperId, setSelectedPaperId] = useState('cp-A');
+  const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
   const { assignmentDetails, rubric, markers, controlPapers } = data;
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isPaperDropdownOpen && !event.target.closest('.paper-dropdown-container')) {
+        setIsPaperDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isPaperDropdownOpen]);
 
   const standardMarkerId = assignmentDetails.created_by;
   const standardMarker = markers.find(m => m.id === standardMarkerId);
@@ -194,16 +206,54 @@ function ScoreComparisonTable({ data }) {
         <label htmlFor="paper-select" className="block text-sm font-medium text-slate-700 mb-1">
           Showing scores for:
         </label>
-        <select
-          id="paper-select"
-          value={selectedPaperId}
-          onChange={(e) => setSelectedPaperId(e.target.value)}
-          className="p-2 border border-slate-300 rounded-md"
-        >
-          {controlPapers.map(paper => (
-            <option key={paper.id} value={paper.id}>{paper.name}</option>
-          ))}
-        </select>
+        <div className="relative w-52 paper-dropdown-container">
+          <button
+            type="button"
+            onClick={() => setIsPaperDropdownOpen(!isPaperDropdownOpen)}
+            className="w-full px-3 py-2.5 bg-white rounded-lg border border-slate-300 hover:focus:ring-offset-1 transition-all duration-200 flex items-center justify-between"
+          >
+            <span className="text-sm font-medium text-slate-900">
+              {controlPapers.find(p => p.id === selectedPaperId)?.name || "Select paper"}
+            </span>
+            <img 
+              src="/AssignmentIcon/chevron-down.svg" 
+              alt="Dropdown arrow" 
+              className={`w-4 h-4 transition-transform duration-200 ${isPaperDropdownOpen ? 'transform rotate-180' : ''}`}
+            />
+          </button>
+          
+          {isPaperDropdownOpen && (
+            <div className="absolute z-50 w-full mt-1 bg-white rounded-lg border border-slate-200 shadow-lg py-1 max-h-60 overflow-auto">
+              {controlPapers.map((paper) => {
+                const isSelected = selectedPaperId === paper.id;
+                return (
+                  <button
+                    key={paper.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPaperId(paper.id);
+                      setIsPaperDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
+                      isSelected 
+                        ? 'bg-slate-100 text-slate-900 font-semibold' 
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{paper.name}</span>
+                      {isSelected && (
+                        <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -323,16 +373,16 @@ export default function AssignmentDetails() {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
+      <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
         <Sidebar activeTab={1} />
       </aside>
 
-      <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
+      <div className="ml-72 flex-1 flex flex-col bg-neutral-100">
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
 
         <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} assignmentName={assignmentDetails.course_name} assignmentSemester={assignmentDetails.semester} />
 
-        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
+        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : "mr-0"}`}>
 
           <main className="p-6">
             <div className="mb-6">

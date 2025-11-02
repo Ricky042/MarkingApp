@@ -26,7 +26,7 @@ const MarkerCard = ({
   };
 
   return (
-    <div className="w-full bg-white rounded-lg border border-gray-200 p-6 pb-4 overflow-hidden">
+    <div className="w-full bg-white rounded-lg border border-slate-200 p-6 pb-4 overflow-hidden">
       {/* Header with ID and Status */}
       <div className="flex justify-between items-start mb-2">
         <div className="text-sm text-zinc-400 font-medium truncate max-w-[60%]" title={id}>

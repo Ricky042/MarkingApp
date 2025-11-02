@@ -216,8 +216,8 @@ export default function TeamDashboard() {
   return (
     <> {/* Use a fragment to render modal outside the main layout div */}
       <div className="flex flex-row min-h-screen">
-        <div className="flex flex-row min-h-screen w-56">
-           <div className=" fixed h-screen w-56 border-r border-slate-200 z-50">
+        <div className="flex flex-row min-h-screen w-72">
+           <div className=" fixed h-screen w-72 border-r border-slate-200 z-50">
              <Sidebar activeTab={0} />
            </div>
         </div>

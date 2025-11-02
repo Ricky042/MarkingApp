@@ -34,15 +34,15 @@ const ErrorMessage = ({ message }) => (
 );
 
 function RubricCategory({ category, score, onScoreChange }) {
-  const [selectedGrade, setSelectedGrade] = useState(null);
+  const [selectedGrade, setSelectedGrade] = useState({ name: 'HD', label: 'High Distinction', color: 'bg-deakinTeal text-white' });
   const [feedback, setFeedback] = useState('');
 
   const grades = [
     { name: 'HD', label: 'High Distinction', color: 'bg-deakinTeal text-white' },
-    { name: 'D', label: 'Distinction', color: 'bg-white text-deakinTeal border border-deakinTeal' },
-    { name: 'C', label: 'Credit', color: 'bg-white text-deakinTeal border border-deakinTeal' },
-    { name: 'P', label: 'Pass', color: 'bg-white text-deakinTeal border border-deakinTeal' },
-    { name: 'F', label: 'Fail', color: 'bg-white text-deakinTeal border border-deakinTeal' }
+    { name: 'D', label: 'Distinction', color: 'bg-deakinTeal text-white' },
+    { name: 'C', label: 'Credit', color: 'bg-deakinTeal text-white' },
+    { name: 'P', label: 'Pass', color: 'bg-deakinTeal text-white' },
+    { name: 'F', label: 'Fail', color: 'bg-deakinTeal text-white' }
   ];
 
   const handleGradeSelect = (grade) => {
@@ -64,7 +64,7 @@ function RubricCategory({ category, score, onScoreChange }) {
           <button
             key={grade.name}
             onClick={() => handleGradeSelect(grade)}
-            className={`px-4 py-2 rounded-md font-semibold text-sm ${
+            className={`px-4 py-2 rounded-md font-semibold text-sm cursor-pointer ${
               selectedGrade?.name === grade.name 
                 ? grade.color 
                 : 'bg-white text-deakinTeal border border-deakinTeal'
@@ -219,20 +219,25 @@ export default function MarkingPage() {
   
   return (
     <div className="flex h-screen overflow-hidden">
-      <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
+      <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
         <Sidebar />
       </aside>
 
-      <div className="ml-56 flex-1 flex flex-col bg-neutral-100">
+      <div className="ml-72 flex-1 flex flex-col bg-neutral-100">
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
         <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
-        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"}`}>
+        <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : "mr-0"}`}>
         <ResizablePanelGroup direction="horizontal" className="flex-1">
           
           <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="flex flex-col h-full bg-slate-200">
-              <div className="flex justify-between items-center p-2 bg-white border-b border-slate-300">
-                <h3 className="font-semibold text-slate-800 px-4">{selectedPaper?.name || "Document"}</h3>
+            <div className="flex flex-col h-[1200px] bg-slate-200">
+              <div className="flex justify-between items-center bg-white border-b border-slate-300">
+                <div className="flex flex-row items-center gap-2">
+                  <button onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}`)} className="p-2 hover:bg-slate-100 rounded-full">
+                  back
+                  </button>
+                  <h3 className="font-semibold text-slate-800 px-4">{selectedPaper?.name || "Document"}</h3>
+                </div>
                 <div className="flex items-center gap-2">
                   <button onClick={zoomOut} className="p-1 rounded hover:bg-slate-200"><ZoomOut className="w-5 h-5"/></button>
                   <span className="text-sm font-medium w-12 text-center">{(pdfScale * 100).toFixed(0)}%</span>
@@ -240,23 +245,25 @@ export default function MarkingPage() {
                 </div>
               </div>
               
-              <div className="flex-1 overflow-auto p-4 h-full">
+              <div className="flex-1 overflow-auto p-4 h-screen">
                 {selectedPaper?.filePath ? (
-                  <Document
-                    file={selectedPaper.filePath}
-                    onLoadSuccess={onDocumentLoadSuccess}
-                    loading={<div className="flex justify-center items-center h-full"><p>Loading PDF...</p></div>}
-                    error={<div className="flex flex-col justify-center items-center min-h-[1000px] w-full"><img src="/broken-file-icon.png" alt="Broken file" className="w-19 mb-4 opacity-40" /><p className="text-[#A7A9AC] text-center">Failed to load PDF. Please check the file URL.</p></div>}
-                  >
-                    {Array.from(new Array(numPages), (el, index) => (
-                      <Page
-                        key={`page_${index + 1}`}
-                        pageNumber={index + 1}
-                        scale={pdfScale}
-                        className="mb-4 shadow-lg"
-                      />
-                    ))}
-                  </Document>
+                  <div className="flex justify-center">
+                    <Document
+                      file={selectedPaper.filePath}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      loading={<div className="flex justify-center items-center h-full"><p>Loading PDF...</p></div>}
+                      error={<div className="flex flex-col justify-center items-center min-h-[1000px] w-full"><img src="/broken-file-icon.png" alt="Broken file" className="w-19 mb-4 opacity-40" /><p className="text-[#A7A9AC] text-center">Failed to load PDF. Please check the file URL.</p></div>}
+                    >
+                      {Array.from(new Array(numPages), (el, index) => (
+                        <Page
+                          key={`page_${index + 1}`}
+                          pageNumber={index + 1}
+                          scale={pdfScale}
+                          className="mb-4 shadow-lg"
+                        />
+                      ))}
+                    </Document>
+                  </div>
                 ) : (
                   <div className="flex justify-center items-center h-full">
                     <p className="text-slate-500">No document uploaded for this control paper.</p>
@@ -269,14 +276,13 @@ export default function MarkingPage() {
           <ResizableHandle withHandle />
           
           <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex flex-col h-screen overflow-y-auto">
               <main className="flex-1 p-6 overflow-y-auto">
+               
                 <div className="mb-6">
-                  <h1 className="text-2xl font-bold text-slate-900">{assignmentDetails.title}</h1>
-                  <p className="text-slate-600">Control Paper Marking</p>
-                </div>
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-slate-800">Control Paper</h2>
+                  <div className="flex items-center gap-4">
+                    <h2 className="text-2xl font-bold text-deakinTeal">Control Paper</h2>
+                  </div>
                 </div>
 
 

@@ -77,10 +77,12 @@ export default function InviteMarkers() {
   return (
     <div className="flex min-h-screen bg-neutral-100">
       {/* Sidebar */}
-      <Sidebar />
+      <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
+        <Sidebar />
+      </aside>
 
       {/* Main content */}
-      <div className="ml-56 flex-1 flex flex-col relative">
+      <div className="ml-72 flex-1 flex flex-col relative">
         <Navbar />
 
         <div className="px-6 py-6 flex-1 overflow-auto">

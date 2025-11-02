@@ -5,7 +5,6 @@ const navItems = [
   { label: "Dashboard", path: "dashboard", icon: "/Sidebar/icon/layout.svg" },
   { label: "Assignments", path: "assignments", icon: "/Sidebar/icon/clipboard-signature.svg" },
   { label: "Markers", path: "markers", icon: "/Sidebar/icon/users.svg" },
-  { label: "Flags", path: "flags", icon: "/Sidebar/icon/flag.svg" },
   { label: "Reports / Exports", path: "reports", icon: "/Sidebar/icon/file-output.svg" },
   { label: "Settings", path: "settings", icon: "/Sidebar/icon/settings.svg" },
 ];
@@ -33,6 +32,10 @@ export default function Sidebar({ activeTab = 0 }) {
     navigate("/login");
   };
 
+  const handleClickLogo = () => {
+    navigate(`/team/${teamId}/dashboard`);
+  };
+
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (userStr) {
@@ -49,24 +52,13 @@ export default function Sidebar({ activeTab = 0 }) {
     <div className="min-h-full bg-[#201f30] flex flex-col p-4 font-['Inter'] w-full">
       {/* Logo / Title */}
       <div
-        className="flex items-center gap-2 mb-6 justify-start cursor-pointer hover:opacity-80 transition"
-        onClick={handleLogout} // <-- ADDED: Logout functionality
-        title="Logout" // <-- ADDED: Tooltip for better user experience
+        className="flex gap-2 mb-6 justify-start cursor-pointer hover:opacity-80 transition"
+        onClick={handleClickLogo} // <-- ADDED: go to dashboard when click on logo
+        title="Return to Homepage" // <-- ADDED: Tooltip for better user experience
       >
-        <div className="relative w-7 h-7 flex items-center justify-center">
-          {/* Circle from public assets */}
-          <img
-            src="/Sidebar/Ellipse 1.svg"
-            alt="Profile Circle"
-            className="w-6 h-6 bg-slate-200 rounded-full"
-          />
-          <span className="absolute text-[10px] text-slate-900 font-normal leading-none">
-            {username ? username.charAt(0).toUpperCase() : ""}
-          </span>
+        <div className="relative h-11 pl-1 flex justify-start">
+          <img src="/Logo.png" alt="Logo" className="w-full h-full object-contain" />
         </div>
-        <span className="text-neutral-100 text-md font-bold font-['Inter'] leading-normal">
-          Assignment
-        </span>
       </div>
 
       {/* Navigation */}
