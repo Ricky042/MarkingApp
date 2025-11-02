@@ -14,6 +14,7 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [assignments, setAssignments] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
   
   // For filtering and searching
   const [selectedSemester, setSelectedSemester] = useState("");
