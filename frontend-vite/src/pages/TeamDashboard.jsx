@@ -418,6 +418,7 @@ const fetchUpcomingDeadlines = async () => {
               <h1 className="text-offical-black text-3xl font-bold pt-4 pb-4">
                 Dashboard
               </h1>
+              {userRole === 'admin' && (
               <button 
                 className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-[#0E796B] transition" 
                 onClick={() => navigate(`/team/${teamId}/assignments/new`)}
@@ -426,6 +427,7 @@ const fetchUpcomingDeadlines = async () => {
                   + New Assignment
                 </span>
               </button>
+              )}
             </div>
 
             {/* Page Content */}
@@ -462,7 +464,6 @@ const fetchUpcomingDeadlines = async () => {
                       <AssignmentRow
                         key={assignment.id || index}
                         title={assignment.course_name}
-                        updatedText="Last updated 1:30 today" 
                         labelText={assignment.status}
                         completedText={`${assignment.completed_markers || 0}/${assignment.total_markers || 0}`}
                         percentText={`${assignment.progress || 0}%`}
