@@ -15,6 +15,46 @@ const CloseIcon = () => (
   </svg>
 );
 
+// Confirmation Modal Component
+function ConfirmationModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Delete", cancelText = "Cancel" }) {
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md bg-white rounded-xl shadow-lg flex flex-col gap-4 p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-slate-900 text-lg font-semibold">
+          {title}
+        </h3>
+        
+        <p className="text-slate-600 text-sm">
+          {message}
+        </p>
+        
+        <div className="flex justify-end items-center gap-3 mt-4">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50 transition"
+          >
+            {cancelText}
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-600 rounded-lg text-white text-sm font-medium hover:bg-red-700 transition"
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Invite Modal Component
 function InviteModal({ isOpen, onClose, teamId, onInviteSuccess }) {
   const [emails, setEmails] = useState([]);
@@ -187,12 +227,16 @@ export default function Markers() {
   const [isLoading, setIsLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [markerToDelete, setMarkerToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("default");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
   const [markers, setMarkers] = useState([]);
+  const [markerStats, setMarkerStats] = useState([]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -213,10 +257,33 @@ export default function Markers() {
     }
 
     try {
-      const res = await api.get(`/team/${teamId}/markers`, {
+      // Get markers list
+      const markersRes = await api.get(`/team/${teamId}/markers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMarkers(res.data);
+      setMarkers(markersRes.data);
+
+      // Get markers statistics
+      try {
+        const statsRes = await api.get(`/team/${teamId}/marker-stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMarkerStats(statsRes.data.markerStats || []);
+      } catch (statsErr) {
+        console.error("Error fetching marker stats, using fallback data:", statsErr);
+        // If no stats available, create fallback stats with zeros
+        const fallbackStats = markersRes.data.map(marker => ({
+          user_id: marker.user_id,
+          username: marker.username,
+          role: marker.role,
+          completed_assignments: 0,
+          total_assignments: 0,
+          completion_percentage: 0,
+          pending_assignments: 0,
+          average_deviation: 0
+        }));
+        setMarkerStats(fallbackStats);
+      }
     } catch (err) {
       console.error("Error fetching markers:", err);
     } finally {
@@ -227,6 +294,91 @@ export default function Markers() {
   useEffect(() => {
     fetchMarkers();
   }, [navigate, teamId]);
+
+  // Remove marker from team
+  const handleRemoveMarker = async () => {
+    if (!markerToDelete) return;
+
+    const token = localStorage.getItem("token");
+    try {
+      await api.delete(`/team/${teamId}/markers/${markerToDelete.user_id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Delete marker from state in local
+      setMarkers(markers.filter(marker => marker.user_id !== markerToDelete.user_id));
+      setMarkerStats(markerStats.filter(stat => stat.user_id !== markerToDelete.user_id));
+      
+      // Close modal and reset
+      setIsDeleteModalOpen(false);
+      setMarkerToDelete(null);
+      setDeleteError("");
+    } catch (err) {
+      console.error("Error removing marker:", err);
+      setDeleteError(err.response?.data?.error || "Failed to remove team member");
+    }
+  };
+
+  // Send email to marker
+  const handleSendEmail = (email) => {
+    window.location.href = `mailto:${email}`;
+  };
+
+  // Open delete confirmation modal
+  const openDeleteConfirmation = (marker) => {
+    setMarkerToDelete(marker);
+    setIsDeleteModalOpen(true);
+    setDeleteError("");
+  };
+
+  // Filter and sort markers based on search query and sort option
+  const filteredAndSortedMarkers = markers
+    .filter(marker => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        marker.username.toLowerCase().includes(searchLower) ||
+        marker.role.toLowerCase().includes(searchLower)
+      );
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "alphabetical":
+          return a.username.localeCompare(b.username);
+        case "date":
+          return new Date(a.joined_at) - new Date(b.joined_at);
+        default:
+          return 0;
+      }
+    });
+
+  // Get stats for a specific marker
+  const getMarkerStats = (userId) => {
+    const stats = markerStats.find(stat => stat.user_id === userId);
+    if (stats) {
+      return {
+        completed_assignments: stats.completed_assignments,
+        total_assignments: stats.total_assignments,
+        completion_percentage: stats.completion_percentage,
+        pending_assignments: stats.pending_assignments,
+        average_deviation: stats.average_deviation
+      };
+    }
+    
+    // If no stats found,
+    return {
+      completed_assignments: 0,
+      total_assignments: 0,
+      completion_percentage: 0,
+      pending_assignments: 0,
+      average_deviation: 0
+    };
+  };
+
+  
+  /*const formatDeviation = (deviation) => {
+    if (deviation === 0) return "0%";
+    return deviation > 0 ? `+${deviation}%` : `${deviation}%`;
+  };*/
 
   if (isLoading) return <LoadingSpinner pageName="Markers" />;
 
@@ -338,33 +490,44 @@ export default function Markers() {
                 />
               </div>
             </div>
-
-
           </div>
 
           {/* Markers Grid */}
           <div className="px-6">
-            {markers.length === 0 ? (
-              <p className="text-center text-gray-500">No markers yet.</p>
+            {filteredAndSortedMarkers.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg mb-4">
+                  {searchQuery ? "No markers found matching your search." : "No markers yet."}
+                </p>
+                {!searchQuery && (
+                  <button
+                    className="px-6 py-3 bg-[var(--deakinTeal)] text-white rounded-md hover:bg-[#0E796B] transition"
+                    onClick={() => setIsInviteModalOpen(true)}
+                  >
+                    Invite Your First Marker
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {markers.map((marker) => (
-                  <MarkerCard
-                    key={marker.user_id}
-                    id={marker.user_id}
-                    name={marker.username}
-                    status={marker.role === "admin" ? "Admin" : "Tutor"}
-                    gradedCount={Math.floor(Math.random() * 10) + 1} // placeholder
-                    totalCount={12}
-                    percentage={Math.floor(Math.random() * 100)} // placeholder
-                    deviation="+0%"
-                    flagsRaised={Math.floor(Math.random() * 5)} // placeholder
-                    onRemove={() => console.log(`Remove ${marker.username}`)}
-                    onSendEmail={() =>
-                      console.log(`Send email to ${marker.username}`)
-                    }
-                  />
-                ))}
+                {filteredAndSortedMarkers.map((marker) => {
+                  const stats = getMarkerStats(marker.user_id);
+                  return (
+                    <MarkerCard
+                      key={marker.user_id}
+                      id={marker.user_id}
+                      name={marker.username}
+                      status={marker.role === "admin" ? "Admin" : "Tutor"}
+                      gradedCount={stats.completed_assignments}
+                      totalCount={stats.total_assignments}
+                      percentage={stats.completion_percentage}
+                    
+                      flagsRaised={stats.pending_assignments}
+                      onRemove={() => openDeleteConfirmation(marker)}
+                      onSendEmail={() => handleSendEmail(marker.username)}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -378,6 +541,50 @@ export default function Markers() {
         teamId={teamId}
         onInviteSuccess={fetchMarkers}
       />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setMarkerToDelete(null);
+          setDeleteError("");
+        }}
+        onConfirm={handleRemoveMarker}
+        title="Remove Team Member"
+        message={
+          markerToDelete 
+            ? `Are you sure you want to remove ${markerToDelete.username} from the team? This action cannot be undone.`
+            : ""
+        }
+        confirmText="Remove"
+        cancelText="Cancel"
+      />
+
+      {/* Delete Error Alert */}
+      {deleteError && (
+        <div className="fixed top-4 right-4 bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg z-50 max-w-md">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-red-800">Error</h4>
+              <p className="text-sm text-red-700 mt-1">{deleteError}</p>
+            </div>
+            <button 
+              onClick={() => setDeleteError("")}
+              className="flex-shrink-0 text-red-400 hover:text-red-600"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
