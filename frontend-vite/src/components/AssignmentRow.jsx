@@ -15,7 +15,7 @@ export default function AssignmentRow({
   return (
     <div className="flex flex-row items-center justify-between assignment-row w-full h-fit hover:bg-[#f8f8f8] rounded-lg px-4 py-4">
       <div>
-        <div className="text-slate-900 text-lg">{title}</div>
+        <div className="text-slate-900 text-lg w-[300px]">{title}</div>
         <div className="text-zinc-400 text-xs">{updatedText}</div>
       </div>
       <Label className="text-sm font-light rounded-xl bg-white shadow-sm px-3 py-1">{labelText}</Label>

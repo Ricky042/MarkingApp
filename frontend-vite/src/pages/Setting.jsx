@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
+import MenuItem from "../components/NavbarMenu";
 
 export default function Setting() {
     const navigate = useNavigate();
@@ -14,6 +15,7 @@ export default function Setting() {
     const [username, setUsername] = useState("");
     const [userEmail, setUserEmail] = useState("");
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
 
     useEffect(() => {
         async function fetchTeams() {
@@ -95,10 +97,13 @@ export default function Setting() {
             <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
                 <Sidebar activeTab={4}/>
             </aside>
+            
             <div className="ml-72 flex-1 flex flex-col bg-neutral-100">
-                <Navbar />
+                <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
+                <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
                 
-                <div className="flex-1 flex flex-col justify-start items-start p-6">
+                <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : "mr-0"}`}>
+                    <div className="flex-1 flex flex-col justify-start items-start p-6">
                     {/* User Profile Section */}
                     <div className="w-full bg-white rounded-lg border-1 border-slate-200 p-6 mb-6">
                         <h2 className="text-2xl font-bold text-slate-900 mb-4">Profile</h2>
@@ -198,7 +203,7 @@ export default function Setting() {
                         </div>
                         
                         {/* User Tips Row */}
-                        <div className="w-full flex flex-row justify-between items-start mb-4">
+                        <div className="w-full flex flex-row justify-between items-start ">
                             <div className="flex flex-col">
                                 <label className="font-semibold text-slate-700 mb-1">User Tips</label>
                                 <p className="text-sm text-slate-600">View helpful tips and guidance</p>
@@ -230,11 +235,12 @@ export default function Setting() {
                             </button>
                         </div>
                     </div>
+                    </div>
                 </div>
 
                 {/* Popup for user tips */}
                 {showTips && (
-                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+                    <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex justify-center items-center z-50">
                         <div className="bg-white w-3/4 max-w-2xl p-6 rounded-lg shadow-lg relative overflow-y-auto max-h-[80vh]">
                             <h2 className="text-xl font-bold mb-4">User Tips</h2>
                             <pre className="whitespace-pre-wrap text-sm text-gray-700">{tipsContent}</pre>

@@ -6,6 +6,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { set } from "date-fns/set";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 
 export default function AssignmentMakers() {
@@ -37,7 +38,7 @@ export default function AssignmentMakers() {
         fetchAssignments();
         }, [teamId, assignmentId]);
 
-     if (isLoading) return <div>Loading...</div>;
+     if (isLoading) return <LoadingSpinner pageName="Assignment Makers" />;
      if (error) return <div className="text-red-500">Error: {error}</div>;
      if (!assignment) return <div>No assignment data available.</div>;
 

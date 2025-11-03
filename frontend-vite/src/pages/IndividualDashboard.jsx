@@ -4,6 +4,7 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function IndividualDashboard() {
   const { teamId } = useParams();
@@ -39,7 +40,7 @@ export default function IndividualDashboard() {
     fetchTeamData();
   }, [teamId, navigate]);
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <LoadingSpinner pageName="Individual Dashboard" />;
 
   return (
     <div className="flex min-h-screen">

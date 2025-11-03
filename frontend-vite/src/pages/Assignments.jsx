@@ -5,6 +5,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
 import AssignmentCard from "../components/AssignmentCard";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function Assignments() {
     const { teamId } = useParams();
@@ -206,7 +207,7 @@ export default function Assignments() {
 
 
         if (isLoading) {
-            return <div className="ml-72 flex justify-center items-center h-screen">Loading assignments...</div>;
+            return <LoadingSpinner pageName="Assignments" />;
         }
 
         const handleNav = (path) => {
@@ -408,15 +409,22 @@ export default function Assignments() {
                     </div>
 
                     {/* Assignments Grid */}
-                    <div className="flex flex-wrap gap-4 px-6 py-4">
-                        {filteredAssignments.map((assignment) => (
-                            <AssignmentCard
-                                key={assignment.id}
-                                assignment={assignment}
-                                onNavigate={handleNav}
-                                onDelete={handleDelete}
-                            />
-                        ))}
+                    <div className="px-6 pb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredAssignments.map((assignment) => (
+                                <AssignmentCard
+                                    key={assignment.id}
+                                    assignment={assignment}
+                                    onNavigate={handleNav}
+                                    onDelete={handleDelete}
+                                />
+                            ))}
+                            {filteredAssignments.length === 0 && (
+                                <div className="col-span-full text-center py-8 text-zinc-500">
+                                    No assignments found
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

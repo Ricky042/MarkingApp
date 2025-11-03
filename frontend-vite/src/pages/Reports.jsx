@@ -4,6 +4,7 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function ReportsPage() {
   const { teamId } = useParams();
@@ -134,12 +135,7 @@ export default function ReportsPage() {
   }, [assignments, selectedSemester, selectedStatus, searchQuery, currentUserRole]);
 
   // Loading
-  if (isLoading)
-    return (
-      <div className="ml-72 flex justify-center items-center h-screen">
-        Loading reports...
-      </div>
-    );
+  if (isLoading) return <LoadingSpinner pageName="Reports" />;
 
   return (
     <div className="flex min-h-screen">
@@ -159,7 +155,7 @@ export default function ReportsPage() {
           }`}
         >
           <div className="flex justify-between items-center px-6 py-6">
-            <div className="text-offical-black text-3xl font-bold">Reports</div>
+            <div className="text-offical-black text-3xl font-bold pt-4 pb-4">Reports</div>
           </div>
 
           {/* Assignment List */}
@@ -314,33 +310,40 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-            <h2 className="text-lg font-semibold mb-4 text-zinc-700">
-              {currentUserRole === "admin" 
-                ? "All Assignments" 
-                : "Completed Assignments"
-              }
-            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredAssignments.map((a) => (
                 <div
                   key={a.id}
                   onClick={() => handleAssignmentSelect(a)}
-                  className={`bg-white p-4 rounded-2xl shadow hover:shadow-md cursor-pointer transition ${
-                    a.status?.toLowerCase() !== "completed" ? "opacity-75" : ""
+                  className={`bg-white rounded-lg outline outline-1 outline-offset-[-1px] outline-slate-200 px-6 pt-3.5 pb-4 hover:shadow-md transition cursor-pointer inline-flex flex-col justify-start items-start gap-1.5 ${
+                    a.status?.toLowerCase() !== "completed" ? "opacity-100" : ""
                   }`}
                 >
-                  <div className="font-semibold text-lg text-slate-800">
-                    {a.course_name}
+                  <div className="w-full inline-flex justify-between items-center">
+                    <div className="text-xs text-zinc-400">
+                      Semester {a.semester}
+                    </div>
                     {a.status?.toLowerCase() !== "completed" && (
-                      <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                        {a.status}
-                      </span>
+                      <div className={`px-3 pt-1 pb-1 rounded-full text-xs font-base ${(() => {
+                        switch (a.status?.toLowerCase()) {
+                          case 'marking':
+                            return 'bg-lime text-gray-800';
+                          case 'complete':
+                            return 'bg-deakinTeal text-white';
+                        }
+                      })()}`}>
+                        <div className="justify-start text-xs font-medium font-['Inter'] leading-normal">{a.status.charAt(0) + a.status.slice(1).toLowerCase()}</div>
+                      </div>
                     )}
                   </div>
-                  <div className="text-sm text-zinc-600">
-                    {a.course_code} — Semester {a.semester}
+                  <div className="w-48 text-offical-black text-2xl font-medium font-['Inter'] leading-7 text-left">
+                    {a.course_name}
                   </div>
-                  <div className="mt-2 text-[var(--deakinTeal)] font-medium">
+                  <div className="text-sm text-zinc-400 mb-2">
+                    {a.course_code}
+                  </div>
+                  <div className="flex-grow"></div>
+                  <div className="w-full justify-end mt-4 text-md text-deakinTeal hover:text-deakinTeal">
                     {a.status?.toLowerCase() === "completed" 
                       ? "View Report →" 
                       : "View Progress →"

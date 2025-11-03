@@ -13,16 +13,10 @@ import { ZoomIn, ZoomOut } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 // PDF worker config
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-
-// --- Helper Components ---
-const LoadingSpinner = () => (
-  <div className="flex justify-center items-center h-screen bg-neutral-100">
-    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-slate-900"></div>
-  </div>
-);
 
 const ErrorMessage = ({ message }) => (
   <div className="flex justify-center items-center h-screen bg-neutral-100">
@@ -45,10 +39,37 @@ function RubricCategory({ category, score, onScoreChange }) {
     { name: 'F', label: 'Fail', color: 'bg-deakinTeal text-white' }
   ];
 
+  // Calculate placeholder score based on selected grade tier
+  const getPlaceholderScore = () => {
+    if (!category.tiers || category.tiers.length === 0) {
+      // Fallback to standard percentages if tiers are not available
+      const percentageMap = {
+        'High Distinction': 0.80,  // 80% (user requested 16 for maxScore 20)
+        'Distinction': 0.75,
+        'Credit': 0.65,
+        'Pass': 0.50,
+        'Fail': 0.25
+      };
+      const percentage = percentageMap[selectedGrade.label] || 0.50;
+      return Math.round(category.maxScore * percentage);
+    }
+
+    // Find the tier that matches the selected grade
+    const tier = category.tiers.find(tier => tier.name === selectedGrade.label);
+    if (tier) {
+      // Use the lowerBound as the placeholder score
+      return Math.round(tier.lowerBound);
+    }
+
+    // Fallback if tier not found
+    return Math.round(category.maxScore * 0.50);
+  };
+
   const handleGradeSelect = (grade) => {
     setSelectedGrade(grade);
-    // You can add logic here to calculate score based on grade
   };
+
+  const placeholderScore = getPlaceholderScore();
 
   return (
     <div className="bg-white p-6 rounded-lg">
@@ -84,7 +105,7 @@ function RubricCategory({ category, score, onScoreChange }) {
               <input
                 type="number"
                 className="w-20 p-2 border border-slate-300 rounded-md text-center"
-                placeholder="Score"
+                placeholder={placeholderScore}
                 max={category.maxScore}
                 min={0}
                 value={score === null || score === undefined ? '' : score}
@@ -95,10 +116,10 @@ function RubricCategory({ category, score, onScoreChange }) {
           </div>
           
           {/* Grade Description */}
-          <p className="text-sm text-slate-600">
+          {/* <p className="text-sm text-slate-600">
             {category.tiers.find(tier => tier.name === selectedGrade.label)?.description || 
              `Description for ${selectedGrade.label} grade...`}
-          </p>
+          </p> */}
         </div>
       )}
 
@@ -209,7 +230,7 @@ export default function MarkingPage() {
   const zoomIn = () => setPdfScale(prevScale => Math.min(prevScale + 0.2, 3.0));
   const zoomOut = () => setPdfScale(prevScale => Math.max(prevScale - 0.2, 0.4));
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <LoadingSpinner pageName="Marking" />;
   if (error) return <ErrorMessage message={error} />;
   if (!assignmentData) return null;
 
@@ -233,12 +254,15 @@ export default function MarkingPage() {
             <div className="flex flex-col h-[1200px] bg-slate-200">
               <div className="flex justify-between items-center bg-white border-b border-slate-300">
                 <div className="flex flex-row items-center gap-2">
-                  <button onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}`)} className="p-2 hover:bg-slate-100 rounded-full">
-                  back
+                  <button onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}`)} className="p-3 cursor-pointer text-slate-800 hover:opacity-80">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="20" viewBox="0 0 24 24" id="back-arrow">
+                      <path fill="none" d="M0 0h24v24H0V0z" opacity=".87"></path>
+                      <path d="M16.62 2.99c-.49-.49-1.28-.49-1.77 0L6.54 11.3c-.39.39-.39 1.02 0 1.41l8.31 8.31c.49.49 1.28.49 1.77 0s.49-1.28 0-1.77L9.38 12l7.25-7.25c.48-.48.48-1.28-.01-1.76z" fill="currentColor"></path>
+                    </svg>
                   </button>
-                  <h3 className="font-semibold text-slate-800 px-4">{selectedPaper?.name || "Document"}</h3>
+                  <h3 className="font-semibold text-slate-800">{selectedPaper?.name || "Document"}</h3>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pr-3">
                   <button onClick={zoomOut} className="p-1 rounded hover:bg-slate-200"><ZoomOut className="w-5 h-5"/></button>
                   <span className="text-sm font-medium w-12 text-center">{(pdfScale * 100).toFixed(0)}%</span>
                   <button onClick={zoomIn} className="p-1 rounded hover:bg-slate-200"><ZoomIn className="w-5 h-5"/></button>

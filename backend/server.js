@@ -1079,6 +1079,16 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       [assignmentId, currentUserId]
     );
 
+    // Query 10: Get all rubric tiers for all criteria in this assignment (needed for marking page)
+    const tiersQuery = pool.query(
+      `SELECT T.id, T.criterion_id, T.tier_name, T.description, T.lower_bound, T.upper_bound
+       FROM rubric_tiers T
+       JOIN rubric_criteria C ON T.criterion_id = C.id
+       WHERE C.assignment_id = $1
+       ORDER BY T.criterion_id ASC, T.upper_bound DESC`,
+      [assignmentId]
+    );
+
     // --- STEP 2: EXECUTE ALL QUERIES IN PARALLEL FOR PERFORMANCE ---
     const [
       assignmentRes,
@@ -1088,7 +1098,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       submissionsRes,
       userRoleRes,
       markersAlreadyMarkedRes,
-      personalStatusRes
+      personalStatusRes,
+      tiersRes
     ] = await Promise.all([
       assignmentQuery,
       markersQuery,
@@ -1097,7 +1108,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       submissionsQuery,
       userRoleQuery,
       markersAlreadyMarkedQuery,
-      personalStatusQuery
+      personalStatusQuery,
+      tiersQuery
     ]);
     
 
@@ -1110,6 +1122,33 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
     const currentUserRole = userRoleRes.rows[0]?.role || 'tutor';
 
     // --- STEP 3: ASSEMBLE THE FINAL JSON PAYLOAD ---
+
+    // Assemble rubric criteria with their tiers
+    const criteriaMap = new Map();
+    criteriaRes.rows.forEach(criterion => {
+      criteriaMap.set(criterion.id, {
+        id: criterion.id,
+        categoryName: criterion.criterion_description,
+        maxScore: parseFloat(criterion.points),
+        deviationScore: parseFloat(criterion.deviation_threshold),
+        adminComments: criterion.admin_comments,
+        tiers: []
+      });
+    });
+
+    // Populate tiers for each criterion
+    tiersRes.rows.forEach(tier => {
+      if (criteriaMap.has(tier.criterion_id)) {
+        criteriaMap.get(tier.criterion_id).tiers.push({
+          name: tier.tier_name,
+          description: tier.description,
+          lowerBound: parseFloat(tier.lower_bound),
+          upperBound: parseFloat(tier.upper_bound)
+        });
+      }
+    });
+
+    const rubricWithTiers = Array.from(criteriaMap.values());
 
     // A) Assemble the control paper data, including their file paths and any submitted marks.
     const controlPapersMap = new Map();
@@ -1154,14 +1193,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
         id: marker.id,
         name: marker.username
       })),
-      rubric: criteriaRes.rows.map(criterion => ({
-        id: criterion.id,
-        categoryName: criterion.criterion_description,
-        maxScore: parseFloat(criterion.points),
-        deviationScore: parseFloat(criterion.deviation_threshold),
-        adminComments: criterion.admin_comments,
-        tiers: [] // Tiers are not needed for the details page, keeping payload smaller.
-      })),
+      rubric: rubricWithTiers,
       controlPapers: Array.from(controlPapersMap.values()),
       markersAlreadyMarked: parseInt(markersAlreadyMarkedRes.rows[0].graded_marker_count, 10)
     };

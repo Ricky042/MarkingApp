@@ -6,14 +6,9 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/NavbarAssignment";
 import MenuItem from "../components/NavbarMenu";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 // --- Helper Components ---
-
-const LoadingSpinner = () => (
-  <div className="flex justify-center items-center h-screen">
-    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-slate-900"></div>
-  </div>
-);
 
 const ErrorMessage = ({ message }) => (
   <div className="flex justify-center items-center h-screen">
@@ -344,6 +339,7 @@ function ScoreComparisonTable({ data, currentUserRole }) {
 // --- THE MAIN PAGE COMPONENT (Updated with new components) ---
 export default function AssignmentDetails() {
   const { teamId, assignmentId } = useParams();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [assignmentData, setAssignmentData] = useState(null);
@@ -384,7 +380,7 @@ export default function AssignmentDetails() {
     fetchDetails();
   }, [teamId, assignmentId]);
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading) return <LoadingSpinner pageName="Assignment Details" />;
   if (error) return <ErrorMessage message={error} />;
   if (!assignmentData) return null;
 
@@ -405,10 +401,22 @@ export default function AssignmentDetails() {
 
           <main className="p-6">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.course_name}</h1>
-              <p className="text-slate-600 mt-1">
-                {assignmentDetails.course_code} • Semester {assignmentDetails.semester}
-              </p>
+              <div className="flex items-start gap-3 mb-1 justify-between">
+                
+                <div className="flex flex-col">
+                  <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.course_name}</h1>
+                  <p className="text-slate-600 mt-1">
+                    {assignmentDetails.course_code} • Semester {assignmentDetails.semester}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => navigate(`/team/${teamId}/assignments`)} 
+                  className="p-3 cursor-pointer text-deakinTeal hover:opacity-80 hover:underline underline-offset-4"
+                >
+                  ← Back to Assignments
+                </button>
+              </div>
+              
             </div>
 
             <CompletionPrompt

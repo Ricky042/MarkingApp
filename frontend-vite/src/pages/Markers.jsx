@@ -5,6 +5,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
 import MarkerCard from "../components/MarkerCard";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 // Close icon component
 const CloseIcon = () => (
@@ -115,7 +116,7 @@ function InviteModal({ isOpen, onClose, teamId, onInviteSuccess }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50"
+      className="fixed inset-0 bg-white/30 backdrop-blur-sm flex justify-center items-center z-50"
       onClick={onClose}
     >
       <div
@@ -126,7 +127,7 @@ function InviteModal({ isOpen, onClose, teamId, onInviteSuccess }) {
           <h3 className="text-slate-900 text-lg font-semibold">
             {inviteResults.length > 0 ? 'Invitation Results' : 'Invite Markers'}
           </h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100">
+          <button onClick={onClose} className="p-1 rounded-full cursor-pointer hover:bg-slate-100">
             <CloseIcon />
           </button>
         </div>
@@ -153,7 +154,7 @@ function InviteModal({ isOpen, onClose, teamId, onInviteSuccess }) {
         ) : (
           // --- INVITATION FORM VIEW ---
           <>
-            <div className="self-stretch min-h-10 p-2 bg-neutral-100 rounded-lg flex flex-wrap items-center gap-2 border border-slate-200">
+            <div className="self-stretch min-h-10 p-2 bg-neutral-100 rounded-lg flex flex-wrap items-center gap-2 border border-slate-200 ">
               {emails.map((email) => (
                 <div key={email} className="bg-white rounded-full flex items-center gap-1.5 pl-3 pr-1.5 py-1 border border-slate-200">
                   <span className="text-slate-900 text-sm font-medium">{email}</span>
@@ -169,7 +170,7 @@ function InviteModal({ isOpen, onClose, teamId, onInviteSuccess }) {
             
             <div className="self-stretch flex justify-end items-start gap-2.5">
               <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-neutral-200 shadow-sm text-center text-neutral-900 text-sm font-medium hover:bg-neutral-50">Cancel</button>
-              <button onClick={handleSendInvites} disabled={isSending} className="flex-1 h-10 px-4 py-2 bg-slate-900 rounded-md shadow-sm text-center text-white text-sm font-medium hover:bg-slate-800 disabled:bg-slate-400">
+              <button onClick={handleSendInvites} disabled={isSending} className="flex-1 h-10 px-4 py-2 bg-deakinTeal cursor-pointer rounded-md shadow-sm text-center text-white text-sm font-medium hover:bg-[#0E796B] disabled:bg-slate-400">
                 {isSending ? "Sending..." : `Send Invite${emails.length > 1 ? 's' : ''}`}
               </button>
             </div>
@@ -227,11 +228,7 @@ export default function Markers() {
     fetchMarkers();
   }, [navigate, teamId]);
 
-  if (isLoading) return (
-    <div className="ml-72 flex justify-center items-center h-screen">
-      Loading markers...
-    </div>
-  );
+  if (isLoading) return <LoadingSpinner pageName="Markers" />;
 
   return (
     <div className="flex min-h-screen">
@@ -346,7 +343,7 @@ export default function Markers() {
           </div>
 
           {/* Markers Grid */}
-          <div className="px-6 py-4">
+          <div className="px-6">
             {markers.length === 0 ? (
               <p className="text-center text-gray-500">No markers yet.</p>
             ) : (

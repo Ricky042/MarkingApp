@@ -4,6 +4,7 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { Calendar } from "../components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import AssignmentRow from "../components/AssignmentRow";
@@ -119,7 +120,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50"
+      className="fixed inset-0 bg-white/30 backdrop-blur-sm flex justify-center items-center z-50"
       onClick={onClose}
     >
       <div
@@ -130,7 +131,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
           <h3 className="text-slate-900 text-lg font-semibold">
             {inviteResults.length > 0 ? 'Invitation Results' : 'Invite Markers'}
           </h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-slate-100">
+          <button onClick={onClose} className="p-1 rounded-full cursor-pointer hover:bg-slate-100">
             <CloseIcon />
           </button>
         </div>
@@ -173,7 +174,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
             
             <div className="self-stretch flex justify-end items-start gap-2.5">
               <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-neutral-200 shadow-sm text-center text-neutral-900 text-sm font-medium hover:bg-neutral-50">Cancel</button>
-              <button onClick={handleSendInvites} disabled={isSending} className="flex-1 h-10 px-4 py-2 bg-slate-900 rounded-md shadow-sm text-center text-white text-sm font-medium hover:bg-slate-800 disabled:bg-slate-400">
+              <button onClick={handleSendInvites} disabled={isSending} className="flex-1 h-10 px-4 py-2 bg-deakinTeal cursor-pointer rounded-md shadow-sm text-center text-white text-sm font-medium hover:bg-[#0E796B] disabled:bg-slate-400">
                 {isSending ? "Sending..." : `Send Invite${emails.length > 1 ? 's' : ''}`}
               </button>
             </div>
@@ -394,7 +395,7 @@ const fetchUpcomingDeadlines = async () => {
 
 
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) return <LoadingSpinner pageName="Team Dashboard" />;
 
   return (
     <> {/* Use a fragment to render modal outside the main layout div */}
@@ -509,7 +510,7 @@ const fetchUpcomingDeadlines = async () => {
 
                     {/* Export Reports */}
                     <button 
-                      className="inline-flex justify-start items-center cursor-pointer gap-2 hover:bg-[#f8f8f8] rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="inline-flex justify-start items-center cursor-pointer gap-2 hover:bg-[#f8f8f8] rounded-lg px-4 py-2"
                       onClick={() => navigate(`/team/${teamId}/reports`)}
                     >
                       <img src="/Dashboard/icon/users.svg" alt="Export Reports" className="w-4 h-4" />

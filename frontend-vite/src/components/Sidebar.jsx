@@ -1,5 +1,6 @@
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import React, { useEffect, useState } from "react";
+import api from "../utils/axios";
 
 
 const allNavItems = [
@@ -16,8 +17,49 @@ export default function Sidebar({ activeTab = 0 }) {
   const { teamId } = useParams();
   const [username, setUsername] = useState("");
   const [userRole, setUserRole] = useState(null);
-  const [navItems, setNavItems] = useState(allNavItems.filter(item => item.path !== "reports")); // 默认不显示reports
 
+  // Helper function to get cached role
+  const getCachedRole = (teamId) => {
+    if (!teamId) return null;
+    try {
+      const cached = localStorage.getItem(`userRole_${teamId}`);
+      if (cached) {
+        const { role, timestamp } = JSON.parse(cached);
+        // Cache is valid for 5 minutes
+        const cacheAge = Date.now() - timestamp;
+        if (cacheAge < 5 * 60 * 1000) {
+          return role;
+        }
+      }
+    } catch (error) {
+      console.error("Error reading cached role:", error);
+    }
+    return null;
+  };
+
+  // Initialize navItems - will be updated immediately if cache exists
+  const [navItems, setNavItems] = useState(allNavItems.filter(item => item.path !== "reports"));
+
+  // Helper function to cache role
+  const cacheRole = (teamId, role) => {
+    try {
+      localStorage.setItem(`userRole_${teamId}`, JSON.stringify({
+        role,
+        timestamp: Date.now()
+      }));
+    } catch (error) {
+      console.error("Error caching role:", error);
+    }
+  };
+
+  // Helper function to update nav items based on role
+  const updateNavItems = (role) => {
+    if (role === "admin") {
+      setNavItems(allNavItems);
+    } else {
+      setNavItems(allNavItems.filter(item => item.path !== "reports"));
+    }
+  };
 
   const fetchUserRole = async () => {
     try {
@@ -27,60 +69,34 @@ export default function Sidebar({ activeTab = 0 }) {
         return;
       }
 
+      // Check cache first for immediate UI update
+      const cachedRole = getCachedRole(teamId);
+      if (cachedRole) {
+        setUserRole(cachedRole);
+        updateNavItems(cachedRole);
+      }
 
-      let response;
+      // Fetch from API to get fresh data
       try {
-        response = await fetch(`/api/team/${teamId}/role`, {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+        const res = await api.get(`/team/${teamId}/role`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-      } catch (networkError) {
-        console.error("Network error:", networkError);
-
-        try {
-          response = await fetch(`/team/${teamId}/role`, {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-        } catch (fallbackError) {
-          console.error("Fallback request also failed:", fallbackError);
-          return;
-        }
-      }
-
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        console.error("Expected JSON but got:", contentType);
-        console.log("Response status:", response.status);
-        return;
-      }
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Fetched user role:", data.role);
-        setUserRole(data.role);
         
-        // Based on role, set navigation items
-        if (data.role === "admin") {
-
-          setNavItems(allNavItems);
-        } else {
-
+        const role = res.data.role;
+        console.log("Fetched user role:", role);
+        setUserRole(role);
+        cacheRole(teamId, role);
+        updateNavItems(role);
+      } catch (error) {
+        console.error("Error fetching user role:", error);
+        // If fetch fails but we have cached role, keep using it
+        if (!cachedRole) {
+          // Only clear nav items if we don't have a cached role
           setNavItems(allNavItems.filter(item => item.path !== "reports"));
         }
-      } else {
-        console.error("Failed to fetch user role, status:", response.status);
-
       }
     } catch (error) {
-      console.error("Error fetching user role:", error);
-
+      console.error("Error in fetchUserRole:", error);
     }
   };
 
@@ -92,6 +108,12 @@ export default function Sidebar({ activeTab = 0 }) {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    // Clear all cached roles
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith("userRole_")) {
+        localStorage.removeItem(key);
+      }
+    });
     window.dispatchEvent(new Event("authChange"));
     navigate("/login");
   };
@@ -114,7 +136,13 @@ export default function Sidebar({ activeTab = 0 }) {
 
   useEffect(() => {
     if (teamId) {
-      console.log("Fetching role for team:", teamId);
+      // Check cache immediately for instant UI update
+      const cachedRole = getCachedRole(teamId);
+      if (cachedRole) {
+        setUserRole(cachedRole);
+        updateNavItems(cachedRole);
+      }
+      // Then fetch fresh data
       fetchUserRole();
     }
   }, [teamId]);

@@ -117,9 +117,11 @@ export function ForgetPasswordForm({
 
 return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader className="text-start">
-          <img src="/Deakin_logo.png" alt="App Logo" className="h-15 w-auto" />
+      <Card className="border-0">
+        <CardHeader className="items-start">
+          <div className="relative h-11 pl-1 flex items-start justify-start">
+            <img src="/logo_black.png" alt="Logo" className="w-[140px] h-fit object-contain" />
+          </div>
           <div className="flex flex-col gap-4 text-2xl font-bold">
             Reset Password
           </div>
@@ -144,13 +146,13 @@ return (
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className={errors.email ? "border-red-500" : ""}
+                    className="border-0"
                   />
                   {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
                 </div>
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full bg-[#201f30] hover:bg-[#201f30]/80 cursor-pointer"
                   disabled={loading || Object.keys(errors).length > 0 || !email}
                 >
                   {loading ? "Sending..." : "Send Verification Code"}
@@ -172,6 +174,7 @@ return (
                   placeholder="Enter code"
                   value={code}
                   onChange={e => setCode(e.target.value)}
+                  className="border-0"
                 />
               </div>
               <Button
@@ -206,7 +209,7 @@ return (
                     required
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className={errors.password ? "border-red-500" : ""}
+                    className="border-0"
                   />
                   <button
                     type="button"
@@ -230,7 +233,7 @@ return (
                     required
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
-                    className={errors.confirmPassword ? "border-red-500" : ""}
+                    className="border-0"
                   />
                   <button
                     type="button"

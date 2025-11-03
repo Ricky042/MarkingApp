@@ -4,6 +4,7 @@ import api from "../utils/axios";
 import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import MenuItem from "../components/NavbarMenu";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function ReportDetailsPage() {
   const { teamId, assignmentId } = useParams();
@@ -412,13 +413,7 @@ export default function ReportDetailsPage() {
     };
   };
 
-  if (isLoading) {
-    return (
-      <div className="ml-56 flex justify-center items-center h-screen">
-        Loading report details...
-      </div>
-    );
-  }
+  if (isLoading) return <LoadingSpinner pageName="Report Details" />;
 
   if (error) {
     return (
@@ -461,7 +456,7 @@ export default function ReportDetailsPage() {
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-slate-200 z-50">
-        <Sidebar activeTab={2} />
+        <Sidebar activeTab={3} />
       </aside>
 
       {/* Main Content */}
@@ -476,11 +471,11 @@ export default function ReportDetailsPage() {
         >
           <div className="px-6 pb-8">
             <div className="flex justify-between items-center mb-6">
-              <div>
+              <div className="py-6">
                 <h2 className="text-2xl font-bold text-slate-800">
                   {assignmentDetails.course_name}
                   {!isCompleted && (
-                    <span className="ml-2 text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                    <span className="ml-2 text-sm bg-lime text-gray-800 px-2 py-1 rounded">
                       {assignmentStatus || 'MARKING'}
                     </span>
                   )}
@@ -509,7 +504,7 @@ export default function ReportDetailsPage() {
                 )}
                 <button
                   onClick={() => navigate(`/team/${teamId}/reports`)}
-                  className="text-[var(--deakinTeal)] hover:underline"
+                  className="text-[var(--deakinTeal)] hover:underline cursor-pointer"
                 >
                   ← Back to list
                 </button>
