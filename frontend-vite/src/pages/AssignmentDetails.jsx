@@ -141,7 +141,7 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
 
   if (status === 'complete') {
     return (
-      <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+      <div className="bg-deakinTeal/10 border-l-4 border-deakinTeal text-deakinTeal p-4 mb-6" role="alert">
         <p className="font-bold">All Done!</p>
         <p>You have successfully completed marking for the control paper.</p>
       </div>
@@ -393,9 +393,9 @@ export default function AssignmentDetails() {
       </aside>
 
       <div className="ml-72 flex-1 flex flex-col bg-neutral-100">
-        <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
+        <Navbar />
 
-        <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} assignmentName={assignmentDetails.course_name} assignmentSemester={assignmentDetails.semester} />
+        {/* <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} assignmentName={assignmentDetails.course_name} assignmentSemester={assignmentDetails.semester} /> */}
 
         <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : "mr-0"}`}>
 

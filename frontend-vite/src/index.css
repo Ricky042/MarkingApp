@@ -17,6 +17,7 @@
 
 /* Base styles */
 @layer base {
+  html { font-size: 80%; }
   body {
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
   }

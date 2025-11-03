@@ -1,5 +1,6 @@
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import React, { useEffect, useState } from "react";
+import { LogOut } from "lucide-react";
 import api from "../utils/axios";
 
 
@@ -161,7 +162,7 @@ export default function Sidebar({ activeTab = 0 }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex flex-col gap-[2spx] justify-start">
+      <nav className="flex flex-col gap-[2spx] justify-start flex-1">
         {navItems.map((item, i) => (
           <button
             key={i}
@@ -186,6 +187,22 @@ export default function Sidebar({ activeTab = 0 }) {
           </button>
         ))}
       </nav>
+
+      {/* Logout Button */}
+      <div className="mt-auto pt-4">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-[6px] px-3 py-3 rounded-lg transition cursor-pointer hover:bg-[#434343] justify-start w-full"
+        >
+          {/* Icon */}
+          <LogOut className="w-4 h-4 text-[#F7F7F7]" />
+          
+          {/* Label */}
+          <span className="justify-start text-[#F7F7F7] text-md font-base font-['Inter'] leading-7">
+            Logout
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

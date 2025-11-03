@@ -319,9 +319,18 @@ export default function MarkingPage() {
                       onScoreChange={handleScoreChange}
                     />
                   ))}
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleSubmitMarks}
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-deakinTeal cursor-pointer text-white font-medium rounded-md hover:bg-[#0E796B] disabled:bg-slate-400"
+                    >
+                      {isSubmitting ? 'Submitting...' : `Submit Marks for ${selectedPaper?.name || ''}`}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex">
                   <button
                     onClick={handleSubmitMarks}
                     disabled={isSubmitting}
