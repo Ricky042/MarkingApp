@@ -251,6 +251,7 @@ export default function Assignments() {
                         <div className="text-offical-black text-3xl font-bold pt-4 pb-4">
                             Assignments
                         </div>
+                        {currentUserRole === 'admin' && (
                         <button 
                             className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-[#0E796B] transition" 
                             onClick={() => navigate(`/team/${teamId}/assignments/new`)}
@@ -259,6 +260,7 @@ export default function Assignments() {
                                 + New Assignment
                             </span>
                         </button>
+                        )}
                     </div>
 
                     {/* Filters and Search */}

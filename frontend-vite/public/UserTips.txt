@@ -1,3 +1,11 @@
+***Dashboard***
+
+The standard of active user is if the user submits a marking in 24 hours.
+
+The meaning of flags open is how many markers haven't finished marking.
+
+Upcoming deadline indicates assignments due within 7 days.
+
 ***New Assignment***
 
 Please upload control papers in PDF or DOCX format only.
@@ -25,4 +33,13 @@ The person who creates a team automatically becomes its admin.
 You can invite others to join your team via the Markers page.
 
 Invited members are automatically assigned the tutor role.
+
+***Reports***
+
+Only admins can access reports.
+
+On reports page, admins can leave comments to rubric.
+
+For completed assignments, admins can export it as PDF.
+
 
