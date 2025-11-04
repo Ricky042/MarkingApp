@@ -1719,8 +1719,6 @@ app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) 
 });
 
 // Get chart data for dashboard
-// P.S.I also used gen Ai to help me write this part,
-// coz again, no one wants to do this, and it's late at night, i suppose it's fine as long as it works :p
 app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
