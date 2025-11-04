@@ -14,7 +14,9 @@ const bodyParser = require("body-parser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("./database.js");
-const nodemailer = require("nodemailer");
+//const nodemailer = require("nodemailer");
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const path = require("path");
 
 // --- NEW REQUIRES FOR AWS SDK v3 ---
@@ -53,13 +55,15 @@ app.use(bodyParser.json());
 
 
 // Nodemailer Configuration
-const transporter = nodemailer.createTransport({
+/*const transporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
     user: process.env.EMAIL_USER || "markingapp3077@gmail.com",
     pass: process.env.EMAIL_PASS || "mche wvuu wkbh nxbi",
   },
-});
+});*/
+
+
 
 // --- NEW: AWS SDK v3 & MULTER CONFIGURATION ---
 // The S3Client will automatically read credentials from your .env file
@@ -107,7 +111,7 @@ function authenticateToken(req, res, next) {
 //  Signup Flow
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-app.post("/send-code", async (req, res) => {
+/*app.post("/send-code", async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: "Email required" });
 
@@ -121,6 +125,28 @@ app.post("/send-code", async (req, res) => {
       subject: "Your verification code",
       text: `Your verification code is: ${code}. This code will expire in 10 minutes`,
     });
+    res.json({ message: "Verification code sent" });
+  } catch (err) {
+    console.error("Error sending email:", err);
+    res.status(500).json({ message: "Error sending email" });
+  }
+});*/
+
+app.post("/send-code", async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: "Email required" });
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  verificationCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
+
+  try {
+    await resend.emails.send({
+      from: 'Marking App <onboarding@resend.dev>',
+      to: email,
+      subject: "Your verification code",
+      html: `<p>Your verification code is: <strong>${code}</strong>. This code will expire in 10 minutes.</p>`,
+    });
+    
     res.json({ message: "Verification code sent" });
   } catch (err) {
     console.error("Error sending email:", err);
@@ -242,8 +268,8 @@ app.post("/resend-code", async (req, res) => {
   verificationCodes[email] = { code, expires: Date.now() + 5 * 60 * 1000 };
 
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    await resend.emails.send({
+      from: 'Marking App <onboarding@resend.dev>',
       to: email,
       subject: "Your verification code",
       text: `Your code is: ${code}. This code will expire in 5 minutes`,
@@ -354,7 +380,7 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
 });
 
 // Invite multiple users to a team
-app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
+/*app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   // Destructure both emails and the new message field
   const { emails, message } = req.body;
@@ -421,8 +447,8 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
       `;
       // --- End of email message logic ---
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
+      await resend.emails.send({
+        from: 'Marking App <onboarding@resend.dev>',
         to: email,
         subject: "You're invited to join a team!",
         html: emailHtml, // Use the dynamically created HTML
@@ -435,6 +461,110 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Error sending invites:", err);
     res.status(500).json({ error: "Failed to send invites" });
+  }
+});*/
+app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const { emails, message } = req.body;
+  const inviterId = req.user.id;
+
+  console.log('=== INVITE REQUEST START ===');
+  console.log('Team ID:', teamId);
+  console.log('Emails:', emails);
+  console.log('Message:', message);
+  console.log('Inviter ID:', inviterId);
+  console.log('Request body:', req.body);
+
+  if (!emails || !Array.isArray(emails) || emails.length === 0) {
+    console.log('No emails provided');
+    return res.status(400).json({ error: "No emails provided." });
+  }
+
+  try {
+    const results = [];
+    for (const email of emails) {
+      console.log(`\n--- Processing email: ${email} ---`);
+      
+      // 1. Check if user exists in system
+      const userCheck = await pool.query("SELECT id FROM users WHERE username=$1", [email]);
+      console.log(`User exists in system: ${userCheck.rows.length > 0}`);
+
+      // 2. Check if user is already a team member
+      const memberCheck = await pool.query(
+        `SELECT u.id FROM users u JOIN team_members tm ON u.id = tm.user_id WHERE tm.team_id = $1 AND u.username = $2`,
+        [teamId, email]
+      );
+
+      if (memberCheck.rows.length > 0) {
+        console.log(`User ${email} is already a team member`);
+        results.push({ email, status: "already_member" });
+        continue;
+      }
+
+      // 3. Check for pending invites
+      const inviteCheck = await pool.query(
+        `SELECT id FROM team_invites WHERE team_id=$1 AND invitee_email=$2 AND status='pending'`,
+        [teamId, email]
+      );
+
+      if (inviteCheck.rows.length > 0) {
+        console.log(`User ${email} already has a pending invite`);
+        results.push({ email, status: "already_invited" });
+        continue;
+      }
+
+      // 4. Create invite
+      const inviteToken = require("crypto").randomBytes(32).toString("hex");
+      console.log(`Creating invite with token: ${inviteToken}`);
+
+      const inviteResult = await pool.query(
+        `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status) VALUES ($1, $2, $3, $4, 'pending') RETURNING id`,
+        [teamId, inviterId, email, inviteToken]
+      );
+      
+      console.log(`Invite created with ID: ${inviteResult.rows[0].id}`);
+
+      const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
+      console.log(`Invite URL: ${inviteUrl}`);
+
+      // Build email HTML
+      let emailHtml = `<p>You have been invited to join a team.</p>`;
+
+      if (message && message.trim() !== "") {
+        emailHtml += `
+          <div style="padding: 10px; border-left: 3px solid #ccc; margin: 15px 0;">
+            <p style="margin: 0;"><i>A message from the inviter:</i></p>
+            <p style="margin: 5px 0 0 0;">${message}</p>
+          </div>
+        `;
+      }
+
+      
+
+      // 5. Send email
+      try {
+        console.log(`Sending email to: ${email}`);
+        const emailResult = await resend.emails.send({
+          from: 'Marking App <onboarding@resend.dev>',
+          to: email,
+          subject: "You're invited to join a team!",
+          html: emailHtml,
+        });
+        console.log(`Email sent successfully to ${email}`);
+        results.push({ email, status: "sent" });
+      } catch (emailErr) {
+        console.error(`Failed to send email to ${email}:`, emailErr);
+        results.push({ email, status: "email_failed", error: emailErr.message });
+      }
+    }
+
+    console.log('=== INVITE PROCESS COMPLETED ===');
+    console.log('Results:', results);
+    res.json({ message: "Invitation process complete", results });
+  } catch (err) {
+    console.error("Error sending invites:", err);
+    console.error("Error stack:", err.stack);
+    res.status(500).json({ error: "Failed to send invites: " + err.message });
   }
 });
 
@@ -477,6 +607,8 @@ app.post("/team/invite/:token/respond", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to respond to invite" });
   }
 });
+
+
 
 // Get invite details by token
 app.get("/team/invite/:token", async (req, res) => {

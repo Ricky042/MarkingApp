@@ -23,7 +23,7 @@ import { jwtDecode } from "jwt-decode";
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [userTeams, setUserTeams] = useState([]); // stores teams for redirecting
+  const [userTeams, setUserTeams] = useState([]);
 
   const getAuthStatus = () => {
     const token = localStorage.getItem("token");
@@ -42,7 +42,6 @@ function App() {
     }
   };
 
-  // fetch user's teams
   const fetchTeams = async () => {
     const token = localStorage.getItem("token");
     if (!token) return [];
@@ -58,7 +57,6 @@ function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Don't set loading to false prematurely. Let it stay true.
       const authStatus = getAuthStatus();
       setIsLoggedIn(authStatus);
 
@@ -67,20 +65,17 @@ function App() {
           const teams = await fetchTeams();
           setUserTeams(teams);
         } catch (error) {
-          // Handle potential errors during team fetching
           console.error("Failed to fetch teams:", error);
-          setUserTeams([]); // Ensure teams is empty on error
+          setUserTeams([]);
         }
       }
 
-      // ONLY set isLoading to false after all checks and fetches are complete.
       setIsLoading(false);
     };
 
     checkAuth();
 
     const handleStorageChange = () => {
-      // When auth changes, we need to re-evaluate everything, so reset loading state
       setIsLoading(true);
       checkAuth();
     };
@@ -92,81 +87,95 @@ function App() {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("authChange", handleStorageChange);
     };
-  }, []); // The empty dependency array is correct
+  }, []);
 
-  // New component to handle the logic for the join-team route
   const JoinTeamRoute = () => {
     const location = useLocation();
-    const token = new URLSearchParams(location.search).get('token');
+    const searchParams = new URLSearchParams(location.search);
+    const token = searchParams.get('token');
+
+    console.log('JoinTeamRoute - Token from URL:', token);
+    console.log('JoinTeamRoute - User logged in:', isLoggedIn);
 
     if (isLoggedIn) {
-      // If user is logged in, they can see the page.
-      // We should also clear the pending token now that they've reached the page.
       sessionStorage.removeItem("pendingInviteToken");
       return <JoinTeam />;
     }
 
-    // If user is not logged in, save the token and redirect to login.
+    // If not logged in, save the token and redirect to login
     if (token) {
+      console.log('Saving pending invite token:', token);
       sessionStorage.setItem('pendingInviteToken', token);
+      
+      // Redirect to login with redirect back to join-team
+      const redirectPath = `/join-team?token=${token}`;
+      return <Navigate to={`/login?redirect=${encodeURIComponent(redirectPath)}`} replace />;
     }
 
+    // If no token is present, redirect to login
     return <Navigate to="/login" replace />;
   };
 
+  // Redirect logged-in users appropriately
+  const getLoggedInRedirect = () => {
+    const pendingInviteToken = sessionStorage.getItem("pendingInviteToken");
+    
+    if (pendingInviteToken) {
+      console.log('Redirecting to join-team with token:', pendingInviteToken);
+      sessionStorage.removeItem("pendingInviteToken");
+      return <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />;
+    }
+    
+    return userTeams.length > 0 
+      ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> 
+      : <Navigate to="/create-team" replace />;
+  };
 
   if (isLoading) return <div style={{ display: 'flex', justifyContent:'center', alignItems:'center', height:'100vh' }}>Loading...</div>;
 
-  const pendingInviteToken = sessionStorage.getItem("pendingInviteToken");
-
-  const loggedInRedirect = pendingInviteToken
-    ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
-    : (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />);
-
   return (
     <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            isLoggedIn
+                ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
+                : <Navigate to="/login" replace />
+          }
+        />
 
-        <Routes>
-          <Route
-            path="/"
-            element={
-              isLoggedIn
-                  ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
-                  : <Navigate to="/login" replace />
-            }
-          />
+        <Route
+          path="/login"
+          element={isLoggedIn ? getLoggedInRedirect() : <Login />}
+        />
 
-          <Route
-            path="/login"
-            element={isLoggedIn ? loggedInRedirect : <Login />}
-          />
+        <Route
+          path="/signup"
+          element={isLoggedIn ? getLoggedInRedirect() : <Signup />}
+        />
 
-          <Route
-            path="/signup"
-            element={isLoggedIn ? loggedInRedirect : <Signup />}
-          />
+        <Route
+          path="/forgetpassword"
+          element={isLoggedIn ? getLoggedInRedirect() : <Forgetpassword />}
+        />
 
-          <Route
-            path="/forgetpassword"
-            element={isLoggedIn ? loggedInRedirect : <Forgetpassword />}
-          />
-
-          <Route path="/create-team" element={<CreateTeam />} />
-          <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
-          <Route path="/join-team" element={<JoinTeamRoute />} />
-          <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
-          <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
-          <Route path="/team/:teamId/assignments" element={<Assignments />} />
-          <Route path="/team/:teamId/assignments/:assignmentId" element={<AssignmentDetails />} />
-          <Route path="/team/:teamId/assignments/:assignmentId/mark" element={<MarkingPage />} />
-          <Route path="/dashboard" element={<IndividualDashboard />} />
-          <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
-          <Route path="/team/:teamId/settings" element={<Setting />} />
-          <Route path="/team/:teamId/markers" element={<Markers />} />
-          <Route path="/team/:teamId/reports" element={<Reports />} />
-          <Route path="/team/:teamId/reports/:assignmentId" element={<ReportsDetails />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Route path="/create-team" element={<CreateTeam />} />
+        <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
+        <Route path="/join-team" element={<JoinTeamRoute />} />
+        <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
+        <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
+        <Route path="/team/:teamId/assignments" element={<Assignments />} />
+        <Route path="/team/:teamId/assignments/:assignmentId" element={<AssignmentDetails />} />
+        <Route path="/team/:teamId/assignments/:assignmentId/mark" element={<MarkingPage />} />
+        <Route path="/dashboard" element={<IndividualDashboard />} />
+        <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
+        <Route path="/team/:teamId/settings" element={<Setting />} />
+        <Route path="/team/:teamId/markers" element={<Markers />} />
+        <Route path="/team/:teamId/reports" element={<Reports />} />
+        <Route path="/team/:teamId/reports/:assignmentId" element={<ReportsDetails />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }

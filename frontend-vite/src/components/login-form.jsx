@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../utils/axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 export function LoginForm({ className, ...props }) {
   const [username, setUsername] = useState("");
@@ -13,6 +13,16 @@ export function LoginForm({ className, ...props }) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get('redirect');
+
+  // 如果有重定向参数，保存到 sessionStorage
+  useEffect(() => {
+    if (redirect) {
+      console.log('Found redirect parameter:', redirect);
+      sessionStorage.setItem('loginRedirect', redirect);
+    }
+  }, [redirect]);
 
   const handleLogin = async () => {
     setIsLoading(true);
@@ -32,16 +42,32 @@ export function LoginForm({ className, ...props }) {
         localStorage.setItem("user", JSON.stringify(res.data.user));
       }
 
-      // 3. Notify the app that authentication has changed
-      // App.jsx will now handle the redirect automatically.
-      window.dispatchEvent(new Event("authChange"));
+      // 3. 检查是否有重定向路径
+      const redirectPath = sessionStorage.getItem('loginRedirect') || sessionStorage.getItem('pendingInviteToken');
+      
+      if (redirectPath) {
+        console.log('Redirecting after login to:', redirectPath);
+        sessionStorage.removeItem('loginRedirect');
+        sessionStorage.removeItem('pendingInviteToken');
+        
+        // 如果是 pendingInviteToken，构造完整的 URL
+        if (redirectPath.startsWith('/join-team')) {
+          navigate(redirectPath);
+        } else {
+          // 如果是 token，构造 join-team URL
+          navigate(`/join-team?token=${redirectPath}`);
+        }
+      } else {
+        // 4. 没有重定向路径，使用默认行为
+        console.log('No redirect path, using default behavior');
+        window.dispatchEvent(new Event("authChange"));
+      }
 
     } catch (err) {
       console.error("Login error:", err);
       alert(err.response?.data?.message || "Login failed");
-      setIsLoading(false); // Ensure loading is stopped on error
+      setIsLoading(false);
     }
-    // No need to set isLoading to false here, as the component will unmount upon successful redirect.
   };
 
   return (
