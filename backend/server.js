@@ -684,191 +684,191 @@ app.get("/team/:teamId/assignments/:assignmentId", authenticateToken, async (req
 
 app.post("/assignments", authenticateToken,
   upload.single('controlPaper'), async (req, res) => {
-  const client = await pool.connect();
-  try {
-    // STEP 1: PARSE INCOMING DATA
-    const file = req.file;
-    const createdById = req.user.id;
-    const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
-    
-    
-
-    if (!file) {
-      return res.status(400).json({ message: "A control paper must be uploaded." });
-    }
+    const client = await pool.connect();
+    try {
+      // STEP 1: PARSE INCOMING DATA
+      const file = req.file;
+      const createdById = req.user.id;
+      const { assignmentDetails, markers, rubric } = JSON.parse(req.body.assignmentData);
 
 
-    const fs = require('fs');
-    const path = require('path');
-    const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
-    const docxConverter = require('docx-pdf');
-    const { v4: uuidv4 } = require('uuid');
 
-    // --- Helper: sanitize filenames for Windows ---
-    const sanitizeFileName = (name) => name.replace(/[^a-zA-Z0-9.-]/g, '_');
-
-    // --- Helper: download S3 file locally ---
-    const downloadS3File = async (bucket, key, originalName) => {
-      const safeName = sanitizeFileName(originalName);
-      const tempDir = path.join(__dirname, 'temp');
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-      const tempPath = path.join(tempDir, safeName);
-
-      const command = new GetObjectCommand({ Bucket: bucket, Key: key });
-      const s3Object = await s3Client.send(command);
-
-      await new Promise((resolve, reject) => {
-        const writeStream = fs.createWriteStream(tempPath);
-        s3Object.Body.pipe(writeStream)
-          .on('finish', resolve)
-          .on('error', reject);
-      });
-
-      return tempPath;
-    };
-
-    // --- Helper: convert doc/docx to PDF (skip non-Word files) ---
-    const convertToPdf = async (inputPath) => {
-      if (!/\.(doc|docx)$/i.test(inputPath)) {
-        console.warn(`Skipping conversion for non-Word file: ${inputPath}`);
-        return inputPath; // Already a PDF or unsupported format
+      if (!file) {
+        return res.status(400).json({ message: "A control paper must be uploaded." });
       }
 
-      const outputPath = inputPath.replace(/\.(doc|docx)$/i, '.pdf');
 
-      await new Promise((resolve, reject) => {
-        const originalConsoleWarn = console.warn;
-        console.warn = () => { }; // suppress docx-pdf warnings
+      const fs = require('fs');
+      const path = require('path');
+      const { GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+      const docxConverter = require('docx-pdf');
+      const { v4: uuidv4 } = require('uuid');
 
-        docxConverter(inputPath, outputPath, (err, result) => {
-          console.warn = originalConsoleWarn;
-          if (err) reject(err);
-          else resolve(result);
+      // --- Helper: sanitize filenames for Windows ---
+      const sanitizeFileName = (name) => name.replace(/[^a-zA-Z0-9.-]/g, '_');
+
+      // --- Helper: download S3 file locally ---
+      const downloadS3File = async (bucket, key, originalName) => {
+        const safeName = sanitizeFileName(originalName);
+        const tempDir = path.join(__dirname, 'temp');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        const tempPath = path.join(tempDir, safeName);
+
+        const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+        const s3Object = await s3Client.send(command);
+
+        await new Promise((resolve, reject) => {
+          const writeStream = fs.createWriteStream(tempPath);
+          s3Object.Body.pipe(writeStream)
+            .on('finish', resolve)
+            .on('error', reject);
         });
-      });
 
-      return outputPath;
-    };
+        return tempPath;
+      };
 
-    // --- Helper: upload PDF to S3 ---
-    const uploadPdfToS3 = async (pdfPath, originalName) => {
-      if (!pdfPath || !fs.existsSync(pdfPath)) return null;
-
-      const pdfKey = `pdfs/${uuidv4()}-${sanitizeFileName(path.basename(originalName, path.extname(originalName)))}.pdf`;
-      const fileContent = fs.readFileSync(pdfPath);
-
-      await s3Client.send(new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET_NAME,
-        Key: pdfKey,
-        Body: fileContent,
-        ContentType: 'application/pdf',
-      }));
-
-      return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
-    };
-
-    // --- Cleanup temp files safely ---
-    const cleanupFiles = (files) => {
-      files.forEach(file => {
-        if (file && fs.existsSync(file)) {
-          try { fs.unlinkSync(file); }
-          catch (err) { console.warn('Failed to delete temp file:', file, err.message); }
+      // --- Helper: convert doc/docx to PDF (skip non-Word files) ---
+      const convertToPdf = async (inputPath) => {
+        if (!/\.(doc|docx)$/i.test(inputPath)) {
+          console.warn(`Skipping conversion for non-Word file: ${inputPath}`);
+          return inputPath; // Already a PDF or unsupported format
         }
-      });
-    };
 
-    // --- PROCESS FILES ---
-    const local = await downloadS3File(file.bucket, file.key, file.originalname);
-    //const local = file.path;
+        const outputPath = inputPath.replace(/\.(doc|docx)$/i, '.pdf');
 
-    
-    const pdfPath = await convertToPdf(local);
-  
+        await new Promise((resolve, reject) => {
+          const originalConsoleWarn = console.warn;
+          console.warn = () => { }; // suppress docx-pdf warnings
 
-    const controlPaperPath = await uploadPdfToS3(pdfPath, file.originalname);
-   
-    if (!controlPaperPath) {
-      throw new Error("Failed to upload control paper PDF to S3.");
-    }
-    
+          docxConverter(inputPath, outputPath, (err, result) => {
+            console.warn = originalConsoleWarn;
+            if (err) reject(err);
+            else resolve(result);
+          });
+        });
 
-    // --- DATABASE TRANSACTION STARTS ---
-    await client.query('BEGIN');
+        return outputPath;
+      };
 
-    // STEP 2: Insert the main assignment details
-    const assignmentSql = `
+      // --- Helper: upload PDF to S3 ---
+      const uploadPdfToS3 = async (pdfPath, originalName) => {
+        if (!pdfPath || !fs.existsSync(pdfPath)) return null;
+
+        const pdfKey = `pdfs/${uuidv4()}-${sanitizeFileName(path.basename(originalName, path.extname(originalName)))}.pdf`;
+        const fileContent = fs.readFileSync(pdfPath);
+
+        await s3Client.send(new PutObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET_NAME,
+          Key: pdfKey,
+          Body: fileContent,
+          ContentType: 'application/pdf',
+        }));
+
+        return `https://${process.env.AWS_S3_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
+      };
+
+      // --- Cleanup temp files safely ---
+      const cleanupFiles = (files) => {
+        files.forEach(file => {
+          if (file && fs.existsSync(file)) {
+            try { fs.unlinkSync(file); }
+            catch (err) { console.warn('Failed to delete temp file:', file, err.message); }
+          }
+        });
+      };
+
+      // --- PROCESS FILES ---
+      const local = await downloadS3File(file.bucket, file.key, file.originalname);
+      //const local = file.path;
+
+
+      const pdfPath = await convertToPdf(local);
+
+
+      const controlPaperPath = await uploadPdfToS3(pdfPath, file.originalname);
+
+      if (!controlPaperPath) {
+        throw new Error("Failed to upload control paper PDF to S3.");
+      }
+
+
+      // --- DATABASE TRANSACTION STARTS ---
+      await client.query('BEGIN');
+
+      // STEP 2: Insert the main assignment details
+      const assignmentSql = `
       INSERT INTO assignments (team_id, created_by, course_code, course_name, semester, due_date)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;
     `;
-    const assignmentValues = [
-      assignmentDetails.teamId,
-      createdById,
-      assignmentDetails.courseCode,
-      assignmentDetails.courseName,
-      assignmentDetails.semester,
-      assignmentDetails.dueDate,
-    ];
-    const newAssignment = await client.query(assignmentSql, assignmentValues);
-    const newAssignmentId = newAssignment.rows[0].id;
+      const assignmentValues = [
+        assignmentDetails.teamId,
+        createdById,
+        assignmentDetails.courseCode,
+        assignmentDetails.courseName,
+        assignmentDetails.semester,
+        assignmentDetails.dueDate,
+      ];
+      const newAssignment = await client.query(assignmentSql, assignmentValues);
+      const newAssignmentId = newAssignment.rows[0].id;
 
-    // STEP 3: Create control paper submissions
-    const submissionsSql = `
+      // STEP 3: Create control paper submissions
+      const submissionsSql = `
         INSERT INTO submissions (assignment_id, student_identifier, is_control_paper, file_path)
         VALUES ($1, 'cp-A', TRUE, $2);
       `;
-    await client.query(submissionsSql, [newAssignmentId, controlPaperPath]);
+      await client.query(submissionsSql, [newAssignmentId, controlPaperPath]);
 
 
-    // STEP 4: Insert assigned markers
-    if (markers?.length > 0) {
-      const markerSql = 'INSERT INTO assignment_markers (assignment_id, user_id) VALUES ($1, $2);';
-      for (const markerId of markers) await client.query(markerSql, [newAssignmentId, markerId]);
-    }
+      // STEP 4: Insert assigned markers
+      if (markers?.length > 0) {
+        const markerSql = 'INSERT INTO assignment_markers (assignment_id, user_id) VALUES ($1, $2);';
+        for (const markerId of markers) await client.query(markerSql, [newAssignmentId, markerId]);
+      }
 
-    // STEP 5: Insert rubric criteria and tiers
-    const criteriaSql = `
+      // STEP 5: Insert rubric criteria and tiers
+      const criteriaSql = `
       INSERT INTO rubric_criteria (assignment_id, criterion_description, points, deviation_threshold)
       VALUES ($1, $2, $3, $4) RETURNING id;
     `;
-    const tierSql = `
+      const tierSql = `
       INSERT INTO rubric_tiers (criterion_id, tier_name, description, lower_bound, upper_bound)
       VALUES ($1, $2, $3, $4, $5);
     `;
-    for (const criterion of rubric) {
-      const deviationPct = Number(criterion.deviation);
-      if (!Number.isFinite(deviationPct) || deviationPct < 0 || deviationPct > 100) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ message: `Invalid deviation percentage: ${criterion.deviation}. Must be between 0 and 100.` });
+      for (const criterion of rubric) {
+        const deviationPct = Number(criterion.deviation);
+        if (!Number.isFinite(deviationPct) || deviationPct < 0 || deviationPct > 100) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: `Invalid deviation percentage: ${criterion.deviation}. Must be between 0 and 100.` });
+        }
+
+        const criteriaValues = [newAssignmentId, criterion.criteria, criterion.points, deviationPct];
+        const newCriterion = await client.query(criteriaSql, criteriaValues);
+        const newCriterionId = newCriterion.rows[0].id;
+
+        for (const tier of criterion.tiers) {
+          const tierValues = [newCriterionId, tier.name, tier.description, tier.lowerBound, tier.upperBound];
+          await client.query(tierSql, tierValues);
+        }
       }
 
-      const criteriaValues = [newAssignmentId, criterion.criteria, criterion.points, deviationPct];
-      const newCriterion = await client.query(criteriaSql, criteriaValues);
-      const newCriterionId = newCriterion.rows[0].id;
+      // --- COMMIT TRANSACTION ---
+      await client.query('COMMIT');
+      cleanupFiles([local, pdfPath]);
+      res.status(201).json({ message: 'Assignment created successfully!', assignmentId: newAssignmentId });
 
-      for (const tier of criterion.tiers) {
-        const tierValues = [newCriterionId, tier.name, tier.description, tier.lowerBound, tier.upperBound];
-        await client.query(tierSql, tierValues);
-      }
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error creating assignment:', error.message);
+      console.error(error.stack);
+      res.status(500).json({
+        message: `Server error: ${error.message}`,
+      });
+    } finally {
+      client.release();
     }
 
-    // --- COMMIT TRANSACTION ---
-    await client.query('COMMIT');
-    cleanupFiles([local, pdfPath]);
-    res.status(201).json({ message: 'Assignment created successfully!', assignmentId: newAssignmentId });
-
-    
-  }  catch (error) {
-  await client.query('ROLLBACK');
-  console.error('Error creating assignment:', error.message);
-  console.error(error.stack);
-  res.status(500).json({
-    message: `Server error: ${error.message}`,
   });
-} finally {
-  client.release();
-}
-
-});
 
 
 
@@ -1024,7 +1024,7 @@ app.get("/team/:teamId/role", authenticateToken, async (req, res) => {
       [currentUserId, teamIdInt]
     );
 
-    
+
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: "Role not found for this team" });
@@ -1167,7 +1167,7 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
       personalStatusQuery,
       tiersQuery
     ]);
-    
+
 
     // If the assignment query returns no rows, the user either doesn't have access or the assignment doesn't exist.
     if (assignmentRes.rows.length === 0) {
@@ -1325,11 +1325,11 @@ app.post("/assignments/:assignmentId/mark", authenticateToken, async (req, res) 
        WHERE assignment_id = $1 AND user_id = $2`,
       [assignmentId, tutorId]
     );
-    
+
 
 
     // --- STEP 6: MARK STATUS AS COMPLETED ---
-     const totalRes = await client.query(
+    const totalRes = await client.query(
       `SELECT COUNT(*) AS total FROM assignment_markers WHERE assignment_id = $1`,
       [assignmentId]
     );
@@ -1407,7 +1407,7 @@ app.get("/team/:teamId/markers", authenticateToken, async (req, res) => {
 app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
-  
+
   try {
     // Check if the user is a member of the team
     const memberCheck = await pool.query(
@@ -1424,9 +1424,9 @@ app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
     // Based on role, adjust the queries accordingly
     let assignmentsCondition = "a.team_id = $1";
     let queryParams = [teamId];
-    
+
     if (userRole !== 'admin') {
-  
+
       assignmentsCondition = "a.team_id = $1 AND am.user_id = $2";
       queryParams.push(currentUserId);
     }
@@ -1439,7 +1439,7 @@ app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
       WHERE ${assignmentsCondition}
     `;
     const assignmentsRes = await pool.query(assignmentsQuery, queryParams);
-    
+
     // Active Markers: number of unique markers who have submitted marks in the last 24 hours
     const activeMarkersQuery = `
       SELECT COUNT(DISTINCT m.tutor_id) 
@@ -1449,7 +1449,7 @@ app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
       WHERE a.team_id = $1 AND m.created_at >= NOW() - INTERVAL '24 hours'
     `;
     const activeMarkersRes = await pool.query(activeMarkersQuery, [teamId]);
-    
+
     // Submissions Graded: total number of submissions that have been graded
     const gradedRes = await pool.query(
       `SELECT COUNT(*) 
@@ -1459,7 +1459,7 @@ app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
        WHERE a.team_id = $1`,
       [teamId]
     );
-    
+
     // Flags Open: uncompleted markers across all assignments
     const flagsOpenQuery = `
       SELECT COUNT(DISTINCT am.user_id) 
@@ -1504,10 +1504,10 @@ app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
 app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
-  
+
   try {
     //console.log("Fetching recent assignments for team:", teamId, "user:", currentUserId);
-    
+
     // Check if the user is a member of the team
     const memberCheck = await pool.query(
       `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
@@ -1519,7 +1519,7 @@ app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) 
     }
 
     const userRole = memberCheck.rows[0].role;
-    
+
     // Based on role, adjust the queries accordingly
     let assignmentsQuery;
     let queryParams = [teamId];
@@ -1578,9 +1578,9 @@ app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) 
     //console.log("With parameters:", queryParams);
 
     const assignmentsRes = await pool.query(assignmentsQuery, queryParams);
-    
+
     //console.log("Database query result:", assignmentsRes.rows);
-    
+
     // Light formatting of the assignments data
     const assignments = assignmentsRes.rows.map(assignment => ({
       id: assignment.id,
@@ -1591,7 +1591,7 @@ app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) 
       created_by: assignment.created_by_username,
       total_markers: parseInt(assignment.total_markers) || 0,
       completed_markers: parseInt(assignment.completed_markers) || 0,
-      progress: assignment.total_markers > 0 
+      progress: assignment.total_markers > 0
         ? Math.round((assignment.completed_markers / assignment.total_markers) * 100)
         : 0,
       flags: parseInt(assignment.flags_count) || 0,
@@ -1599,8 +1599,8 @@ app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) 
     }));
 
     //console.log("Formatted assignments:", assignments);
-    
-    res.json({ 
+
+    res.json({
       assignments,
       userRole
     });
@@ -1614,9 +1614,9 @@ app.get("/team/:teamId/recent-assignments", authenticateToken, async (req, res) 
 app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
-  
+
   try {
-    
+
     // Same as before, check if the user is a member of the team
     const memberCheck = await pool.query(
       `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
@@ -1628,7 +1628,7 @@ app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) 
     }
 
     const userRole = memberCheck.rows[0].role;
-    
+
     // Same as before, adjust the query based on role
     let deadlinesQuery;
     let queryParams = [teamId];
@@ -1674,18 +1674,18 @@ app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) 
       queryParams.push(currentUserId);
     }
 
-  
+
 
     const deadlinesRes = await pool.query(deadlinesQuery, queryParams);
 
-    
+
     // Light formatting of the deadlines data
     const deadlines = deadlinesRes.rows.map(assignment => {
       const dueDate = new Date(assignment.due_date);
       const now = new Date();
       const diffTime = dueDate - now;
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       let dueIn;
       if (diffDays === 0) {
         dueIn = "Due today";
@@ -1707,9 +1707,9 @@ app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) 
       };
     });
 
- 
-    
-    res.json({ 
+
+
+    res.json({
       deadlines
     });
   } catch (err) {
@@ -1724,10 +1724,10 @@ app.get("/team/:teamId/upcoming-deadlines", authenticateToken, async (req, res) 
 app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
-  
+
   try {
     console.log("Fetching chart data for team:", teamId);
-    
+
     const memberCheck = await pool.query(
       `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
       [teamId, currentUserId]
@@ -1737,9 +1737,10 @@ app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
       return res.status(403).json({ error: "Access denied: You are not a member of this team" });
     }
 
-    // Query to get submission counts per month for the last 6 months
+    // Query to get submission counts per month for the last 6 months (include year-month key for accurate mapping)
     const chartDataQuery = `
       SELECT 
+        to_char(date_trunc('month', s.created_at), 'YYYY-MM') as month_key,
         to_char(date_trunc('month', s.created_at), 'Mon') as month_short,
         COUNT(*) as total
       FROM submissions s
@@ -1751,46 +1752,44 @@ app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
     `;
 
     const chartDataRes = await pool.query(chartDataQuery, [teamId]);
-    
+
     console.log("Raw chart data from DB:", chartDataRes.rows);
 
-    // If empty result, return mock data
-    if (chartDataRes.rows.length === 0) {
-      console.log("No data found, returning mock data");
-      const mockData = [
-        { month: "Jan", total: 22 },
-        { month: "Feb", total: 22 },
-        { month: "Mar", total: 50 },
-        { month: "Apr", total: 22 },
-        { month: "May", total: 10 },
-        { month: "Jun", total: 25 },
-      ];
-      return res.json({ chartData: mockData });
+    // Build a complete last-6-months series including months with zero submissions
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+      months.push({ month_key: ym, month: label, total: 0 });
     }
 
-    // Format the data for the frontend
-    const chartData = chartDataRes.rows.map(row => ({
-      month: row.month_short,
-      total: parseInt(row.total)
+    const countsByKey = new Map();
+    for (const row of chartDataRes.rows) {
+      countsByKey.set(row.month_key, parseInt(row.total));
+    }
+
+    const chartData = months.map(m => ({
+      month: m.month,
+      total: countsByKey.get(m.month_key) || 0,
     }));
 
     console.log("Formatted chart data:", chartData);
-    
-    res.json({ 
-      chartData
-    });
+    return res.json({ chartData });
   } catch (err) {
     console.error("Error fetching chart data:", err);
-    // Use mock data on error as well
-    const mockData = [
-      { month: "Jan", total: 12 },
-      { month: "Feb", total: 18 },
-      { month: "Mar", total: 15 },
-      { month: "Apr", total: 22 },
-      { month: "May", total: 19 },
-      { month: "Jun", total: 25 },
-    ];
-    res.json({ chartData: mockData });
+    // Return zeros for last 6 months on error to avoid hardcode
+    const now = new Date();
+    const fallback = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      fallback.push({
+        month: d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }),
+        total: 0,
+      });
+    }
+    return res.json({ chartData: fallback });
   }
 });
 
@@ -1802,7 +1801,7 @@ app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
 app.get("/team/:teamId/marker-stats", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   const currentUserId = req.user.id;
-  
+
   try {
     // Vlidate team membership
     const memberCheck = await pool.query(
@@ -1840,7 +1839,7 @@ app.get("/team/:teamId/marker-stats", authenticateToken, async (req, res) => {
     `;
 
     const markerStatsRes = await pool.query(markerStatsQuery, [teamId]);
-    
+
     // Format the marker statistics data
     const markerStats = markerStatsRes.rows.map(marker => ({
       user_id: marker.user_id,
@@ -1854,7 +1853,7 @@ app.get("/team/:teamId/marker-stats", authenticateToken, async (req, res) => {
       //average_deviation: parseFloat(marker.average_deviation) || 0
     }));
 
-    res.json({ 
+    res.json({
       markerStats
     });
   } catch (err) {
@@ -1902,7 +1901,7 @@ app.delete("/team/:teamId/markers/:userId", authenticateToken, async (req, res) 
       return res.status(400).json({ error: "Cannot remove the team owner" });
     }
 
-  
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
