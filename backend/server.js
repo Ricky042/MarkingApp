@@ -1399,9 +1399,9 @@ app.get("/team/:teamId/markers", authenticateToken, async (req, res) => {
   }
 });
 
-/////////////////////
+///////////////////////////////////
 // Team Dashboard used
-/////////////////////
+///////////////////////////////////
 // Get team statistics for dashboard
 // P.S. I never thought Dashboard integration would be this complicated and time-consuming
 app.get("/team/:teamId/stats", authenticateToken, async (req, res) => {
@@ -1793,6 +1793,163 @@ app.get("/team/:teamId/chart-data", authenticateToken, async (req, res) => {
     res.json({ chartData: mockData });
   }
 });
+
+//////////////////////////////////////
+/// Marker Stats 
+//////////////////////////////////////
+
+// Get marker statistics for dashboard
+app.get("/team/:teamId/marker-stats", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const currentUserId = req.user.id;
+  
+  try {
+    // Vlidate team membership
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    // Get detailed stats for each marker in the team
+    const markerStatsQuery = `
+      SELECT 
+        tm.user_id,
+        u.username,
+        tm.role,
+        tm.joined_at,
+        COUNT(DISTINCT CASE WHEN am.completed = true THEN am.assignment_id END) as completed_assignments,
+        COUNT(DISTINCT am.assignment_id) as total_assignments,
+        CASE 
+          WHEN COUNT(DISTINCT am.assignment_id) > 0 THEN 
+            ROUND((COUNT(DISTINCT CASE WHEN am.completed = true THEN am.assignment_id END) * 100.0 / COUNT(DISTINCT am.assignment_id))::numeric, 0)
+          ELSE 0 
+        END as completion_percentage,
+        COUNT(DISTINCT CASE WHEN am.completed = false THEN am.assignment_id END) as pending_assignments,
+        0 as average_deviation
+      FROM team_members tm
+      INNER JOIN users u ON tm.user_id = u.id
+      LEFT JOIN assignment_markers am ON tm.user_id = am.user_id
+      LEFT JOIN assignments a ON am.assignment_id = a.id AND a.team_id = tm.team_id
+      WHERE tm.team_id = $1
+      GROUP BY tm.user_id, u.username, tm.role, tm.joined_at
+      ORDER BY tm.joined_at ASC
+    `;
+
+    const markerStatsRes = await pool.query(markerStatsQuery, [teamId]);
+    
+    // Format the marker statistics data
+    const markerStats = markerStatsRes.rows.map(marker => ({
+      user_id: marker.user_id,
+      username: marker.username,
+      role: marker.role,
+      joined_at: marker.joined_at,
+      completed_assignments: parseInt(marker.completed_assignments) || 0,
+      total_assignments: parseInt(marker.total_assignments) || 0,
+      completion_percentage: parseInt(marker.completion_percentage) || 0,
+      pending_assignments: parseInt(marker.pending_assignments) || 0
+      //average_deviation: parseFloat(marker.average_deviation) || 0
+    }));
+
+    res.json({ 
+      markerStats
+    });
+  } catch (err) {
+    console.error("Error fetching marker stats:", err);
+    res.status(500).json({ error: "Failed to fetch marker statistics" });
+  }
+});
+
+
+///////////////////////////////////
+/////Remove Marker from Team
+///////////////////////////////////
+// Delete a team member and all their associated data
+app.delete("/team/:teamId/markers/:userId", authenticateToken, async (req, res) => {
+  const { teamId, userId } = req.params;
+  const currentUserId = req.user.id;
+
+  try {
+    // Check if the current user is an admin of the team
+    const memberCheck = await pool.query(
+      `SELECT role FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, currentUserId]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Access denied: You are not a member of this team" });
+    }
+
+    if (memberCheck.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: "Access denied: Only admins can remove team members" });
+    }
+
+    // In prevent admins from removing themselves
+    if (parseInt(userId) === currentUserId) {
+      return res.status(400).json({ error: "You cannot remove yourself from the team" });
+    }
+
+    // Check if the user to be removed is the team owner
+    const teamOwnerCheck = await pool.query(
+      `SELECT owner_id FROM teams WHERE id = $1`,
+      [teamId]
+    );
+
+    if (teamOwnerCheck.rows.length > 0 && parseInt(userId) === teamOwnerCheck.rows[0].owner_id) {
+      return res.status(400).json({ error: "Cannot remove the team owner" });
+    }
+
+  
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 1. Delete all assignment marker entries for this user in this team
+      await client.query(
+        `DELETE FROM assignment_markers WHERE user_id = $1 AND assignment_id IN (
+          SELECT id FROM assignments WHERE team_id = $2
+        )`,
+        [userId, teamId]
+      );
+
+      // 2. Delete all marks given by this user for submissions in this team
+      await client.query(
+        `DELETE FROM marks WHERE tutor_id = $1 AND submission_id IN (
+          SELECT s.id FROM submissions s 
+          JOIN assignments a ON s.assignment_id = a.id 
+          WHERE a.team_id = $2
+        )`,
+        [userId, teamId]
+      );
+
+      // 3. Delete the user from the team_members table
+      const deleteResult = await client.query(
+        `DELETE FROM team_members WHERE team_id = $1 AND user_id = $2`,
+        [teamId, userId]
+      );
+
+      if (deleteResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: "Team member not found" });
+      }
+
+      await client.query('COMMIT');
+      res.json({ message: "Team member removed successfully" });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Error removing team member:", err);
+    res.status(500).json({ error: "Failed to remove team member" });
+  }
+});
+
 
 /////////////////////
 // Start Server
