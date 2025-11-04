@@ -56,6 +56,20 @@ function App() {
     }
   };
 
+  // fetch user's pending invites
+  const fetchPendingInvites = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    try {
+      const res = await api.get("/my-invites", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.data && res.data.length > 0 ? res.data[0] : null; // Return first pending invite
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       // Don't set loading to false prematurely. Let it stay true.
@@ -66,6 +80,16 @@ function App() {
         try {
           const teams = await fetchTeams();
           setUserTeams(teams);
+          
+          // Check for pending invites if user has no teams or no pending invite token
+          const existingPendingToken = sessionStorage.getItem("pendingInviteToken");
+          if (!existingPendingToken) {
+            const pendingInvite = await fetchPendingInvites();
+            if (pendingInvite && pendingInvite.token) {
+              // Save token and redirect to join-team page
+              sessionStorage.setItem("pendingInviteToken", pendingInvite.token);
+            }
+          }
         } catch (error) {
           // Handle potential errors during team fetching
           console.error("Failed to fetch teams:", error);

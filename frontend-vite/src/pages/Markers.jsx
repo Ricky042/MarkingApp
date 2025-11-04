@@ -193,6 +193,7 @@ export default function Markers() {
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
   const [markers, setMarkers] = useState([]);
+  const [pendingInvites, setPendingInvites] = useState([]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -216,6 +217,7 @@ export default function Markers() {
       const res = await api.get(`/team/${teamId}/markers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log("Current markers/invited emails:", res.data);
       setMarkers(res.data);
     } catch (err) {
       console.error("Error fetching markers:", err);
@@ -224,8 +226,26 @@ export default function Markers() {
     }
   };
 
+  const fetchPendingInvites = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      return;
+    }
+
+    try {
+      const res = await api.get(`/team/${teamId}/invites`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      console.log("Pending invites:", res.data);
+      setPendingInvites(res.data);
+    } catch (err) {
+      console.error("Error fetching pending invites:", err);
+    }
+  };
+
   useEffect(() => {
     fetchMarkers();
+    fetchPendingInvites();
   }, [navigate, teamId]);
 
   if (isLoading) return <LoadingSpinner pageName="Markers" />;
@@ -343,7 +363,8 @@ export default function Markers() {
           </div>
 
           {/* Markers Grid */}
-          <div className="px-6">
+          <div className="px-6 mb-6">
+            <h2 className="text-xl font-semibold text-slate-800 mb-4">Team Members</h2>
             {markers.length === 0 ? (
               <p className="text-center text-gray-500">No markers yet.</p>
             ) : (
@@ -368,6 +389,35 @@ export default function Markers() {
               </div>
             )}
           </div>
+
+          {/* Pending Invites Section */}
+          {pendingInvites.length > 0 && (
+            <div className="px-6 mb-6">
+              <h2 className="text-xl font-semibold text-slate-800 mb-4">Pending Invitations</h2>
+              <div className="bg-white rounded-lg border border-slate-200">
+                <div className="divide-y divide-slate-200">
+                  {pendingInvites.map((invite) => (
+                    <div
+                      key={invite.id}
+                      className="flex justify-between items-center px-4 py-3 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-slate-900">
+                          {invite.invitee_email}
+                        </span>
+                        <span className="text-xs text-slate-500 mt-1">
+                          Invited by {invite.inviter_email || "Unknown"} • {new Date(invite.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <span className="px-3 py-1 bg-lime text-offical-black text-xs font-medium rounded-full">
+                        Pending
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
@@ -376,7 +426,10 @@ export default function Markers() {
         isOpen={isInviteModalOpen} 
         onClose={() => setIsInviteModalOpen(false)} 
         teamId={teamId}
-        onInviteSuccess={fetchMarkers}
+        onInviteSuccess={() => {
+          fetchMarkers();
+          fetchPendingInvites();
+        }}
       />
     </div>
   );

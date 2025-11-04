@@ -438,6 +438,62 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   }
 });
 
+// GET /team/:teamId/invites - Get pending invites for a team so I can display on marker page
+app.get("/team/:teamId/invites", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        ti.id,
+        ti.invitee_email,
+        ti.status,
+        ti.created_at,
+        u.username AS inviter_email
+      FROM team_invites ti
+      LEFT JOIN users u ON ti.inviter_id = u.id
+      WHERE ti.team_id = $1 AND ti.status = 'pending'
+      ORDER BY ti.created_at DESC;
+    `, [teamId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching pending invites:", err);
+    res.status(500).json({ message: "Failed to fetch pending invites." });
+  }
+});
+
+// GET /my-invites - Get pending invites for the current logged-in user
+app.get("/my-invites", authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const userEmail = req.user.username; // username is stored as email
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        ti.id,
+        ti.token,
+        ti.team_id,
+        ti.invitee_email,
+        ti.status,
+        ti.created_at,
+        t.name AS team_name,
+        u.username AS inviter_email
+      FROM team_invites ti
+      JOIN teams t ON ti.team_id = t.id
+      LEFT JOIN users u ON ti.inviter_id = u.id
+      WHERE ti.invitee_email = $1 AND ti.status = 'pending'
+      ORDER BY ti.created_at DESC;
+    `, [userEmail]);
+
+    res.json(result.rows);
+    console.log("User's pending invites:", result.rows);
+  } catch (err) {
+    console.error("Error fetching user's pending invites:", err);
+    res.status(500).json({ message: "Failed to fetch pending invites." });
+  }
+});
+
 // Accept or deny an invite
 app.post("/team/invite/:token/respond", authenticateToken, async (req, res) => {
   const { token } = req.params;
