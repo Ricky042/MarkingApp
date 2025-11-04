@@ -16,8 +16,8 @@ import AreaChartComponent from "../components/AreaChartComponent";
 
 const CloseIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M18 6L6 18" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M6 6L18 18" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M18 6L6 18" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 6L18 18" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -31,7 +31,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [feedback, setFeedback] = useState({ type: "", message: "" });
-  
+
   // New state to hold the results from the backend
   const [inviteResults, setInviteResults] = useState([]);
 
@@ -75,7 +75,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
       setFeedback({ type: "error", message: "Authentication error. Please log in again." });
       return;
     }
-    
+
     setIsSending(true);
     setFeedback({ type: "", message: "" });
 
@@ -90,7 +90,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
           headers: { Authorization: `Bearer ${token}` }, // Add the token for authentication
         }
       );
-      
+
       // On success, store the detailed results to display them
       setInviteResults(res.data.results || []);
 
@@ -119,7 +119,7 @@ function InviteModal({ isOpen, onClose, teamId }) {
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-white/30 backdrop-blur-sm flex justify-center items-center z-50"
       onClick={onClose}
     >
@@ -165,13 +165,13 @@ function InviteModal({ isOpen, onClose, teamId }) {
                   <button onClick={() => removeEmail(email)} className="bg-slate-200 rounded-full w-4 h-4 flex items-center justify-center text-slate-600 hover:bg-slate-300">&times;</button>
                 </div>
               ))}
-              <input type="email" value={currentEmail} onChange={(e) => setCurrentEmail(e.target.value)} onKeyDown={handleKeyDown} placeholder={emails.length === 0 ? "Enter email and press Enter" : ""} className="flex-1 bg-transparent outline-none p-1 text-sm"/>
+              <input type="email" value={currentEmail} onChange={(e) => setCurrentEmail(e.target.value)} onKeyDown={handleKeyDown} placeholder={emails.length === 0 ? "Enter email and press Enter" : ""} className="flex-1 bg-transparent outline-none p-1 text-sm" />
             </div>
 
-            <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Add an optional message..." className="self-stretch flex-1 p-3 bg-white rounded-md border border-slate-300 focus:ring-2 focus:ring-slate-400 focus:outline-none text-sm" rows={4}/>
-            
+            <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Add an optional message..." className="self-stretch flex-1 p-3 bg-white rounded-md border border-slate-300 focus:ring-2 focus:ring-slate-400 focus:outline-none text-sm" rows={4} />
+
             {feedback.message && (<div className={`text-sm ${feedback.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{feedback.message}</div>)}
-            
+
             <div className="self-stretch flex justify-end items-start gap-2.5">
               <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg border border-neutral-200 shadow-sm text-center text-neutral-900 text-sm font-medium hover:bg-neutral-50">Cancel</button>
               <button onClick={handleSendInvites} disabled={isSending} className="flex-1 h-10 px-4 py-2 bg-deakinTeal cursor-pointer rounded-md shadow-sm text-center text-white text-sm font-medium hover:bg-[#0E796B] disabled:bg-slate-400">
@@ -197,7 +197,7 @@ export default function TeamDashboard() {
   const [userRole, setUserRole] = useState(null);
   // --- State for dashboard data ---
   const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
-  
+
   // --- State for the invite modal ---
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
@@ -231,20 +231,20 @@ export default function TeamDashboard() {
   const fetchUserRole = async () => {
     try {
       const token = localStorage.getItem("token");
-      
+
       // Fetch the user's role in the team
       const res = await api.get(`/team/${teamId}/role`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       if (res.data && res.data.role) {
         setUserRole(res.data.role);
         console.log("User role:", res.data.role);
         return res.data.role;
       }
-      
+
       return 'tutor'; // default to tutor if no role found
-      
+
     } catch (err) {
       console.error("Failed to fetch user role:", err);
       return 'admin'; // default to admin on error
@@ -262,7 +262,7 @@ export default function TeamDashboard() {
       return res.data;
     } catch (err) {
       console.error("Failed to fetch dashboard stats:", err);
-    
+
       const mockStats = {
         totalAssignments: 12,
         activeMarkers: 8,
@@ -276,68 +276,68 @@ export default function TeamDashboard() {
   };
 
   const fetchRecentAssignments = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    //console.log("Fetching recent assignments for team:", teamId);
-    //console.log("Token exists:", !!token);
-    
-    const res = await api.get(`/team/${teamId}/recent-assignments`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    //console.log("API Response:", res.data);
-    //console.log("Assignments data:", res.data.assignments);
-    
-    setRecentAssignments(res.data.assignments);
-    return res.data.assignments;
-  } catch (err) {
-    console.error("Failed to fetch recent assignments:", err);
-    console.error("Error details:", err.response?.data);
-    
-    // if the API call fails, use mock data
-    const mockAssignments = [
-      {
-        id: 1,
-        course_code: "PSY101",
-        course_name: "Psychology Report",
-        status: "Moderating",
-        progress: 70,
-        flags: 2,
-        total_markers: 5,
-        completed_markers: 3
-      },
-      {
-        id: 2,
-        course_code: "BIO202",
-        course_name: "Biology Lab Report",
-        status: "Grading",
-        progress: 45,
-        flags: 1,
-        total_markers: 4,
-        completed_markers: 2
-      }
-    ];
-    setRecentAssignments(mockAssignments);
-    return mockAssignments;
-  }
-};
-  
-const fetchUpcomingDeadlines = async () => {
-  try {
-    const token = localStorage.getItem("token");
-  
-    const res = await api.get(`/team/${teamId}/upcoming-deadlines`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (res.data && res.data.deadlines) {
-      setUpcomingDeadlines(res.data.deadlines);
+    try {
+      const token = localStorage.getItem("token");
+      //console.log("Fetching recent assignments for team:", teamId);
+      //console.log("Token exists:", !!token);
+
+      const res = await api.get(`/team/${teamId}/recent-assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      //console.log("API Response:", res.data);
+      //console.log("Assignments data:", res.data.assignments);
+
+      setRecentAssignments(res.data.assignments);
+      return res.data.assignments;
+    } catch (err) {
+      console.error("Failed to fetch recent assignments:", err);
+      console.error("Error details:", err.response?.data);
+
+      // if the API call fails, use mock data
+      const mockAssignments = [
+        {
+          id: 1,
+          course_code: "PSY101",
+          course_name: "Psychology Report",
+          status: "Moderating",
+          progress: 70,
+          flags: 2,
+          total_markers: 5,
+          completed_markers: 3
+        },
+        {
+          id: 2,
+          course_code: "BIO202",
+          course_name: "Biology Lab Report",
+          status: "Grading",
+          progress: 45,
+          flags: 1,
+          total_markers: 4,
+          completed_markers: 2
+        }
+      ];
+      setRecentAssignments(mockAssignments);
+      return mockAssignments;
+    }
+  };
+
+  const fetchUpcomingDeadlines = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await api.get(`/team/${teamId}/upcoming-deadlines`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.data && res.data.deadlines) {
+        setUpcomingDeadlines(res.data.deadlines);
         return res.data.deadlines;
       }
 
     } catch (err) {
       console.error("Failed to fetch upcoming deadlines:", err);
-    
+
       // if error occurs, use mock data
       const mockDeadlines = [
         {
@@ -350,10 +350,10 @@ const fetchUpcomingDeadlines = async () => {
         }
       ];
       setUpcomingDeadlines(mockDeadlines);
-    return mockDeadlines;
+      return mockDeadlines;
     }
   };
-  
+
   useEffect(() => {
     const fetchTeamData = async () => {
       const token = localStorage.getItem("token");
@@ -363,24 +363,24 @@ const fetchUpcomingDeadlines = async () => {
       }
 
       try {
-      
+
         await api.get(`/team/${teamId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
+
         console.log("Team access verified, loading mock data...");
-        
+
       } catch (err) {
         console.error("Failed to verify team access:", err);
       }
-      
+
       // Load all dashboard data (using mock data on failure)
       try {
         await fetchTeamMembers();
         await fetchDashboardStats();
         await fetchRecentAssignments();
         await fetchUpcomingDeadlines();
-        await fetchUserRole(); 
+        await fetchUserRole();
       } catch (err) {
         console.error("Error loading mock data:", err);
       } finally {
@@ -401,12 +401,12 @@ const fetchUpcomingDeadlines = async () => {
     <> {/* Use a fragment to render modal outside the main layout div */}
       <div className="flex flex-row min-h-screen">
         <div className="flex flex-row min-h-screen w-72">
-           <div className=" fixed h-screen w-72 border-r border-slate-200 z-50">
-             <Sidebar activeTab={0} />
-           </div>
+          <div className=" fixed h-screen w-72 border-r border-slate-200 z-50">
+            <Sidebar activeTab={0} />
+          </div>
         </div>
         <div className="flex-1 flex flex-col bg-neutral-00">
-          <Navbar onBurgerClick = {() => setMenuOpen(v => !v)}/>
+          <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
           {/* <MenuItem 
             menuOpen={menuOpen}
             onClose={() => setMenuOpen(false)}
@@ -419,14 +419,14 @@ const fetchUpcomingDeadlines = async () => {
                 Dashboard
               </h1>
               {userRole === 'admin' && (
-              <button 
-                className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-[#0E796B] transition" 
-                onClick={() => navigate(`/team/${teamId}/assignments/new`)}
-              >
-                <span className="text-white text-lg font-base">
-                  + New Assignment
-                </span>
-              </button>
+                <button
+                  className="px-4 py-4 bg-[var(--deakinTeal)] rounded-md inline-flex justify-center items-center gap-2.5 cursor-pointer hover:bg-[#0E796B] transition"
+                  onClick={() => navigate(`/team/${teamId}/assignments/new`)}
+                >
+                  <span className="text-white text-lg font-base">
+                    + New Assignment
+                  </span>
+                </button>
               )}
             </div>
 
@@ -435,19 +435,19 @@ const fetchUpcomingDeadlines = async () => {
               {/* Left wrapper: Boxes 1-4 + wide box */}
               <div className="flex-1 flex flex-col gap-6 min-w-0 lg:w-3/4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <DashboardCard 
+                  <DashboardCard
                     title="Total Assignments"
                     value={dashboardStats.totalAssignments.toString()}
                   />
-                  <DashboardCard 
+                  <DashboardCard
                     title="Markers Active"
                     value={`${dashboardStats.activeMarkers}/${dashboardStats.totalTeamMembers || teamMembers.length}`}
                   />
-                  <DashboardCard 
+                  <DashboardCard
                     title="Submissions Graded"
                     value={dashboardStats.submissionsGraded.toString()}
                   />
-                  <DashboardCard 
+                  <DashboardCard
                     title="Flags Open"
                     value={dashboardStats.flagsOpen.toString()}
                   />
@@ -479,7 +479,7 @@ const fetchUpcomingDeadlines = async () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Second Wide box - Area Chart */}
                 {userRole === 'admin' && (
                   <div className="w-full bg-white rounded-lg pt-6 pb-7 pl-8 pr-8">
@@ -487,10 +487,10 @@ const fetchUpcomingDeadlines = async () => {
                       <h3 className="text-lg font-semibold text-offical-black">Assignment Submissions</h3>
                       <p className="text-sm text-zinc-400">Showing total submissions for the last 6 months</p>
                     </div>
-                    <AreaChartComponent />
+                    <AreaChartComponent teamId={teamId} />
                   </div>
                 )}
-              
+
               </div>
 
               {/* Right wrapper: Stacked boxes */}
@@ -501,7 +501,7 @@ const fetchUpcomingDeadlines = async () => {
                   </h4>
                   <div className="flex flex-col gap-2">
                     {/* Invite Markers */}
-                    <button 
+                    <button
                       onClick={() => setIsInviteModalOpen(true)}
                       className="inline-flex justify-start items-center gap-2 cursor-pointer hover:bg-[#f8f8f8] rounded-lg px-4 py-2 text-sm font-medium text-left"
                     >
@@ -510,7 +510,7 @@ const fetchUpcomingDeadlines = async () => {
                     </button>
 
                     {/* Export Reports */}
-                    <button 
+                    <button
                       className="inline-flex justify-start items-center cursor-pointer gap-2 hover:bg-[#f8f8f8] rounded-lg px-4 py-2"
                       onClick={() => navigate(`/team/${teamId}/reports`)}
                     >
@@ -521,17 +521,17 @@ const fetchUpcomingDeadlines = async () => {
                     </button>
                   </div>
                 </div>
-                
+
                 {/* The calendar */}
-                <Calendar className="w-full rounded-lg p-5"/>
-                
+                <Calendar className="w-full rounded-lg p-5" />
+
                 {/* The upcoming deadline */}
                 <div className="w-full p-5 bg-white rounded-lg">
                   <div className="text-[var(--deakinTeal)] font-semibold text-lg mb-4">Upcoming Deadlines</div>
-  
+
                   {upcomingDeadlines.length > 0 ? (
                     upcomingDeadlines.map((deadline, index) => (
-                      <DeadlineCard 
+                      <DeadlineCard
                         key={deadline.id || index}
                         dueIn={deadline.due_in}
                         title={deadline.course_name}
@@ -551,9 +551,9 @@ const fetchUpcomingDeadlines = async () => {
           </main>
         </div>
       </div>
-      
+
       {/* --- Render the modal here --- */}
-      <InviteModal 
+      <InviteModal
         isOpen={isInviteModalOpen}
         onClose={() => setIsInviteModalOpen(false)}
         teamId={teamId}
