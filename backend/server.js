@@ -14,7 +14,9 @@ const bodyParser = require("body-parser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("./database.js");
-const nodemailer = require("nodemailer");
+//const nodemailer = require("nodemailer");
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
 const path = require("path");
 
 // --- NEW REQUIRES FOR AWS SDK v3 ---
@@ -53,14 +55,14 @@ app.use(bodyParser.json());
 
 
 // Nodemailer Configuration
-const transporter = nodemailer.createTransport({
+/*const transporter = nodemailer.createTransport({
   service: "Gmail",
   auth: {
     user: process.env.EMAIL_USER || "markingapp3077@gmail.com",
     pass: process.env.EMAIL_PASS || "mche wvuu wkbh nxbi",
   },
 });
-
+*/
 // --- NEW: AWS SDK v3 & MULTER CONFIGURATION ---
 // The S3Client will automatically read credentials from your .env file
 // as long as the variable names are correct (AWS_ACCESS_KEY_ID, etc.)
@@ -115,8 +117,8 @@ app.post("/send-code", async (req, res) => {
   verificationCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
 
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    await resend.emails.send({
+      from: 'Marking App <onboarding@resend.dev>',
       to: email,
       subject: "Your verification code",
       text: `Your verification code is: ${code}. This code will expire in 10 minutes`,
@@ -242,7 +244,7 @@ app.post("/resend-code", async (req, res) => {
   verificationCodes[email] = { code, expires: Date.now() + 5 * 60 * 1000 };
 
   try {
-    await transporter.sendMail({
+    await resend.emails.send({
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Your verification code",
@@ -421,8 +423,8 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
       `;
       // --- End of email message logic ---
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
+      await resend.emails.send({
+        from:  'Marking App <onboarding@resend.dev>',
         to: email,
         subject: "You're invited to join a team!",
         html: emailHtml, // Use the dynamically created HTML
@@ -948,7 +950,7 @@ app.delete("/assignments/:id", authenticateToken, async (req, res) => {
 ////////////////////////////////////////////////////////////////////
 
 
-app.post("/team/:teamId/assignments/:assignmentId/rubric-criteria/:criterionId/admin-comment", authenticateToken, async (req, res) => {
+/*app.post("/team/:teamId/assignments/:assignmentId/rubric-criteria/:criterionId/admin-comment", authenticateToken, async (req, res) => {
   const { teamId, assignmentId, criterionId } = req.params;
   const { adminComment } = req.body;
   //console.log("Updating admin comment:", { teamId, assignmentId, criterionId, adminComment });
@@ -968,11 +970,137 @@ app.post("/team/:teamId/assignments/:assignmentId/rubric-criteria/:criterionId/a
       message: "Admin comment updated successfully",
       rubricCriterion: result.rows[0]
     });
+
+
+  } catch (err) {
+    console.error("Error updating admin comment:", err);
+    res.status(500).json({ message: "Failed to update admin comment." });
+  }
+});*/
+
+
+
+app.post("/team/:teamId/assignments/:assignmentId/rubric-criteria/:criterionId/admin-comment", authenticateToken, async (req, res) => {
+  const { teamId, assignmentId, criterionId } = req.params;
+  const { adminComment } = req.body;
+  
+  try {
+    const result = await pool.query(`
+      UPDATE rubric_criteria 
+      SET admin_comments = $1
+      WHERE id = $2 AND assignment_id = $3
+      RETURNING id, criterion_description, points, deviation_threshold, admin_comments
+    `, [adminComment, criterionId, assignmentId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Rubric criterion not found" });
+    }
+
+    // Send email notifications to tutors
+    await sendEmailNotificationToTutors(teamId, assignmentId, criterionId, adminComment, req.user.id);
+
+    res.json({
+      message: "Admin comment updated successfully",
+      rubricCriterion: result.rows[0]
+    });
   } catch (err) {
     console.error("Error updating admin comment:", err);
     res.status(500).json({ message: "Failed to update admin comment." });
   }
 });
+
+// Send email notification to all tutors assigned to the assignment
+async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, adminComment, adminUserId) {
+  try {
+    // 1. Get assignment details
+    const assignmentQuery = `
+      SELECT a.course_code, a.course_name, a.id
+      FROM assignments a
+      WHERE a.id = $1 AND a.team_id = $2
+    `;
+    const assignmentResult = await pool.query(assignmentQuery, [assignmentId, teamId]);
+    
+    if (assignmentResult.rows.length === 0) {
+      console.log("Assignment not found");
+      return;
+    }
+    
+    const assignment = assignmentResult.rows[0];
+
+    // 2. Get criterion description
+    const criterionQuery = `
+      SELECT criterion_description 
+      FROM rubric_criteria 
+      WHERE id = $1
+    `;
+    const criterionResult = await pool.query(criterionQuery, [criterionId]);
+    const criterionDescription = criterionResult.rows[0]?.criterion_description || 'Unknown Criterion';
+
+    // 3. Get admin user's username
+    const adminQuery = `
+      SELECT username 
+      FROM users 
+      WHERE id = $1
+    `;
+    const adminResult = await pool.query(adminQuery, [adminUserId]);
+    const adminUsername = adminResult.rows[0]?.username || 'Admin';
+
+    // 4. Get all tutors assigned to this assignment
+    const tutorsQuery = `
+      SELECT DISTINCT u.username as email, u.id
+      FROM assignment_markers am
+      JOIN users u ON am.user_id = u.id
+      WHERE am.assignment_id = $1
+    `;
+    const tutorsResult = await pool.query(tutorsQuery, [assignmentId]);
+
+    if (tutorsResult.rows.length === 0) {
+      console.log("No tutors found for this assignment");
+      return;
+    }
+
+    // 5. Send emails to all tutors
+    const emailPromises = tutorsResult.rows.map(async (tutor) => {
+      try {
+        const emailData = await resend.emails.send({
+          from: 'Marking App <onboarding@resend.dev>',
+          to: tutor.email,
+          subject: `New Admin Comment - ${assignment.course_code} ${assignment.course_name}`,
+          html: `
+            <div>
+              <h2>New Admin Comment Added</h2>
+              <p><strong>Course:</strong> ${assignment.course_code} - ${assignment.course_name}</p>
+              <p><strong>Criterion:</strong> ${criterionDescription}</p>
+              <p><strong>Added by:</strong> ${adminUsername}</p>
+              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <p><strong>Comment:</strong></p>
+                <p>${adminComment}</p>
+              </div>
+              <p>Please review the comment in the assignment marking system.</p>
+              <hr>
+              <p style="color: #666; font-size: 12px;">
+                This is an automated notification. Please do not reply to this email.
+              </p>
+            </div>
+          `
+        });
+        console.log(`Email sent successfully to ${tutor.email}`);
+        return emailData;
+      } catch (emailError) {
+        console.error(`Failed to send email to ${tutor.email}:`, emailError);
+        throw emailError;
+      }
+    });
+
+    // Wait for all email promises to settle
+    await Promise.allSettled(emailPromises);
+    console.log(`Email notifications sent to ${tutorsResult.rows.length} tutors`);
+
+  } catch (error) {
+    console.error("Error in sendEmailNotificationToTutors:", error);
+    // No need to throw error further, just log it
+  }
+}
 
 ////////////////////////////////////////////////////////////////////
 // User Management
