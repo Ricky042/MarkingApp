@@ -553,7 +553,7 @@ export default function Markers() {
 
           {/* Pending Invites Section */}
           {pendingInvites.length > 0 && (
-            <div className="px-6 mb-6">
+            <div className="px-6 mb-6 mt-6">
               <h2 className="text-xl font-semibold text-slate-800 mb-4">Pending Invitations</h2>
               <div className="bg-white rounded-lg border border-slate-200">
                 <div className="divide-y divide-slate-200">
