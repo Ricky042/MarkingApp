@@ -1061,7 +1061,9 @@ async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, 
 
     // 5. Send emails to all tutors
     const emailPromises = tutorsResult.rows.map(async (tutor) => {
+      //console.log(`Email domain used: ${process.env.EMAIL_DOMAIN}`);
       try {
+        
         const emailData = await resend.emails.send({
           from: process.env.EMAIL_DOMAIN,
           to: tutor.email,
@@ -1084,7 +1086,7 @@ async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, 
             </div>
           `
         });
-        console.log(`Email sent successfully to ${tutor.email}`);
+        //console.log(`Email sent successfully to ${tutor.email}`);
         return emailData;
       } catch (emailError) {
         console.error(`Failed to send email to ${tutor.email}:`, emailError);
