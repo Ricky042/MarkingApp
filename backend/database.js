@@ -48,7 +48,7 @@ async function initDB() {
         UNIQUE(team_id, user_id)
       );
     `);
-    
+
     // TEAM INVITES (Kept as is)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_invites (
@@ -61,7 +61,7 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
-    
+
     // ASSIGNMENTS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS assignments (
@@ -88,7 +88,7 @@ async function initDB() {
       );
     `);
 
-    
+
 
     // RUBRIC_CRITERIA (Each row of the rubric)
     await pool.query(`
@@ -113,7 +113,7 @@ async function initDB() {
         upper_bound NUMERIC(5, 2) NOT NULL
       );
     `);
-    
+
     // SUBMISSIONS (Includes flag for control papers)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS submissions (
@@ -125,7 +125,7 @@ async function initDB() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
-    
+
     // MARKS (Stores individual marks from tutors for control papers)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS marks (
@@ -136,6 +136,33 @@ async function initDB() {
         marks_awarded NUMERIC(5, 2) NOT NULL,
         comments TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    // REMINDERS_LOG (Tracks sent reminders to prevent duplicates)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reminders_log (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        bucket_day INTEGER NOT NULL,
+        sent_on DATE NOT NULL DEFAULT CURRENT_DATE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(assignment_id, user_id, bucket_day, sent_on)
+      );
+    `);
+
+    // NEW: Per-tutor per-criterion coordinator comments
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tutor_criterion_comments (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        tutor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        criterion_id INTEGER NOT NULL REFERENCES rubric_criteria(id) ON DELETE CASCADE,
+        comment TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(assignment_id, tutor_id, criterion_id)
       );
     `);
 

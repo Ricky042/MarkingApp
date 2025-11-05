@@ -19,7 +19,7 @@ export default function ReportDetailsPage() {
   const [error, setError] = useState(null);
   const [assignmentStatus, setAssignmentStatus] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
-  
+
   // For editing admin comments
   const [editingComment, setEditingComment] = useState(null);
   const [commentText, setCommentText] = useState("");
@@ -60,19 +60,19 @@ export default function ReportDetailsPage() {
       setError(null);
       try {
         console.log("Fetching assignment details for:", assignmentId);
-        
-       
+
+
         try {
           const assignmentsRes = await api.get(
             `/team/${teamId}/assignments`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
-          
+
 
           const assignmentFromList = assignmentsRes.data.assignments?.find(
             a => a.id == assignmentId || String(a.id) === String(assignmentId)
           );
-          
+
           if (assignmentFromList) {
             console.log("Found assignment in list:", assignmentFromList);
             setAssignmentStatus(assignmentFromList.status);
@@ -82,21 +82,21 @@ export default function ReportDetailsPage() {
         } catch (listErr) {
           console.warn("Could not fetch assignments list:", listErr);
         }
-        
+
         // Get detailed assignment and report data
         const detailsRes = await api.get(
           `/team/${teamId}/assignments/${assignmentId}/details`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        
+
         console.log("Details response:", detailsRes.data);
-        
+
         const data = detailsRes.data;
-        
+
         if (!data.assignmentDetails) {
           throw new Error("No assignment details found");
         }
-        
+
         setAssignmentDetails(data.assignmentDetails);
         setReportData(data);
 
@@ -104,7 +104,7 @@ export default function ReportDetailsPage() {
         if (!assignmentStatus) {
           const totalMarkers = data.markers?.length || 0;
           const markersCompleted = data.markersAlreadyMarked || 0;
-          
+
           if (markersCompleted >= totalMarkers) {
             setAssignmentStatus("COMPLETED");
           } else {
@@ -129,14 +129,14 @@ export default function ReportDetailsPage() {
   // Export PDF function
   const exportToPDF = async () => {
     if (!assignmentDetails || !reportData) return;
-    
+
     setIsExporting(true);
     try {
       // Create a temporary element to hold the report content for PDF generation
       const reportElement = document.createElement('div');
       reportElement.style.padding = '20px';
       reportElement.style.backgroundColor = 'white';
-      
+
       // Add report header
       reportElement.innerHTML = `
         <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
@@ -149,7 +149,7 @@ export default function ReportDetailsPage() {
           </p>
         </div>
       `;
-      
+
       // Add statistics section
       const stats = calculateReportStats();
       if (stats) {
@@ -181,12 +181,12 @@ export default function ReportDetailsPage() {
           </div>
         `;
       }
-      
+
       // Add mark comparison table
       if (reportData.controlPapers && reportData.controlPapers.length > 0) {
         const controlPaper = reportData.controlPapers[0];
         const adminMarker = reportData.markers?.find(m => m.name?.toLowerCase().includes("admin")) || reportData.markers?.[0];
-        
+
         let tableHTML = `
           <div style="margin-bottom: 30px;">
             <h3 style="color: #0F172A; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Mark Comparison Table</h3>
@@ -195,13 +195,13 @@ export default function ReportDetailsPage() {
                 <tr style="background-color: #f8f9fa;">
                   <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Marker</th>
         `;
-        
+
         reportData.rubric?.forEach(r => {
           tableHTML += `<th style="border: 1px solid #ddd; padding: 8px; text-align: center;">${r.categoryName}</th>`;
         });
-        
+
         tableHTML += `</tr></thead><tbody>`;
-        
+
         // Construct scores map
         const scoresMap = {};
         controlPaper.marks?.forEach((m) => {
@@ -210,41 +210,41 @@ export default function ReportDetailsPage() {
             scoresMap[m.markerId][s.rubricCategoryId] = Number(s.score);
           });
         });
-        
+
         reportData.markers?.forEach(marker => {
-          if (currentUserRole !== "admin" && 
-              marker.id !== adminMarker?.id && 
-              marker.id !== reportData.currentUser?.id) {
+          if (currentUserRole !== "admin" &&
+            marker.id !== adminMarker?.id &&
+            marker.id !== reportData.currentUser?.id) {
             return;
           }
-          
+
           tableHTML += `<tr><td style="border: 1px solid #ddd; padding: 8px; font-weight: bold;">${marker.name}${marker.id === adminMarker?.id ? ' (Admin)' : ''}</td>`;
-          
+
           reportData.rubric?.forEach(r => {
             const score = scoresMap[marker.id]?.[r.id];
             tableHTML += `<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${score !== undefined ? score : '-'}</td>`;
           });
-          
+
           tableHTML += `</tr>`;
         });
-        
+
         tableHTML += `</tbody></table></div>`;
         reportElement.innerHTML += tableHTML;
       }
-      
+
       // Add admin comments section
       if (reportData.rubric && reportData.rubric.length > 0) {
         let commentsHTML = `
           <div style="margin-bottom: 30px;">
             <h3 style="color: #0F172A; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Rubric Coordinator Comments</h3>
         `;
-        
+
         reportData.rubric.forEach(criterion => {
           commentsHTML += `
             <div style="border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin: 10px 0;">
               <h4 style="margin: 0 0 5px 0; color: #0F172A;">${criterion.categoryName}</h4>
               <p style="margin: 0 0 10px 0; color: #666; font-size: 12px;">
-                Points: ${criterion.maxScore} | Deviation Threshold: ${criterion.deviationScore}
+                Points: ${criterion.maxScore} | Deviation Threshold: ${Number.isFinite(Number(criterion.deviationScore)) ? `${Number(criterion.deviationScore)}%` : 'N/A'}
               </p>
               <div style="background-color: #f8f9fa; padding: 10px; border-radius: 3px;">
                 <p style="margin: 0; color: #333;">${criterion.adminComments || 'No admin comment yet.'}</p>
@@ -252,18 +252,18 @@ export default function ReportDetailsPage() {
             </div>
           `;
         });
-        
+
         commentsHTML += `</div>`;
         reportElement.innerHTML += commentsHTML;
       }
-      
+
       // Add footer
       reportElement.innerHTML += `
         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #888; font-size: 12px;">
           Generated by Assignment Moderation System
         </div>
       `;
-      
+
       // Use browser's print functionality to generate PDF
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
@@ -285,16 +285,16 @@ export default function ReportDetailsPage() {
           </body>
         </html>
       `);
-      
+
       printWindow.document.close();
       printWindow.focus();
-      
+
       // Wait for content to load then print
       setTimeout(() => {
         printWindow.print();
         printWindow.close();
       }, 500);
-      
+
     } catch (err) {
       console.error("Error generating PDF:", err);
       alert("Failed to generate PDF report");
@@ -312,20 +312,20 @@ export default function ReportDetailsPage() {
         { adminComment: comment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       // Update local state
       setReportData(prev => ({
         ...prev,
-        rubric: prev.rubric.map(criterion => 
-          criterion.id === criterionId 
+        rubric: prev.rubric.map(criterion =>
+          criterion.id === criterionId
             ? { ...criterion, adminComments: comment }
             : criterion
         )
       }));
-      
+
       setEditingComment(null);
       setCommentText("");
-      
+
     } catch (err) {
       console.error("Error updating admin comment:", err);
       alert("Failed to update comment");
@@ -449,8 +449,8 @@ export default function ReportDetailsPage() {
 
   const reportStats = calculateReportStats();
   // 使用更宽松的状态检查
-  const isCompleted = assignmentStatus?.toUpperCase() === 'COMPLETED' || 
-                     (reportData.markersAlreadyMarked >= (reportData.markers?.length || 0));
+  const isCompleted = assignmentStatus?.toUpperCase() === 'COMPLETED' ||
+    (reportData.markersAlreadyMarked >= (reportData.markers?.length || 0));
 
   return (
     <div className="flex min-h-screen">
@@ -465,9 +465,8 @@ export default function ReportDetailsPage() {
         <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
 
         <div
-          className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${
-            menuOpen ? "ml-56" : "mr-0"
-          }`}
+          className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-56" : "mr-0"
+            }`}
         >
           <div className="px-6 pb-8">
             <div className="flex justify-between items-center mb-6">
@@ -542,9 +541,9 @@ export default function ReportDetailsPage() {
                   data={reportData}
                   currentUserRole={currentUserRole}
                 />
-                
+
                 {/* Detailed mark table */}
-                <DetailedMarksTable 
+                <DetailedMarksTable
                   data={reportData}
                   currentUserRole={currentUserRole}
                 />
@@ -596,7 +595,7 @@ function DeviationTable({ data, currentUserRole }) {
   }
 
   const controlPaper = controlPapers[0];
-  
+
   // Get admin marker
   const adminMarker = markers?.find((m) => m.name?.toLowerCase().includes("admin")) || markers?.[0];
   const adminId = adminMarker?.id;
@@ -660,8 +659,8 @@ function DeviationTable({ data, currentUserRole }) {
                 }
 
                 return (
-                  <th 
-                    key={marker.id} 
+                  <th
+                    key={marker.id}
                     className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider"
                   >
                     {marker.name}
@@ -703,7 +702,7 @@ function DeviationTable({ data, currentUserRole }) {
                       const difference = Math.abs(markerScore - adminScore);
 
                       const deviationThreshold = (criterion.deviationScore / 100) * criterion.maxScore;
-                      
+
                       if (difference < deviationThreshold) {
                         cellColor = 'bg-green-100 text-green-900';
                         deviationText = `Within deviation (Δ${difference.toFixed(2)})`;
@@ -717,12 +716,12 @@ function DeviationTable({ data, currentUserRole }) {
                     }
 
                     return (
-                      <td 
-                        key={marker.id} 
+                      <td
+                        key={marker.id}
                         className={`px-6 py-4 whitespace-nowrap text-center font-medium ${cellColor} group relative`}
                       >
                         {typeof markerScore === 'number' ? markerScore : 'N/A'}
-                        
+
                         {/* Tooltip for deviation details */}
                         {deviationText && (
                           <div className="absolute hidden group-hover:block z-10 bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap">
@@ -744,7 +743,7 @@ function DeviationTable({ data, currentUserRole }) {
           </div>
         )}
 
-       
+
         <div className="mt-4 flex flex-wrap gap-4 text-xs">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-green-100 border border-green-300 mr-1"></div>
@@ -768,6 +767,32 @@ function DeviationTable({ data, currentUserRole }) {
 function DetailedMarksTable({ data, currentUserRole }) {
   const [expandedComments, setExpandedComments] = useState({});
   const { controlPapers, rubric, markers } = data;
+  const [savingMap, setSavingMap] = useState({});
+  const [savedComments, setSavedComments] = useState({});
+  const [editingComments, setEditingComments] = useState({});
+  const [commentValues, setCommentValues] = useState({});
+
+  const assignmentId = data.assignmentDetails?.id || data.assignment?.id;
+
+  // Load saved comments on mount
+  useEffect(() => {
+    if (assignmentId && currentUserRole === 'admin') {
+      const token = localStorage.getItem("token");
+      api.get(`/assignments/${assignmentId}/tutor-comments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(res => {
+        const commentsMap = {};
+        res.data.comments?.forEach(c => {
+          const key = `${c.tutor_id}-${c.criterion_id}`;
+          commentsMap[key] = c.comment;
+        });
+        setSavedComments(commentsMap);
+        setCommentValues(commentsMap);
+      }).catch(err => {
+        console.error('Failed to load tutor comments:', err);
+      });
+    }
+  }, [assignmentId, currentUserRole]);
 
   if (!controlPapers || controlPapers.length === 0) {
     return (
@@ -791,18 +816,50 @@ function DetailedMarksTable({ data, currentUserRole }) {
     }));
   };
 
+  const saveCoordinatorNote = async ({ assignmentId, tutorId, criterionId, comment }) => {
+    if (!comment || !comment.trim()) {
+      alert('Comment cannot be empty');
+      return;
+    }
+    try {
+      const key = `${tutorId}-${criterionId}`;
+      setSavingMap((m) => ({ ...m, [key]: true }));
+      const token = localStorage.getItem("token");
+      await api.post(`/assignments/${assignmentId}/markers/${tutorId}/criteria/${criterionId}/comment`, { comment }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSavedComments(prev => ({ ...prev, [key]: comment }));
+      setEditingComments(prev => ({ ...prev, [key]: false }));
+      alert('Saved and notified.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save comment');
+    } finally {
+      const key = `${tutorId}-${criterionId}`;
+      setSavingMap((m) => ({ ...m, [key]: false }));
+    }
+  };
+
+  const startEditing = (tutorId, criterionId) => {
+    const key = `${tutorId}-${criterionId}`;
+    setEditingComments(prev => ({ ...prev, [key]: true }));
+    // Load saved comment into input if exists
+    if (savedComments[key]) {
+      setCommentValues(prev => ({ ...prev, [key]: savedComments[key] }));
+    }
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow p-6 overflow-x-auto">
       <h3 className="text-xl font-semibold mb-4 text-slate-800">
         Detailed Marks with Comments
       </h3>
-      
+
       {/* Group by markers */}
       {markers?.map(marker => {
         // tutor view: only show self and admin
-        if (currentUserRole !== "admin" && 
-            marker.id !== adminMarker?.id && 
-            marker.id !== data.currentUser?.id) {
+        if (currentUserRole !== "admin" &&
+          marker.id !== adminMarker?.id &&
+          marker.id !== data.currentUser?.id) {
           return null;
         }
 
@@ -818,14 +875,19 @@ function DetailedMarksTable({ data, currentUserRole }) {
                 )}
               </h4>
             </div>
-            
+
             <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-200 text-sm">
+              <table className="min-w-full border border-gray-200 text-sm table-fixed">
+                <colgroup>
+                  <col style={{ width: '45%' }} />
+                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '40%' }} />
+                </colgroup>
                 <thead className="bg-gray-100 text-left">
                   <tr>
                     <th className="p-3 border-r font-medium">Criterion</th>
                     <th className="p-3 border-r font-medium text-center">Score</th>
-                    <th className="p-3 border-r font-medium">Deviation Status</th>
+                    <th className="p-3 border-r font-medium">Deviation Status {currentUserRole === 'admin' ? ' / Coordinator Note' : ''}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -834,13 +896,13 @@ function DetailedMarksTable({ data, currentUserRole }) {
                     const controlPaper = controlPapers[0];
                     const markerMarks = controlPaper.marks?.find(m => m.markerId === marker.id);
                     const scoreObj = markerMarks?.scores?.find(s => s.rubricCategoryId === criterion.id);
-                    
+
                     if (!scoreObj) return null;
 
                     // Calculate deviation
                     const adminMarks = controlPaper.marks?.find(m => m.markerId === adminMarker?.id);
                     const adminScoreObj = adminMarks?.scores?.find(s => s.rubricCategoryId === criterion.id);
-                    
+
                     let deviationStatus = 'bg-gray-100';
                     let deviationText = 'N/A';
 
@@ -848,18 +910,25 @@ function DetailedMarksTable({ data, currentUserRole }) {
                       const thisScore = Number(scoreObj.score);
                       const adminScore = Number(adminScoreObj.score);
                       const diff = Math.abs(thisScore - adminScore);
-                      
+                      const threshold = (Number(criterion.deviationScore || 0) / 100) * Number(criterion.maxScore || 0);
+                      const diffPct = Number(criterion.maxScore || 0) > 0 ? (diff / Number(criterion.maxScore || 0)) * 100 : 0;
                       if (diff === 0) {
                         deviationStatus = 'bg-green-100 text-green-800';
                         deviationText = 'Exact match';
-                      } else if (diff <= criterion.deviationScore) {
+                      } else if (diff <= threshold) {
                         deviationStatus = 'bg-yellow-100 text-yellow-800';
-                        deviationText = `Within deviation (Δ${diff.toFixed(2)})`;
+                        deviationText = `Within deviation (Δ${diffPct.toFixed(1)}%) ≤ ${Number(criterion.deviationScore || 0)}%`;
                       } else {
                         deviationStatus = 'bg-red-100 text-red-800';
-                        deviationText = `Outside deviation (Δ${diff.toFixed(2)})`;
+                        deviationText = `Outside deviation (Δ${diffPct.toFixed(1)}%) > ${Number(criterion.deviationScore || 0)}%`;
                       }
                     }
+
+                    const savingKey = `${marker.id}-${criterion.id}`;
+                    const commentKey = `${marker.id}-${criterion.id}`;
+                    const savedComment = savedComments[commentKey];
+                    const isEditing = editingComments[commentKey];
+                    const commentValue = commentValues[commentKey] || '';
 
                     return (
                       <tr key={`${marker.id}-${criterion.id}`} className="border-t">
@@ -871,10 +940,61 @@ function DetailedMarksTable({ data, currentUserRole }) {
                             {scoreObj.score} / {criterion.maxScore}
                           </span>
                         </td>
-                        <td className="p-3 text-center">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${deviationStatus}`}>
+                        <td className="p-3">
+                          <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${deviationStatus}`}>
                             {deviationText}
-                          </span>
+                          </div>
+                          {currentUserRole === 'admin' && marker.id !== adminMarker?.id && (
+                            <div className="mt-2">
+                              {savedComment && !isEditing ? (
+                                <div className="flex flex-col gap-2">
+                                  <textarea
+                                    className="w-full p-2 border border-gray-300 rounded-md text-xs bg-gray-50"
+                                    rows={2}
+                                    value={savedComment}
+                                    readOnly
+                                  />
+                                  <button
+                                    className="w-full px-3 py-2 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50"
+                                    disabled={!!savingMap[savingKey]}
+                                    onClick={() => startEditing(marker.id, criterion.id)}
+                                  >
+                                    Edit Comment
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-2">
+                                  <textarea
+                                    className="w-full p-2 border border-gray-300 rounded-md text-xs"
+                                    rows={2}
+                                    placeholder="Add coordinator note for this tutor & criterion..."
+                                    value={commentValue}
+                                    onChange={(e) => setCommentValues(prev => ({ ...prev, [commentKey]: e.target.value }))}
+                                  />
+                                  <div className="flex gap-2">
+                                    {savedComment && (
+                                      <button
+                                        className="w-1/2 px-3 py-2 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 disabled:opacity-50"
+                                        onClick={() => {
+                                          setEditingComments(prev => ({ ...prev, [commentKey]: false }));
+                                          setCommentValues(prev => ({ ...prev, [commentKey]: savedComment }));
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    )}
+                                    <button
+                                      className={`px-3 py-2 bg-[var(--deakinTeal)] text-white rounded text-xs hover:bg-[#0E796B] disabled:opacity-50 ${savedComment ? 'w-1/2' : 'w-full'}`}
+                                      disabled={!!savingMap[savingKey]}
+                                      onClick={() => saveCoordinatorNote({ assignmentId, tutorId: marker.id, criterionId: criterion.id, comment: commentValue })}
+                                    >
+                                      {savingMap[savingKey] ? 'Saving...' : 'Save & Notify'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -890,15 +1010,15 @@ function DetailedMarksTable({ data, currentUserRole }) {
 }
 
 // Rubric Admin Comments component
-function RubricAdminComments({ 
-  rubricCriteria, 
-  currentUserRole, 
-  editingComment, 
-  commentText, 
-  onStartEditing, 
-  onCancelEditing, 
-  onUpdateComment, 
-  onCommentTextChange 
+function RubricAdminComments({
+  rubricCriteria,
+  currentUserRole,
+  editingComment,
+  commentText,
+  onStartEditing,
+  onCancelEditing,
+  onUpdateComment,
+  onCommentTextChange
 }) {
   if (!rubricCriteria || rubricCriteria.length === 0) {
     return (
@@ -916,7 +1036,7 @@ function RubricAdminComments({
       <h3 className="text-xl font-semibold mb-4 text-slate-800">
         Rubric Coordinator Comments
       </h3>
-      
+
       <div className="space-y-4">
         {rubricCriteria.map((criterion) => (
           <div key={criterion.id} className="border border-gray-200 rounded-lg p-4">
@@ -926,10 +1046,10 @@ function RubricAdminComments({
                   {criterion.categoryName}
                 </h4>
                 <p className="text-sm text-gray-600">
-                  Points: {criterion.maxScore} | Deviation Threshold: {criterion.deviationScore}
+                  Points: {criterion.maxScore} | Deviation Threshold: {Number.isFinite(Number(criterion.deviationScore)) ? `${Number(criterion.deviationScore)}%` : 'N/A'}
                 </p>
               </div>
-              
+
               {currentUserRole === "admin" && (
                 <button
                   onClick={() => onStartEditing(criterion)}

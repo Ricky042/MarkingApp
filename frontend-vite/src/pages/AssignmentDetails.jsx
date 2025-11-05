@@ -152,7 +152,7 @@ function CompletionPrompt({ status, teamId, assignmentId }) {
 }
 
 
-function ScoreComparisonTable({ data, currentUserRole }) {
+function ScoreComparisonTable({ data, currentUserRole, userCompletionStatus }) {
   const [selectedPaperId, setSelectedPaperId] = useState('cp-A');
   const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
   const { assignmentDetails, rubric, markers, controlPapers } = data;
@@ -193,6 +193,7 @@ function ScoreComparisonTable({ data, currentUserRole }) {
 
   const adminScores = scoresMap.get(adminId);
   const isAdminMarked = adminScores && adminScores.size > 0;
+  const canShowAdmin = currentUserRole === 'admin' || userCompletionStatus === 'complete';
 
   return (
     <div className="mt-8 bg-white p-6 rounded-lg border border-slate-200">
@@ -257,7 +258,7 @@ function ScoreComparisonTable({ data, currentUserRole }) {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-1/4">Rubric Criterion</th>
 
-              {adminMarker && (
+              {adminMarker && canShowAdmin && (
                 <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider">
                   {adminMarker.name} (Standard)
                 </th>
@@ -288,7 +289,7 @@ function ScoreComparisonTable({ data, currentUserRole }) {
                 <tr key={category.id}>
                   <td className="px-6 py-4 whitespace-normal font-medium text-slate-900">{category.categoryName}</td>
 
-                  {adminMarker && (
+                  {adminMarker && canShowAdmin && (
                     <td className="px-6 py-4 whitespace-nowrap text-center font-bold bg-slate-50 text-slate-800">
                       {typeof adminScore === 'number' ? adminScore : 'N/A'}
                     </td>
@@ -305,7 +306,7 @@ function ScoreComparisonTable({ data, currentUserRole }) {
 
                     const markerScore = getScore(marker.id, category.id);
                     let cellColor = 'bg-white';
-                    if (isAdminMarked && typeof markerScore === 'number' && typeof adminScore === 'number') {
+                    if (canShowAdmin && isAdminMarked && typeof markerScore === 'number' && typeof adminScore === 'number') {
                       const difference = Math.abs(markerScore - adminScore);
                       const deviationPercentage = category.deviationScore;
                       const deviationThreshold = (deviationPercentage / 100) * category.maxScore;
@@ -325,7 +326,12 @@ function ScoreComparisonTable({ data, currentUserRole }) {
             })}
           </tbody>
         </table>
-        {!isAdminMarked && (
+        {!canShowAdmin && (
+          <div className="mt-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm">
+            Admin scores are hidden until you finish marking the control papers.
+          </div>
+        )}
+        {canShowAdmin && !isAdminMarked && (
           <div className="mt-4 p-3 bg-lime-100 text-deakinTeal rounded-md text-sm">
             The standard marker has not yet marked this control paper. Score coloring is disabled until the standard is set.
           </div>
@@ -428,6 +434,7 @@ export default function AssignmentDetails() {
             <ScoreComparisonTable
               data={assignmentData}
               currentUserRole={currentUserRole}
+              userCompletionStatus={userCompletionStatus}
             />
 
             {/* Admin Comments - for tutor view only*/}
