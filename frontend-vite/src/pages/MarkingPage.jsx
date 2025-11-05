@@ -39,14 +39,50 @@ function RubricCategory({ category, score, onScoreChange }) {
     { name: 'F', label: 'Fail', color: 'bg-deakinTeal text-white' }
   ];
 
+  // Sync selected grade with typed score changes
+  useEffect(() => {
+    if (score === '' || score === null || score === undefined) return;
+    const numericScore = Number(score);
+    const maxScore = Number(category.maxScore) || 0;
+
+    const labelFromTiers = () => {
+      if (!category.tiers || category.tiers.length === 0) return null;
+      // Prefer tiers with bounds; fallback to closest lowerBound
+      const byLower = [...category.tiers].sort((a, b) => (a.lowerBound ?? 0) - (b.lowerBound ?? 0));
+      for (const t of byLower) {
+        const lb = t.lowerBound ?? 0;
+        const ub = t.upperBound ?? Infinity;
+        if (numericScore >= lb && numericScore <= ub) return t.name;
+      }
+      // If above all, pick the highest tier
+      return byLower[byLower.length - 1]?.name ?? null;
+    };
+
+    const labelFromPercent = () => {
+      if (!maxScore) return 'Pass';
+      const r = numericScore / maxScore;
+      if (r >= 0.80) return 'High Distinction';
+      if (r >= 0.70) return 'Distinction';
+      if (r >= 0.60) return 'Credit';
+      if (r >= 0.50) return 'Pass';
+      return 'Fail';
+    };
+
+    const label = labelFromTiers() ?? labelFromPercent();
+    const mapping = grades.find(g => g.label === label);
+    if (mapping && mapping.name !== selectedGrade.name) {
+      setSelectedGrade(mapping);
+    }
+  }, [score, category]);
+
   // Calculate placeholder score based on selected grade tier
   const getPlaceholderScore = () => {
     if (!category.tiers || category.tiers.length === 0) {
       // Fallback to standard percentages if tiers are not available
       const percentageMap = {
         'High Distinction': 0.80,  // 80% (user requested 16 for maxScore 20)
-        'Distinction': 0.75,
-        'Credit': 0.65,
+        'Distinction': 0.70,
+        'Credit': 0.60,
         'Pass': 0.50,
         'Fail': 0.25
       };
@@ -75,21 +111,20 @@ function RubricCategory({ category, score, onScoreChange }) {
     <div className="bg-white p-6 rounded-lg">
       {/* Criteria Title */}
       <h2 className="text-2xl font-bold text-deakinTeal mb-2">Criteria</h2>
-      
+
       {/* Criterion Description */}
       <p className="text-sm text-slate-600 mb-6">{category.categoryName}</p>
-      
+
       {/* Grade Buttons */}
       <div className="flex gap-2 mb-6">
         {grades.map((grade) => (
           <button
             key={grade.name}
             onClick={() => handleGradeSelect(grade)}
-            className={`px-4 py-2 rounded-md font-semibold text-sm cursor-pointer ${
-              selectedGrade?.name === grade.name 
-                ? grade.color 
-                : 'bg-white text-deakinTeal border border-deakinTeal'
-            }`}
+            className={`px-4 py-2 rounded-md font-semibold text-sm cursor-pointer ${selectedGrade?.name === grade.name
+              ? grade.color
+              : 'bg-white text-deakinTeal border border-deakinTeal'
+              }`}
           >
             {grade.name}
           </button>
@@ -114,12 +149,12 @@ function RubricCategory({ category, score, onScoreChange }) {
               <span className="text-deakinTeal font-semibold">/{category.maxScore}</span>
             </div>
           </div>
-          
+
           {/* Grade Description */}
-          {/* <p className="text-sm text-slate-600">
-            {category.tiers.find(tier => tier.name === selectedGrade.label)?.description || 
-             `Description for ${selectedGrade.label} grade...`}
-          </p> */}
+          <p className="text-sm text-slate-600">
+            {category.tiers?.find(tier => tier.name === selectedGrade.label)?.description ||
+              `No description set for ${selectedGrade.label}.`}
+          </p>
         </div>
       )}
 
@@ -146,7 +181,7 @@ export default function MarkingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [assignmentData, setAssignmentData] = useState(null);
-  const [selectedPaperId, setSelectedPaperId] = useState('cp-A'); 
+  const [selectedPaperId, setSelectedPaperId] = useState('cp-A');
   const [marks, setMarks] = useState({});
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -183,47 +218,47 @@ export default function MarkingPage() {
   };
 
   const handleSubmitMarks = async () => {
-  const marksForCurrentPaper = marks[selectedPaperId];
-  const rubricCategories = assignmentData.rubric;
+    const marksForCurrentPaper = marks[selectedPaperId];
+    const rubricCategories = assignmentData.rubric;
 
-  if (!marksForCurrentPaper || rubricCategories.some(cat => marksForCurrentPaper[cat.id] === undefined || marksForCurrentPaper[cat.id] === '')) {
-    alert("Please enter a score for every rubric category before submitting.");
-    return;
-  }
+    if (!marksForCurrentPaper || rubricCategories.some(cat => marksForCurrentPaper[cat.id] === undefined || marksForCurrentPaper[cat.id] === '')) {
+      alert("Please enter a score for every rubric category before submitting.");
+      return;
+    }
 
-  setIsSubmitting(true);
-  try {
-    const payload = {
-      paperId: selectedPaperId,
-      scores: Object.entries(marksForCurrentPaper).map(([criterionId, score]) => ({
-        criterionId: Number(criterionId),
-        score: Number(score)
-      })),
-    };
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        paperId: selectedPaperId,
+        scores: Object.entries(marksForCurrentPaper).map(([criterionId, score]) => ({
+          criterionId: Number(criterionId),
+          score: Number(score)
+        })),
+      };
 
-    const token = localStorage.getItem("token");
-    await api.post(`/assignments/${assignmentId}/mark`, payload, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    /*
-    // 🌟 Optional: call completion endpoint if tutor finished both control papers
-    const confirm = window.confirm("Submit completed marking for this assignment?");
-    if (confirm) {
-      await api.post(`/assignments/${assignmentId}/mark/complete`, {}, {
+      const token = localStorage.getItem("token");
+      await api.post(`/assignments/${assignmentId}/mark`, payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
-    } buggy*/
+      /*
+      // 🌟 Optional: call completion endpoint if tutor finished both control papers
+      const confirm = window.confirm("Submit completed marking for this assignment?");
+      if (confirm) {
+        await api.post(`/assignments/${assignmentId}/mark/complete`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } buggy*/
 
-    alert(`Marks for ${selectedPaperId} submitted successfully!`);
-    navigate(`/team/${teamId}/assignments/${assignmentId}`);
-  } catch (err) {
-    alert(err.response?.data?.message || "Failed to submit marks. Please try again.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+      alert(`Marks for ${selectedPaperId} submitted successfully!`);
+      navigate(`/team/${teamId}/assignments/${assignmentId}`);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to submit marks. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-  
+
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
   };
@@ -237,7 +272,7 @@ export default function MarkingPage() {
   const { assignmentDetails, rubric, controlPapers } = assignmentData;
   const currentMarks = marks[selectedPaperId] || {};
   const selectedPaper = controlPapers.find(p => p.id === selectedPaperId);
-  
+
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
@@ -248,103 +283,94 @@ export default function MarkingPage() {
         <Navbar onBurgerClick={() => setMenuOpen(v => !v)} />
         <MenuItem menuOpen={menuOpen} onClose={() => setMenuOpen(false)} />
         <div className={`transition-[margin] duration-300 ease-out flex-1 flex flex-col bg-neutral-100 ${menuOpen ? "ml-72" : "mr-0"}`}>
-        <ResizablePanelGroup direction="horizontal" className="flex-1">
-          
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="flex flex-col h-[1200px] bg-slate-200">
-              <div className="flex justify-between items-center bg-white border-b border-slate-300">
-                <div className="flex flex-row items-center gap-2">
-                  <button onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}`)} className="p-3 cursor-pointer text-slate-800 hover:opacity-80">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="20" viewBox="0 0 24 24" id="back-arrow">
-                      <path fill="none" d="M0 0h24v24H0V0z" opacity=".87"></path>
-                      <path d="M16.62 2.99c-.49-.49-1.28-.49-1.77 0L6.54 11.3c-.39.39-.39 1.02 0 1.41l8.31 8.31c.49.49 1.28.49 1.77 0s.49-1.28 0-1.77L9.38 12l7.25-7.25c.48-.48.48-1.28-.01-1.76z" fill="currentColor"></path>
-                    </svg>
-                  </button>
-                  <h3 className="font-semibold text-slate-800">{selectedPaper?.name || "Document"}</h3>
-                </div>
-                <div className="flex items-center gap-2 pr-3">
-                  <button onClick={zoomOut} className="p-1 rounded hover:bg-slate-200"><ZoomOut className="w-5 h-5"/></button>
-                  <span className="text-sm font-medium w-12 text-center">{(pdfScale * 100).toFixed(0)}%</span>
-                  <button onClick={zoomIn} className="p-1 rounded hover:bg-slate-200"><ZoomIn className="w-5 h-5"/></button>
-                </div>
-              </div>
-              
-              <div className="flex-1 overflow-auto p-4 h-screen">
-                {selectedPaper?.filePath ? (
-                  <div className="flex justify-center">
-                    <Document
-                      file={selectedPaper.filePath}
-                      onLoadSuccess={onDocumentLoadSuccess}
-                      loading={<div className="flex justify-center items-center h-full"><p>Loading PDF...</p></div>}
-                      error={<div className="flex flex-col justify-center items-center min-h-[1000px] w-full"><img src="/broken-file-icon.png" alt="Broken file" className="w-19 mb-4 opacity-40" /><p className="text-[#A7A9AC] text-center">Failed to load PDF. Please check the file URL.</p></div>}
-                    >
-                      {Array.from(new Array(numPages), (el, index) => (
-                        <Page
-                          key={`page_${index + 1}`}
-                          pageNumber={index + 1}
-                          scale={pdfScale}
-                          className="mb-4 shadow-lg"
-                        />
-                      ))}
-                    </Document>
-                  </div>
-                ) : (
-                  <div className="flex justify-center items-center h-full">
-                    <p className="text-slate-500">No document uploaded for this control paper.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </ResizablePanel>
+          <ResizablePanelGroup direction="horizontal" className="flex-1">
 
-          <ResizableHandle withHandle />
-          
-          <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="flex flex-col h-screen overflow-y-auto">
-              <main className="flex-1 p-6 overflow-y-auto">
-               
-                <div className="mb-6">
-                  <div className="flex items-center gap-4">
-                    <h2 className="text-2xl font-bold text-deakinTeal">Control Paper</h2>
-                  </div>
-                </div>
-
-
-                <div className="space-y-6">
-                  {rubric.map(category => (
-                    <RubricCategory
-                      key={category.id}
-                      category={category}
-                      score={currentMarks[category.id]}
-                      onScoreChange={handleScoreChange}
-                    />
-                  ))}
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleSubmitMarks}
-                      disabled={isSubmitting}
-                      className="px-6 py-2 bg-deakinTeal cursor-pointer text-white font-medium rounded-md hover:bg-[#0E796B] disabled:bg-slate-400"
-                    >
-                      {isSubmitting ? 'Submitting...' : `Submit Marks for ${selectedPaper?.name || ''}`}
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <div className="flex flex-col h-[1200px] bg-slate-200">
+                <div className="flex justify-between items-center bg-white border-b border-slate-300">
+                  <div className="flex flex-row items-center gap-2">
+                    <button onClick={() => navigate(`/team/${teamId}/assignments/${assignmentId}`)} className="p-3 cursor-pointer text-slate-800 hover:opacity-80">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="20" viewBox="0 0 24 24" id="back-arrow">
+                        <path fill="none" d="M0 0h24v24H0V0z" opacity=".87"></path>
+                        <path d="M16.62 2.99c-.49-.49-1.28-.49-1.77 0L6.54 11.3c-.39.39-.39 1.02 0 1.41l8.31 8.31c.49.49 1.28.49 1.77 0s.49-1.28 0-1.77L9.38 12l7.25-7.25c.48-.48.48-1.28-.01-1.76z" fill="currentColor"></path>
+                      </svg>
                     </button>
+                    <h3 className="font-semibold text-slate-800">{selectedPaper?.name || "Document"}</h3>
+                  </div>
+                  <div className="flex items-center gap-2 pr-3">
+                    <button onClick={zoomOut} className="p-1 rounded hover:bg-slate-200"><ZoomOut className="w-5 h-5" /></button>
+                    <span className="text-sm font-medium w-12 text-center">{(pdfScale * 100).toFixed(0)}%</span>
+                    <button onClick={zoomIn} className="p-1 rounded hover:bg-slate-200"><ZoomIn className="w-5 h-5" /></button>
                   </div>
                 </div>
 
-                <div className="mt-6 flex">
-                  <button
-                    onClick={handleSubmitMarks}
-                    disabled={isSubmitting}
-                    className="px-6 py-2 bg-deakinTeal cursor-pointer text-white font-medium rounded-md hover:bg-[#0E796B] disabled:bg-slate-400"
-                  >
-                    {isSubmitting ? 'Submitting...' : `Submit Marks for ${selectedPaper?.name || ''}`}
-                  </button>
+                <div className="flex-1 overflow-auto p-4 h-screen">
+                  {selectedPaper?.filePath ? (
+                    <div className="flex justify-center">
+                      <Document
+                        file={selectedPaper.filePath}
+                        onLoadSuccess={onDocumentLoadSuccess}
+                        loading={<div className="flex justify-center items-center h-full"><p>Loading PDF...</p></div>}
+                        error={<div className="flex flex-col justify-center items-center min-h-[1000px] w-full"><img src="/broken-file-icon.png" alt="Broken file" className="w-19 mb-4 opacity-40" /><p className="text-[#A7A9AC] text-center">Failed to load PDF. Please check the file URL.</p></div>}
+                      >
+                        {Array.from(new Array(numPages), (el, index) => (
+                          <Page
+                            key={`page_${index + 1}`}
+                            pageNumber={index + 1}
+                            scale={pdfScale}
+                            className="mb-4 shadow-lg"
+                          />
+                        ))}
+                      </Document>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center items-center h-full">
+                      <p className="text-slate-500">No document uploaded for this control paper.</p>
+                    </div>
+                  )}
                 </div>
-              </main>
-            </div>
-          </ResizablePanel>
+              </div>
+            </ResizablePanel>
 
-        </ResizablePanelGroup>
-      </div>
+            <ResizableHandle withHandle />
+
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <div className="flex flex-col h-screen overflow-y-auto">
+                <main className="flex-1 p-6 overflow-y-auto">
+
+                  <div className="mb-6">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-2xl font-bold text-deakinTeal">Control Paper</h2>
+                    </div>
+                  </div>
+
+
+                  <div className="space-y-6">
+                    {rubric.map(category => (
+                      <RubricCategory
+                        key={category.id}
+                        category={category}
+                        score={currentMarks[category.id]}
+                        onScoreChange={handleScoreChange}
+                      />
+                    ))}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleSubmitMarks}
+                        disabled={isSubmitting}
+                        className="px-6 py-2 bg-deakinTeal cursor-pointer text-white font-medium rounded-md hover:bg-[#0E796B] disabled:bg-slate-400"
+                      >
+                        {isSubmitting ? 'Submitting...' : `Submit Marks for ${selectedPaper?.name || ''}`}
+                      </button>
+                    </div>
+                  </div>
+
+                </main>
+              </div>
+            </ResizablePanel>
+
+          </ResizablePanelGroup>
+        </div>
       </div>
     </div>
   );
