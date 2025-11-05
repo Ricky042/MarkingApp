@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../utils/axios";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function JoinTeam() {
   const [searchParams] = useSearchParams();
@@ -116,7 +117,7 @@ export default function JoinTeam() {
     }
   };
 
-  if (loading) return <div>Loading invite...</div>;
+  if (loading) return <LoadingSpinner pageName="Join Team" />;
   if (error) return <div className="text-red-500">{error}</div>;
   if (!invite) return null;
 

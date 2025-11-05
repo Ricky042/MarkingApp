@@ -2,21 +2,20 @@
 const { Pool } = require("pg");
 const dotenv = require("dotenv");
 
-dotenv.config(); // loads DATABASE_URL from .env
+dotenv.config();
 
-// Create a pool using your DATABASE_URL from Render or local .env
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // allows self-signed certs (Render’s default)
+    rejectUnauthorized: false
   },
 });
 
-
-// Function to initialize tables
 async function initDB() {
   try {
-    // USERS
+    // --- CREATE NEW TABLES ---
+
+    // USERS (Kept as is)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -27,7 +26,7 @@ async function initDB() {
       );
     `);
 
-    // TEAMS
+    // TEAMS (Kept as is)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS teams (
         id SERIAL PRIMARY KEY,
@@ -38,112 +37,112 @@ async function initDB() {
       );
     `);
 
-    // TEAM MEMBERS
+    // TEAM MEMBERS (Kept as is)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_members (
         id SERIAL PRIMARY KEY,
-        team_id INTEGER NOT NULL REFERENCES teams(id),
-        user_id INTEGER NOT NULL REFERENCES users(id),
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         role TEXT NOT NULL DEFAULT 'tutor',
         joined_at TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE(team_id, user_id)
       );
     `);
-
-    // ASSIGNMENTS
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS assignments (
-        id SERIAL PRIMARY KEY,
-        title TEXT NOT NULL,
-        description TEXT,
-        created_by INTEGER NOT NULL REFERENCES users(id),
-        team_id INTEGER REFERENCES teams(id),
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        due_date TIMESTAMPTZ
-      );
-    `);
-
-    // Ensure due_date exists for older DBs
-    await pool.query(`
-      ALTER TABLE assignments
-      ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
-    `);
-    console.log("✅ Checked assignments table: due_date column exists or was added.");
-
-    // SUBMISSIONS
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS submissions (
-        id SERIAL PRIMARY KEY,
-        assignment_id INTEGER NOT NULL REFERENCES assignments(id),
-        student_identifier TEXT NOT NULL,
-        file_path TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // RUBRICS
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS rubrics (
-        id SERIAL PRIMARY KEY,
-        assignment_id INTEGER NOT NULL REFERENCES assignments(id),
-        section_name TEXT NOT NULL,
-        description TEXT,
-        max_marks INTEGER NOT NULL
-      );
-    `);
-
-    // RUBRIC TIERS (new table)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS rubric_tiers (
-        id SERIAL PRIMARY KEY,
-        rubric_id INTEGER NOT NULL REFERENCES rubrics(id) ON DELETE CASCADE,
-        tier_name TEXT NOT NULL,
-        description TEXT,
-        marks INTEGER NOT NULL
-      );
-    `);
-    console.log("✅ Rubric tiers table checked/created.");
-
-    // MARKS
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS marks (
-        id SERIAL PRIMARY KEY,
-        submission_id INTEGER NOT NULL REFERENCES submissions(id),
-        rubric_id INTEGER NOT NULL REFERENCES rubrics(id),
-        tutor_id INTEGER NOT NULL REFERENCES users(id),
-        marks_awarded INTEGER NOT NULL,
-        comments TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    // CONTROL MARKS
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS control_marks (
-        id SERIAL PRIMARY KEY,
-        submission_id INTEGER NOT NULL REFERENCES submissions(id),
-        rubric_id INTEGER NOT NULL REFERENCES rubrics(id),
-        official_marks INTEGER NOT NULL,
-        comments TEXT
-      );
-    `);
-
-    // TEAM INVITES
+    
+    // TEAM INVITES (Kept as is)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS team_invites (
         id SERIAL PRIMARY KEY,
-        team_id INTEGER NOT NULL REFERENCES teams(id),
-        inviter_id INTEGER NOT NULL REFERENCES users(id),
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        inviter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         invitee_email TEXT NOT NULL,
         status TEXT DEFAULT 'pending',
         token TEXT UNIQUE NOT NULL,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    
+    // ASSIGNMENTS
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS assignments (
+        id SERIAL PRIMARY KEY,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        course_code TEXT NOT NULL,
+        course_name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Marking', -- 'Marking' or 'Completed'
+        semester INTEGER NOT NULL,
+        due_date TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
 
-    console.log("PostgreSQL tables initialized.");
+    // ASSIGNMENT_MARKERS (Many-to-Many join table)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS assignment_markers (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        completed BOOLEAN NOT NULL DEFAULT FALSE,
+        UNIQUE(assignment_id, user_id)
+      );
+    `);
+
+    
+
+    // RUBRIC_CRITERIA (Each row of the rubric)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rubric_criteria (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        criterion_description TEXT NOT NULL,
+        points NUMERIC(5, 2) NOT NULL,
+        deviation_threshold NUMERIC(5, 2) NOT NULL DEFAULT 0,
+        admin_comments TEXT
+      );
+    `);
+
+    // RUBRIC_TIERS (The 5 rating levels for each criterion)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rubric_tiers (
+        id SERIAL PRIMARY KEY,
+        criterion_id INTEGER NOT NULL REFERENCES rubric_criteria(id) ON DELETE CASCADE,
+        tier_name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        lower_bound NUMERIC(5, 2) NOT NULL,
+        upper_bound NUMERIC(5, 2) NOT NULL
+      );
+    `);
+    
+    // SUBMISSIONS (Includes flag for control papers)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS submissions (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+        student_identifier TEXT NOT NULL,
+        file_path TEXT,
+        is_control_paper BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    
+    // MARKS (Stores individual marks from tutors for control papers)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS marks (
+        id SERIAL PRIMARY KEY,
+        submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+        criterion_id INTEGER NOT NULL REFERENCES rubric_criteria(id) ON DELETE CASCADE,
+        tutor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        marks_awarded NUMERIC(5, 2) NOT NULL,
+        comments TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    console.log("New database schema initialized successfully.");
+
   } catch (err) {
-    console.error("Error initializing PostgreSQL tables:", err);
+    console.error("Error during database reset and initialization:", err);
   }
 }
 
@@ -151,4 +150,3 @@ async function initDB() {
 initDB();
 
 module.exports = pool;
-

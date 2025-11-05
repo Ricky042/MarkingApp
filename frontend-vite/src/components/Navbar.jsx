@@ -39,17 +39,6 @@ export default function NavBar({onBurgerClick}) {
             <div className="h-16 flex items-center">
             {/* Menu Button */}
             <div className="flex-shrink-0 flex items-center gap-6">
-                <button
-                    aria-label="Toggle menu"
-                    onClick= {onBurgerClick}
-                >
-                <span className="sr-only">Menu</span>
-                <img
-                    src="/navBarIcon/navBar_threeLinesIcon.svg"
-                    alt="Menu Icon"
-                    className="h-6 w-6"
-                />
-                </button>
                 <div className="relative w-8 h-8 shrink-0">
                     {/*<div className="absolute inset-0 rounded-full bg-slate-200" />*/}
                     <img

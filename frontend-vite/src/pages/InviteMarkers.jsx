@@ -10,47 +10,14 @@ export default function InviteMarkers() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [emailsList, setEmailsList] = useState([]);
+  const [inviteMessage, setInviteMessage] = useState("");
   const [inviteStatus, setInviteStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
 
-  // Fetch current team members (so we don’t invite existing users)
-  useEffect(() => {
-    async function fetchMembers() {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await api.get(`/team/${teamId}/members`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setTeamMembers(res.data.members.map((m) => m.username.toLowerCase()));
-      } catch (err) {
-        console.error("Error fetching team members:", err);
-      }
-    }
-    fetchMembers();
-  }, [teamId]);
+  
 
-  const handleAddEmail = () => {
-    const email = inviteEmail.trim().toLowerCase();
-    if (!email) return;
-
-    if (teamMembers.includes(email)) {
-      setInviteStatus(`⚠️ ${email} is already a team member.`);
-      return;
-    }
-
-    if (!emailsList.includes(email)) {
-      setEmailsList([...emailsList, email]);
-      setInviteEmail("");
-      setInviteStatus(null);
-    }
-  };
-
-  const handleRemoveEmail = (email) => {
-    setEmailsList(emailsList.filter((e) => e !== email));
-  };
-
-  const handleInviteMultiple = async () => {
+  /*const handleInviteMultiple = async () => {
     const token = localStorage.getItem("token");
     if (emailsList.length === 0) {
       setInviteStatus("Add at least one email.");
@@ -61,26 +28,89 @@ export default function InviteMarkers() {
     try {
       await api.post(
         `/team/${teamId}/invite`,
-        { emails: emailsList },
+        { 
+          emails: emailsList,
+          message: inviteMessage // Send the message along with invites
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setInviteStatus("✅ Invitations sent successfully!");
       setEmailsList([]);
+      setInviteMessage(""); // Clear message after sending
     } catch (err) {
       console.error("Failed to send invites:", err);
       setInviteStatus("❌ Failed to send invites.");
     } finally {
       setLoading(false);
     }
-  };
+  };*/
+  const handleInviteMultiple = async () => {
+  const token = localStorage.getItem("token");
+  if (emailsList.length === 0) {
+    setInviteStatus("Add at least one email.");
+    return;
+  }
 
+  setLoading(true);
+  try {
+    console.log("Sending invite request:", {
+      emails: emailsList,
+      message: inviteMessage,
+      teamId
+    });
+
+    const response = await api.post(
+      `/team/${teamId}/invite`,
+      { 
+        emails: emailsList,
+        message: inviteMessage
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    console.log("Invite response:", response.data);
+    setInviteStatus("✅ Invitations sent successfully!");
+    setEmailsList([]);
+    setInviteMessage("");
+  } catch (err) {
+    console.error("Failed to send invites:", err);
+    console.error("Error details:", err.response?.data);
+    setInviteStatus(`❌ Failed to send invites: ${err.response?.data?.error || err.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+const handleAcceptInvite = async () => {
+  try {
+    const token = localStorage.getItem('token'); // 用户登录token
+    const response = await fetch(`/api/team/invite/${inviteToken}/respond`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        action: 'accept'
+      })
+    });
+    
+    const result = await response.json();
+    console.log('Accept response:', result);
+  } catch (error) {
+    console.error('Error accepting invite:', error);
+  }
+};
   return (
     <div className="flex min-h-screen bg-neutral-100">
       {/* Sidebar */}
-      <Sidebar />
+      <aside className="fixed left-0 top-0 h-screen w-72 bg-white border-r border-slate-200 z-50">
+        <Sidebar />
+      </aside>
 
       {/* Main content */}
-      <div className="ml-56 flex-1 flex flex-col relative">
+      <div className="ml-72 flex-1 flex flex-col relative">
         <Navbar />
 
         <div className="px-6 py-6 flex-1 overflow-auto">
@@ -94,6 +124,9 @@ export default function InviteMarkers() {
               onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="Enter marker email"
               className="px-3 py-2 border border-gray-300 rounded-md flex-1"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') handleAddEmail();
+              }}
             />
             <button
               onClick={handleAddEmail}
@@ -120,6 +153,20 @@ export default function InviteMarkers() {
               </li>
             ))}
           </ul>
+
+          {/* Invitation Message */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Invitation Message (Optional)
+            </label>
+            <textarea
+              value={inviteMessage}
+              onChange={(e) => setInviteMessage(e.target.value)}
+              placeholder="Add a personal message to your invitation..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              rows="3"
+            />
+          </div>
 
           {/* Submit */}
           <button

@@ -1,0 +1,45 @@
+***Dashboard***
+
+The standard of active user is if the user submits a marking in 24 hours.
+
+The meaning of flags open is how many markers haven't finished marking.
+
+Upcoming deadline indicates assignments due within 7 days.
+
+***New Assignment***
+
+Please upload control papers in PDF or DOCX format only.
+	While DOC files might work, they can cause formatting glitches.
+
+For best results, we recommend uploading PDF files.
+	All files are stored in PDF format, and any DOCX file uploaded will be converted automatically — this may slightly change the layout, especially if the document includes tables or charts.
+
+***Assignments Page***
+
+The status meaning differs between roles:
+
+	Admin: Status shows whether all markers have completed marking.
+
+	Tutor: Status shows whether you personally have finished marking.
+
+Only admins can delete assignments, so the delete button will not appear for tutors.
+
+You can use the search bar to find assignments by course name or course code.
+
+***Teams***
+
+The person who creates a team automatically becomes its admin.
+
+You can invite others to join your team via the Markers page.
+
+Invited members are automatically assigned the tutor role.
+
+***Reports***
+
+Only admins can access reports.
+
+On reports page, admins can leave comments to rubric.
+
+For completed assignments, admins can export it as PDF.
+
+

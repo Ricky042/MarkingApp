@@ -108,9 +108,11 @@ export function SignupForm({ className, ...props }) {
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader className="text-start">
-          <img src="/Deakin_logo.png" alt="App Logo" className="h-15 w-auto" />
+      <Card className="border-0">
+        <CardHeader className="items-start">
+          <div className="relative h-11 pl-1 flex items-start justify-start">
+            <img src="/logo_black.png" alt="Logo" className="w-[140px] h-fit object-contain" />
+          </div>
           <div className="flex flex-col gap-4 text-2xl font-bold">Sign Up</div>
           <div className="text-sm text-muted-foreground">
             Create an account to access the assignment marking portal
@@ -134,7 +136,7 @@ export function SignupForm({ className, ...props }) {
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className={errors.email ? "border-red-500" : ""}
+                    className="border-0"
                   />
                   {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
                 </div>
@@ -150,7 +152,7 @@ export function SignupForm({ className, ...props }) {
                       required
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      className={errors.password ? "border-red-500" : ""}
+                      className="border-0"
                     />
                     <button
                       type="button"
@@ -174,7 +176,7 @@ export function SignupForm({ className, ...props }) {
                       required
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
-                      className={errors.confirmPassword ? "border-red-500" : ""}
+                      className="border-0"
                     />
                     <button
                       type="button"
@@ -191,7 +193,7 @@ export function SignupForm({ className, ...props }) {
 
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full bg-[#201f30] hover:bg-[#201f30]/80 cursor-pointer"
                   disabled={loading || Object.keys(errors).length > 0 || !email || !password || !confirmPassword}
                 >
                   {loading ? "Sending..." : "Send Verification Code"}
@@ -216,6 +218,7 @@ export function SignupForm({ className, ...props }) {
                   placeholder="Enter code"
                   value={code}
                   onChange={e => setCode(e.target.value)}
+                  className="border-0"
                 />
               </div>
 
