@@ -8,7 +8,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function JoinTeam() {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token"); // invite token from URL
+  const token = searchParams.get("token");
   const navigate = useNavigate();
 
   const [invite, setInvite] = useState(null);
@@ -16,6 +16,7 @@ export default function JoinTeam() {
   const [error, setError] = useState(null);
   const [responseStatus, setResponseStatus] = useState(null);
   const [isResponding, setIsResponding] = useState(false);
+  const [isAlreadyMember, setIsAlreadyMember] = useState(false);
 
   useEffect(() => {
     const checkInvite = async () => {
@@ -45,6 +46,7 @@ export default function JoinTeam() {
       }
 
       try {
+        // Check invite details
         const res = await api.get(`/team/invite/${token}`, {
           headers: { Authorization: `Bearer ${storedJWT}` },
         });
@@ -52,21 +54,48 @@ export default function JoinTeam() {
         console.log("Invite fetched:", res.data);
         setInvite(res.data);
 
-        // Verify that the invite email matches the logged-in user
-        if (storedUser.username !== res.data.invitee_email) {
-            console.warn("Logged-in user does not match invitee email.");
+        // Check if user is already a team member
+        const memberCheck = await api.get(`/team/${res.data.team_id}/check-member`, {
+          headers: { Authorization: `Bearer ${storedJWT}` },
+        });
 
-            // Clear stored user and token
+        if (memberCheck.data.isMember) {
+          console.log("User is already a team member");
+          setIsAlreadyMember(true);
+          setResponseStatus("You are already a member of this team. Redirecting...");
+          
+          // Delay navigation to show message
+          setTimeout(() => {
+            navigate(`/team/${res.data.team_id}/dashboard`);
+          }, 2000);
+          setLoading(false);
+          return;
+        }
+
+        // Check if invite is still valid
+        if (res.data.status !== 'pending') {
+          setError("This invitation has already been processed.");
+          setLoading(false);
+          return;
+        }
+
+        // Verify that the logged-in user matches the invitee email
+        if (storedUser.username !== res.data.invitee_email) {
+          console.warn("Logged-in user does not match invitee email.");
+          console.log(`Stored user: ${storedUser.username}, Invite email: ${res.data.invitee_email}`);
+
+
+          setError(`This invitation was sent to ${res.data.invitee_email}, but you are logged in as ${storedUser.username}. Please log in with the correct account.`);
+          
+          // Provide a button to logout and use the correct account
+          setTimeout(() => {
             localStorage.removeItem("user");
             localStorage.removeItem("token");
             window.dispatchEvent(new Event("authChange"));
-
-            // Save the pending invite token so user can accept after logging in
             sessionStorage.setItem("pendingInviteToken", token);
-
-            // Redirect to login
             navigate("/login");
-            return;
+          }, 3000);
+          return;
         }
 
       } catch (err) {
@@ -74,6 +103,10 @@ export default function JoinTeam() {
           console.log("JWT invalid/expired. Storing pending invite and redirecting to login/signup.");
           sessionStorage.setItem("pendingInviteToken", token);
           navigate("/login");
+        } else if (err.response && err.response.status === 404) {
+          setError("Invitation not found or has expired.");
+        } else if (err.response && err.response.status === 410) {
+          setError("This invitation has already been used.");
         } else {
           console.error("Error fetching invite:", err);
           setError(err.response?.data?.error || "Failed to fetch invite");
@@ -91,6 +124,8 @@ export default function JoinTeam() {
     if (!storedJWT) return navigate("/login");
 
     setIsResponding(true);
+    setError(null);
+    
     try {
       const res = await api.post(
         `/team/invite/${token}/respond`,
@@ -103,7 +138,7 @@ export default function JoinTeam() {
 
       sessionStorage.removeItem("pendingInviteToken");
 
-      // Small delay before navigation to show success message
+      // Delay navigation to show success message
       setTimeout(async () => {
         if (action === "accept") {
           navigate(`/team/${invite.team_id}/dashboard`);
@@ -122,10 +157,20 @@ export default function JoinTeam() {
             navigate("/create-team");
           }
         }
-      }, 1000);
+      }, 1500);
     } catch (err) {
       console.error("Failed to respond to invite:", err);
-      setError(err.response?.data?.error || "Failed to respond to invite");
+      
+      if (err.response && err.response.status === 409) {
+        setError("You are already a member of this team. Redirecting...");
+        setTimeout(() => {
+          navigate(`/team/${invite.team_id}/dashboard`);
+        }, 2000);
+      } else if (err.response && err.response.status === 410) {
+        setError("This invitation has already been used.");
+      } else {
+        setError(err.response?.data?.error || "Failed to respond to invite");
+      }
       setIsResponding(false);
     }
   };
@@ -142,6 +187,22 @@ export default function JoinTeam() {
         <Card className="border-0">
           <CardContent className="pt-6">
             <div className="text-red-500 text-center">{error}</div>
+            {error.includes("logged in as") && (
+              <div className="mt-4 text-center">
+                <Button
+                  onClick={() => {
+                    localStorage.removeItem("user");
+                    localStorage.removeItem("token");
+                    window.dispatchEvent(new Event("authChange"));
+                    sessionStorage.setItem("pendingInviteToken", token);
+                    navigate("/login");
+                  }}
+                  className="cursor-pointer bg-[#201f30] hover:bg-[#201f30]/80"
+                >
+                  Logout and Use Correct Account
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -174,7 +235,20 @@ export default function JoinTeam() {
                   <p className="text-sm font-medium text-slate-700 mb-1">Invited by</p>
                   <p className="text-sm text-slate-600">{invite.inviter_email}</p>
                 </div>
+
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-1">Invited email</p>
+                  <p className="text-sm text-slate-600">{invite.invitee_email}</p>
+                </div>
               </div>
+
+              {isAlreadyMember && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-700 text-center">
+                    You are already a member of this team. Redirecting to team dashboard...
+                  </p>
+                </div>
+              )}
 
               {responseStatus && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-md">
@@ -188,23 +262,25 @@ export default function JoinTeam() {
                 </div>
               )}
 
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => handleRespond("accept")}
-                  disabled={isResponding}
-                  className="flex-1 cursor-pointer bg-[#201f30] hover:bg-[#201f30]/80"
-                >
-                  {isResponding ? "Processing..." : "Accept Invitation"}
-                </Button>
-                <Button
-                  onClick={() => handleRespond("deny")}
-                  disabled={isResponding}
-                  variant="outline"
-                  className="flex-1 cursor-pointer hover:bg-slate-200/80 shadow-sm"
-                >
-                  Decline
-                </Button>
-              </div>
+              {!isAlreadyMember && (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleRespond("accept")}
+                    disabled={isResponding}
+                    className="flex-1 cursor-pointer bg-[#201f30] hover:bg-[#201f30]/80"
+                  >
+                    {isResponding ? "Processing..." : "Accept Invitation"}
+                  </Button>
+                  <Button
+                    onClick={() => handleRespond("deny")}
+                    disabled={isResponding}
+                    variant="outline"
+                    className="flex-1 cursor-pointer hover:bg-slate-200/80 shadow-sm"
+                  >
+                    Decline
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
