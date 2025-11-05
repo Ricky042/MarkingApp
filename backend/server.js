@@ -105,6 +105,7 @@ function authenticateToken(req, res, next) {
   });
 }
 
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  Signup Flow
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -356,7 +357,7 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
 });
 
 // Invite multiple users to a team
-app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
+/*app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   // Destructure both emails and the new message field
   const { emails, message } = req.body;
@@ -438,7 +439,139 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
     console.error("Error sending invites:", err);
     res.status(500).json({ error: "Failed to send invites" });
   }
+});*/
+// More robust invite endpoint with detailed status and improved email content
+app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const { emails, message } = req.body;
+  const inviterId = req.user.id;
+
+  if (!emails || !Array.isArray(emails) || emails.length === 0) {
+    return res.status(400).json({ error: "No emails provided." });
+  }
+
+
+  try {
+    const teamCheck = await pool.query(
+      "SELECT id FROM teams WHERE id = $1",
+      [teamId]
+    );
+    if (teamCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Team not found." });
+    }
+
+    const results = [];
+    const uniqueEmails = [...new Set(emails.map(email => email.toLowerCase()))]; // 去重
+
+    for (const email of uniqueEmails) {
+      // 1. Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        results.push({ email, status: "invalid_email" });
+        continue;
+      }
+
+      // 2. Check if already a team member
+      const memberCheck = await pool.query(
+        `SELECT u.id, u.username 
+         FROM users u 
+         JOIN team_members tm ON u.id = tm.user_id 
+         WHERE tm.team_id = $1 AND u.username = $2`,
+        [teamId, email]
+      );
+
+      if (memberCheck.rows.length > 0) {
+        results.push({ email, status: "already_member" });
+        continue;
+      }
+
+      // 3. Check for existing pending invites
+      const inviteCheck = await pool.query(
+        `SELECT id FROM team_invites 
+         WHERE team_id = $1 AND invitee_email = $2 AND status = 'pending'`,
+        [teamId, email]
+      );
+
+      if (inviteCheck.rows.length > 0) {
+        results.push({ email, status: "already_invited" });
+        continue;
+      }
+
+      // 4. Create invite + send mail
+      const inviteToken = require("crypto").randomBytes(32).toString("hex");
+
+      await pool.query(
+        `INSERT INTO team_invites (team_id, inviter_id, invitee_email, token, status) 
+         VALUES ($1, $2, $3, $4, 'pending')`,
+        [teamId, inviterId, email, inviteToken]
+      );
+
+      const inviteUrl = `${process.env.FRONTEND_URL}/join-team?token=${inviteToken}`;
+
+      // Design email content
+      let emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #0F172A;">Team Invitation</h2>
+          <p>You have been invited to join a team on Assignment Moderation.</p>
+      `;
+
+      if (message && message.trim() !== "") {
+        emailHtml += `
+          <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #0F172A; margin: 15px 0;">
+            <p style="margin: 0 0 8px 0; font-style: italic;">Message from the inviter:</p>
+            <p style="margin: 0;">${message}</p>
+          </div>
+        `;
+      }
+
+      emailHtml += `
+          <p>Click the button below to accept the invitation:</p>
+          <a href="${inviteUrl}" 
+             style="display: inline-block; padding: 12px 24px; background-color: #0F172A; 
+                    color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold;">
+            Join Team
+          </a>
+          <p style="margin-top: 20px; color: #6b7280; font-size: 14px;">
+            If you're unable to click the button, copy and paste this link in your browser:<br/>
+            ${inviteUrl}
+          </p>
+        </div>
+      `;
+
+      try {
+        await resend.emails.send({
+          from: process.env.EMAIL_DOMAIN,
+          to: email,
+          subject: "You're invited to join a team!",
+          html: emailHtml,
+        });
+        results.push({ email, status: "sent" });
+      } catch (emailErr) {
+        console.error("Failed to send email to:", email, emailErr);
+        // Remove the invite if email fails
+        await pool.query("DELETE FROM team_invites WHERE token = $1", [inviteToken]);
+        results.push({ email, status: "email_failed" });
+      }
+    }
+
+    res.json({ 
+      message: "Invitation process completed", 
+      results,
+      summary: {
+        total: uniqueEmails.length,
+        sent: results.filter(r => r.status === "sent").length,
+        already_member: results.filter(r => r.status === "already_member").length,
+        already_invited: results.filter(r => r.status === "already_invited").length,
+        invalid_email: results.filter(r => r.status === "invalid_email").length,
+        email_failed: results.filter(r => r.status === "email_failed").length
+      }
+    });
+  } catch (err) {
+    console.error("Error sending invites:", err);
+    res.status(500).json({ error: "Failed to send invites" });
+  }
 });
+
 
 // GET /team/:teamId/invites - Get pending invites for a team so I can display on marker page
 app.get("/team/:teamId/invites", authenticateToken, async (req, res) => {
@@ -565,6 +698,8 @@ app.get("/team/invite/:token", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch invite" });
   }
 });
+
+
 
 app.get("/team/:teamId/assignments", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
@@ -1008,6 +1143,7 @@ app.post("/team/:teamId/assignments/:assignmentId/rubric-criteria/:criterionId/a
     res.status(500).json({ message: "Failed to update admin comment." });
   }
 });
+
 
 // Send email notification to all tutors assigned to the assignment
 async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, adminComment, adminUserId) {
