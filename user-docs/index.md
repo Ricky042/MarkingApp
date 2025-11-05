@@ -14,12 +14,3 @@ Whether you’re organizing a new semester, uploading assessment results, or pro
 - **Manage your account settings** and preferences
 
 ---
-
-## Quick Links
-
-- [Getting Started](./getting-started.md)
-- [Course Planner](./course-planner.md)
-- [Grading & Feedback](./grading-and-feedback.md)
-- [File Management](./file-management.md)
-- [Account & Settings](./account-and-settings.md)
-- [FAQ](./faq.md)
