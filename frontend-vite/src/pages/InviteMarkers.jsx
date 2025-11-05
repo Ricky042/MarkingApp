@@ -16,7 +16,7 @@ export default function InviteMarkers() {
   const [existingMembers, setExistingMembers] = useState([]);
   const [pendingInvites, setPendingInvites] = useState([]);
 
-  // 获取团队成员和待处理邀请
+ 
   useEffect(() => {
     fetchTeamData();
   }, [teamId]);
@@ -25,13 +25,13 @@ export default function InviteMarkers() {
     try {
       const token = localStorage.getItem("token");
       
-      // 获取团队成员
+
       const membersRes = await api.get(`/team/${teamId}/members`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTeamMembers(membersRes.data);
 
-      // 获取待处理邀请
+
       const invitesRes = await api.get(`/team/${teamId}/invites`, {
         headers: { Authorization: `Bearer ${token}` }
       });
