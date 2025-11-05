@@ -22,7 +22,7 @@ const ErrorMessage = ({ message }) => (
 // --- Admin Comments Display ---
 function AdminCommentsDisplay({ rubric, currentUserRole }) {
   // Display only admin comments rubric criteria
-  const criteriaWithComments = rubric?.filter(criterion => 
+  const criteriaWithComments = rubric?.filter(criterion =>
     criterion.adminComments && criterion.adminComments.trim() !== ""
   ) || [];
 
@@ -40,7 +40,7 @@ function AdminCommentsDisplay({ rubric, currentUserRole }) {
           </span>
         )}
       </h3>
-      
+
       <div className="space-y-4">
         {criteriaWithComments.map((criterion) => (
           <div key={criterion.id} className="border-l-4 border-deakinTeal pl-4 py-2 bg-blue-50 rounded">
@@ -72,8 +72,8 @@ function AdminReportSection({ teamId, assignmentId, data, currentUserRole }) {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xl font-semibold text-slate-900">Reports & Analytics</h3>
         <button
-          onClick={() => navigate(`/team/${teamId}/reports/${assignmentId}`, { 
-            state: { preSelectedAssignmentId: assignmentId } 
+          onClick={() => navigate(`/team/${teamId}/reports/${assignmentId}`, {
+            state: { preSelectedAssignmentId: assignmentId }
           })}
           className="px-4 py-2 bg-deakinTeal text-white text-sm font-medium rounded-md hover:bg-[#0E796B] cursor-pointer flex items-center"
         >
@@ -83,7 +83,7 @@ function AdminReportSection({ teamId, assignmentId, data, currentUserRole }) {
           View Detailed Reports
         </button>
       </div>
-      
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="bg-slate-50 p-4 rounded-lg text-center">
           <div className="text-2xl font-bold text-slate-800">{controlPapers?.length || 0}</div>
@@ -101,7 +101,7 @@ function AdminReportSection({ teamId, assignmentId, data, currentUserRole }) {
           <div className="text-2xl font-bold text-slate-800">
             {(() => {
               const completedMarkers = markers?.filter(marker => {
-                const allPapersMarked = controlPapers?.every(paper => 
+                const allPapersMarked = controlPapers?.every(paper =>
                   paper.marks?.some(mark => mark.markerId === marker.id)
                 );
                 return allPapersMarked;
@@ -168,11 +168,11 @@ function ScoreComparisonTable({ data, currentUserRole }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isPaperDropdownOpen]);
 
-  // Get admin marker (standard) and others
-  const adminMarker = markers?.find((m) => m.name?.toLowerCase().includes("admin")) || markers?.[0];
-  const adminId = adminMarker?.id;
-  
-  
+  // Get admin marker (standard) from backend-provided standardMarkerId
+  const adminId = data?.standardMarkerId;
+  const adminMarker = markers?.find(m => m.id === adminId) || null;
+
+
   const otherMarkers = markers
     .filter(m => m.id !== adminId)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -211,13 +211,13 @@ function ScoreComparisonTable({ data, currentUserRole }) {
             <span className="text-sm font-medium text-slate-900">
               {controlPapers.find(p => p.id === selectedPaperId)?.name || "Select paper"}
             </span>
-            <img 
-              src="/AssignmentIcon/chevron-down.svg" 
-              alt="Dropdown arrow" 
+            <img
+              src="/AssignmentIcon/chevron-down.svg"
+              alt="Dropdown arrow"
               className={`w-4 h-4 transition-transform duration-200 ${isPaperDropdownOpen ? 'transform rotate-180' : ''}`}
             />
           </button>
-          
+
           {isPaperDropdownOpen && (
             <div className="absolute z-50 w-full mt-1 bg-white rounded-lg border border-slate-200 shadow-lg py-1 max-h-60 overflow-auto">
               {controlPapers.map((paper) => {
@@ -230,11 +230,10 @@ function ScoreComparisonTable({ data, currentUserRole }) {
                       setSelectedPaperId(paper.id);
                       setIsPaperDropdownOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
-                      isSelected 
-                        ? 'bg-slate-100 text-slate-900 font-semibold' 
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                    className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${isSelected
+                      ? 'bg-slate-100 text-slate-900 font-semibold'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span>{paper.name}</span>
@@ -327,9 +326,9 @@ function ScoreComparisonTable({ data, currentUserRole }) {
           </tbody>
         </table>
         {!isAdminMarked && (
-            <div className="mt-4 p-3 bg-lime-100 text-deakinTeal rounded-md text-sm">
-                The standard marker has not yet marked this control paper. Score coloring is disabled until the standard is set.
-            </div>
+          <div className="mt-4 p-3 bg-lime-100 text-deakinTeal rounded-md text-sm">
+            The standard marker has not yet marked this control paper. Score coloring is disabled until the standard is set.
+          </div>
         )}
       </div>
     </div>
@@ -402,21 +401,21 @@ export default function AssignmentDetails() {
           <main className="p-6">
             <div className="mb-6">
               <div className="flex items-start gap-3 mb-1 justify-between">
-                
+
                 <div className="flex flex-col">
                   <h1 className="text-3xl font-bold text-slate-900">{assignmentDetails.course_name}</h1>
                   <p className="text-slate-600 mt-1">
                     {assignmentDetails.course_code} • Semester {assignmentDetails.semester}
                   </p>
                 </div>
-                <button 
-                  onClick={() => navigate(`/team/${teamId}/assignments`)} 
+                <button
+                  onClick={() => navigate(`/team/${teamId}/assignments`)}
                   className="p-3 cursor-pointer text-deakinTeal hover:opacity-80 hover:underline underline-offset-4"
                 >
                   ← Back to Assignments
                 </button>
               </div>
-              
+
             </div>
 
             <CompletionPrompt
@@ -426,19 +425,19 @@ export default function AssignmentDetails() {
             />
 
             {/* Score Comparison Table - 现在传递 currentUserRole */}
-            <ScoreComparisonTable 
-              data={assignmentData} 
+            <ScoreComparisonTable
+              data={assignmentData}
               currentUserRole={currentUserRole}
             />
 
             {/* Admin Comments - for tutor view only*/}
-            <AdminCommentsDisplay 
-              rubric={assignmentData.rubric} 
-              currentUserRole={currentUserRole} 
+            <AdminCommentsDisplay
+              rubric={assignmentData.rubric}
+              currentUserRole={currentUserRole}
             />
 
             {/* Admin Report Section*/}
-            <AdminReportSection 
+            <AdminReportSection
               teamId={teamId}
               assignmentId={assignmentId}
               data={assignmentData}
