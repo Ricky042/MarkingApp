@@ -18,7 +18,7 @@ Here's how to install most of the stuff to get it working
   cd frontend-vite
   npm install # Installs the frontend dependencies
   npm install -D tailwindcss postcss autoprefixer # You might need this if tailwind doesn't install off npm
-  npm install axois react-router-dom # If backend is failing
+  npm install axios react-router-dom # If backend is failing
   ```
 
   ```bash

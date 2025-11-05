@@ -9,6 +9,14 @@ import CreateAssignment from "./pages/CreateAssignment";
 import InviteMarkers from "./pages/InviteMarkers";
 import JoinTeam from "./pages/JoinTeam";
 import Assignments from "./pages/Assignments";
+import AssignmentDetails from "./pages/AssignmentDetails";
+import MarkingPage from "./pages/MarkingPage";
+import IndividualDashboard from "./pages/IndividualDashboard";
+import AssignmentMakers from "./pages/AssignmentMakers";
+import ReportsDetails from "./pages/ReportsDetails";
+import Setting from "./pages/Setting";
+import Markers from "./pages/Markers";
+import Reports from "./pages/Reports";
 import api from "./utils/axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -48,22 +56,59 @@ function App() {
     }
   };
 
+  // fetch user's pending invites
+  const fetchPendingInvites = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    try {
+      const res = await api.get("/my-invites", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.data && res.data.length > 0 ? res.data[0] : null; // Return first pending invite
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
+      // Don't set loading to false prematurely. Let it stay true.
       const authStatus = getAuthStatus();
       setIsLoggedIn(authStatus);
 
       if (authStatus) {
-        const teams = await fetchTeams();
-        setUserTeams(teams);
+        try {
+          const teams = await fetchTeams();
+          setUserTeams(teams);
+          
+          // Check for pending invites if user has no teams or no pending invite token
+          const existingPendingToken = sessionStorage.getItem("pendingInviteToken");
+          if (!existingPendingToken) {
+            const pendingInvite = await fetchPendingInvites();
+            if (pendingInvite && pendingInvite.token) {
+              // Save token and redirect to join-team page
+              sessionStorage.setItem("pendingInviteToken", pendingInvite.token);
+            }
+          }
+        } catch (error) {
+          // Handle potential errors during team fetching
+          console.error("Failed to fetch teams:", error);
+          setUserTeams([]); // Ensure teams is empty on error
+        }
       }
 
+      // ONLY set isLoading to false after all checks and fetches are complete.
       setIsLoading(false);
     };
 
     checkAuth();
 
-    const handleStorageChange = () => checkAuth();
+    const handleStorageChange = () => {
+      // When auth changes, we need to re-evaluate everything, so reset loading state
+      setIsLoading(true);
+      checkAuth();
+    };
+
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("authChange", handleStorageChange);
 
@@ -71,7 +116,7 @@ function App() {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("authChange", handleStorageChange);
     };
-  }, []);
+  }, []); // The empty dependency array is correct
 
   // New component to handle the logic for the join-team route
   const JoinTeamRoute = () => {
@@ -136,6 +181,15 @@ function App() {
           <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
           <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
           <Route path="/team/:teamId/assignments" element={<Assignments />} />
+          <Route path="/team/:teamId/assignments/:assignmentId" element={<AssignmentDetails />} />
+          <Route path="/team/:teamId/assignments/:assignmentId/mark" element={<MarkingPage />} />
+          <Route path="/dashboard" element={<IndividualDashboard />} />
+          <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
+          <Route path="/team/:teamId/settings" element={<Setting />} />
+          <Route path="/team/:teamId/markers" element={<Markers />} />
+          <Route path="/team/:teamId/reports" element={<Reports />} />
+          <Route path="/team/:teamId/reports/:assignmentId" element={<ReportsDetails />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     </Router>
   );

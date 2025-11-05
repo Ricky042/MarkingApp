@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import api from "../utils/axios";
 
 /**
  * Responsive NavBar
@@ -10,7 +12,73 @@ import React, { useEffect, useState } from "react";
 export default function NavBar({onBurgerClick}) {
     const [username, setUsername] = useState("");
     const [menuOpen, setMenuOpen] = useState(false); // navbar menu state
+    const [userRole, setUserRole] = useState(null);
+    const { teamId } = useParams();
 
+  // Helper function to get cached role
+  const getCachedRole = (teamId) => {
+    if (!teamId) return null;
+    try {
+      const cached = localStorage.getItem(`userRole_${teamId}`);
+      if (cached) {
+        const { role, timestamp } = JSON.parse(cached);
+        // Cache is valid for 5 minutes
+        const cacheAge = Date.now() - timestamp;
+        if (cacheAge < 5 * 60 * 1000) {
+          return role;
+        }
+      }
+    } catch (error) {
+      console.error("Error reading cached role:", error);
+    }
+    return null;
+  };
+
+  // Helper function to cache role
+  const cacheRole = (teamId, role) => {
+    try {
+      localStorage.setItem(`userRole_${teamId}`, JSON.stringify({
+        role,
+        timestamp: Date.now()
+      }));
+    } catch (error) {
+      console.error("Error caching role:", error);
+    }
+  };
+
+  const fetchUserRole = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token || !teamId) {
+        console.log("No token or teamId available");
+        return;
+      }
+
+      // Check cache first for immediate UI update
+      const cachedRole = getCachedRole(teamId);
+      if (cachedRole) {
+        setUserRole(cachedRole);
+      }
+
+      // Fetch from API to get fresh data
+      try {
+        const res = await api.get(`/team/${teamId}/role`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const role = res.data.role;
+        console.log("Fetched user role:", role);
+        setUserRole(role);
+        cacheRole(teamId, role);
+      } catch (error) {
+        console.error("Error fetching user role:", error);
+        // If fetch fails but we have cached role, keep using it
+        // cachedRole is already checked above and set to state if exists
+      }
+    } catch (error) {
+      console.error("Error in fetchUserRole:", error);
+    }
+  };
 
   // Close menu on ESC
     useEffect(() => {
@@ -30,7 +98,25 @@ export default function NavBar({onBurgerClick}) {
             console.log(user.id);
             setUsername(user.username);
         }
-    }, [])
+    }, []);
+
+    useEffect(() => {
+      if (teamId) {
+        // Check cache immediately for instant UI update
+        const cachedRole = getCachedRole(teamId);
+        if (cachedRole) {
+          setUserRole(cachedRole);
+        }
+        // Then fetch fresh data
+        fetchUserRole();
+      }
+    }, [teamId]);
+
+    // Format role for display
+    const formatRole = (role) => {
+      if (!role) return null;
+      return role.charAt(0).toUpperCase() + role.slice(1);
+    };
 
     return (
         <header className="w-full bg-white/90 backdrop-blur border-b border-slate-200">
@@ -39,17 +125,6 @@ export default function NavBar({onBurgerClick}) {
             <div className="h-16 flex items-center">
             {/* Menu Button */}
             <div className="flex-shrink-0 flex items-center gap-6">
-                <button
-                    aria-label="Toggle menu"
-                    onClick= {onBurgerClick}
-                >
-                <span className="sr-only">Menu</span>
-                <img
-                    src="/navBarIcon/navBar_threeLinesIcon.svg"
-                    alt="Menu Icon"
-                    className="h-6 w-6"
-                />
-                </button>
                 <div className="relative w-8 h-8 shrink-0">
                     {/*<div className="absolute inset-0 rounded-full bg-slate-200" />*/}
                     <img
@@ -63,9 +138,16 @@ export default function NavBar({onBurgerClick}) {
                         </span>
                     </div>
                 </div>
-                <span className="text-slate-900 text-sm font-semibold font-['Inter'] leading-normal">          
-                    {username}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-900 text-sm font-semibold font-['Inter'] leading-normal">          
+                      {username}
+                  </span>
+                  {userRole && (
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-medium rounded-md">
+                      {formatRole(userRole)}
+                    </span>
+                  )}
+                </div>
             </div>
 
             {/* Search */}

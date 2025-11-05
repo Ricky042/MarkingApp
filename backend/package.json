@@ -11,14 +11,22 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.890.0",
+    "aws-sdk": "^2.1692.0",
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
+    "docx-pdf": "^0.0.1",
+    "docx-to-pdf": "^1.1.0",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "multer-s3": "^3.0.1",
     "nodemailer": "^7.0.5",
     "pg": "^8.16.3",
-    "sqlite3": "^5.1.7"
+    "resend": "^6.4.1",
+    "sqlite3": "^5.1.7",
+    "utils": "^0.2.2"
   }
 }

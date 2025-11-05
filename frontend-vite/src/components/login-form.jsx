@@ -46,12 +46,15 @@ export function LoginForm({ className, ...props }) {
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader className="text-start">
-          <img src="/Deakin_logo.png" alt="App Logo" className="h-15 w-auto" />
-          <div className="flex flex-col gap-4 text-2xl font-bold">Login</div>
+      <Card className="border-0">
+        <CardHeader className="items-start">
+          <div className="relative h-11 pl-1 flex items-start justify-start">
+            <img src="/logo_black.png" alt="Logo" className="w-[140px] h-fit object-contain" />
+          </div>
+       
+          
           <div className="text-sm text-muted-foreground">
-            Login to assignment marking portal
+            Login to your assignment marking portal
           </div>
         </CardHeader>
         <CardContent>
@@ -72,27 +75,32 @@ export function LoginForm({ className, ...props }) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   disabled={isLoading}
+                  className="border-0"
                 />
               </div>
 
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                />
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 -translate-x-1 text-sm text-gray-500"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  disabled={isLoading}
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
+              <div className="grid gap-3">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    className="border-0"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
               </div>
 
               <div
@@ -102,7 +110,7 @@ export function LoginForm({ className, ...props }) {
                 Forget your password?
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full cursor-pointer bg-[#201f30] hover:bg-[#201f30]/80" disabled={isLoading}>
                 {isLoading ? "Logging in..." : "Login"}
               </Button>
 
