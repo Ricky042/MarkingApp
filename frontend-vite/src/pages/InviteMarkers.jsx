@@ -13,10 +13,9 @@ export default function InviteMarkers() {
   const [inviteStatus, setInviteStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
-  const [existingMembers, setExistingMembers] = useState([]);
   const [pendingInvites, setPendingInvites] = useState([]);
 
- 
+  // Get team members and pending invites
   useEffect(() => {
     fetchTeamData();
   }, [teamId]);
@@ -25,13 +24,13 @@ export default function InviteMarkers() {
     try {
       const token = localStorage.getItem("token");
       
-
+      // Get team members
       const membersRes = await api.get(`/team/${teamId}/members`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTeamMembers(membersRes.data);
 
-
+      // Get pending invites
       const invitesRes = await api.get(`/team/${teamId}/invites`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -46,7 +45,7 @@ export default function InviteMarkers() {
 
     const email = inviteEmail.trim().toLowerCase();
     
-    // Validate email format
+    // Check valid email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setInviteStatus("❌ Please enter a valid email address");
@@ -59,7 +58,7 @@ export default function InviteMarkers() {
       return;
     }
 
-    // Check if already a team member
+    // Check for existing team members
     const isAlreadyMember = teamMembers.some(member => 
       member.email?.toLowerCase() === email || member.username?.toLowerCase() === email
     );
@@ -69,7 +68,7 @@ export default function InviteMarkers() {
       return;
     }
 
-    // Check for existing pending invites
+    // Chekc for existing pending invites
     const hasPendingInvite = pendingInvites.some(invite => 
       invite.invitee_email?.toLowerCase() === email
     );
@@ -120,7 +119,7 @@ export default function InviteMarkers() {
         const alreadyMemberCount = response.data.results.filter(r => r.status === "already_member").length;
         const alreadyInvitedCount = response.data.results.filter(r => r.status === "already_invited").length;
         
-        let statusMessage = `${successCount} invitation(s) sent successfully!`;
+        let statusMessage = `✅ ${successCount} invitation(s) sent successfully!`;
         if (alreadyMemberCount > 0) {
           statusMessage += ` ${alreadyMemberCount} user(s) were already team members.`;
         }
@@ -130,7 +129,7 @@ export default function InviteMarkers() {
         
         setInviteStatus(statusMessage);
       } else {
-        setInviteStatus("Invitations sent successfully!");
+        setInviteStatus("✅ Invitations sent successfully!");
       }
       
       setEmailsList([]);
@@ -159,7 +158,7 @@ export default function InviteMarkers() {
         <div className="px-6 py-6 flex-1 overflow-auto">
           <h1 className="text-2xl font-bold mb-4">Invite Markers</h1>
 
-          {/* List of current members and pending invites */}
+          {/* List team stats */}
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-700">
               Team has {teamMembers.length} members and {pendingInvites.length} pending invitations.

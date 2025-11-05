@@ -337,7 +337,7 @@ app.get("/team/:teamId", authenticateToken, async (req, res) => {
 });
 
 // Fetch all members of a team
-app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
+/*app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
   const { teamId } = req.params;
   try {
     const result = await pool.query(
@@ -353,6 +353,48 @@ app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Failed to fetch team members:", err);
     res.status(500).json({ error: "Failed to fetch team members" });
+  }
+});*/
+
+app.get("/team/:teamId/members", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT 
+        u.id,
+        u.username as email,
+        u.username,
+        tm.role,
+        tm.joined_at
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.id
+       WHERE tm.team_id = $1
+       ORDER BY tm.joined_at DESC`,
+      [teamId]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Failed to fetch team members:", err);
+    res.status(500).json({ error: "Failed to fetch team members" });
+  }
+});
+
+
+app.get("/team/:teamId/check-member", authenticateToken, async (req, res) => {
+  const { teamId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    const result = await pool.query(
+      `SELECT id FROM team_members WHERE team_id = $1 AND user_id = $2`,
+      [teamId, userId]
+    );
+
+    res.json({ isMember: result.rows.length > 0 });
+  } catch (err) {
+    console.error("Error checking team membership:", err);
+    res.status(500).json({ error: "Failed to check team membership" });
   }
 });
 
