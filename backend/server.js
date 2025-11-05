@@ -118,7 +118,7 @@ app.post("/send-code", async (req, res) => {
 
   try {
     await resend.emails.send({
-      from: 'Marking App <onboarding@resend.dev>',
+      from: process.env.EMAIL_DOMAIN,
       to: email,
       subject: "Your verification code",
       text: `Your verification code is: ${code}. This code will expire in 10 minutes`,
@@ -245,7 +245,7 @@ app.post("/resend-code", async (req, res) => {
 
   try {
     await resend.emails.send({
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_DOMAIN,
       to: email,
       subject: "Your verification code",
       text: `Your code is: ${code}. This code will expire in 5 minutes`,
@@ -424,7 +424,7 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
       // --- End of email message logic ---
 
       await resend.emails.send({
-        from:  'Marking App <onboarding@resend.dev>',
+        from:  process.env.EMAIL_DOMAIN,
         to: email,
         subject: "You're invited to join a team!",
         html: emailHtml, // Use the dynamically created HTML
@@ -1061,9 +1061,11 @@ async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, 
 
     // 5. Send emails to all tutors
     const emailPromises = tutorsResult.rows.map(async (tutor) => {
+      //console.log(`Email domain used: ${process.env.EMAIL_DOMAIN}`);
       try {
+        
         const emailData = await resend.emails.send({
-          from: 'Marking App <onboarding@resend.dev>',
+          from: process.env.EMAIL_DOMAIN,
           to: tutor.email,
           subject: `New Admin Comment - ${assignment.course_code} ${assignment.course_name}`,
           html: `
@@ -1084,7 +1086,7 @@ async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, 
             </div>
           `
         });
-        console.log(`Email sent successfully to ${tutor.email}`);
+        //console.log(`Email sent successfully to ${tutor.email}`);
         return emailData;
       } catch (emailError) {
         console.error(`Failed to send email to ${tutor.email}:`, emailError);
