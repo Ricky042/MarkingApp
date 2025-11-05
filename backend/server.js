@@ -1514,6 +1514,27 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
 
     const rubricWithTiers = Array.from(criteriaMap.values());
 
+    // Determine standard marker (admin) as the assignment creator
+    const standardMarkerId = assignmentRes.rows[0].created_by;
+
+    // Ensure admin (standard marker) is present in markers list
+    let markers = markersRes.rows.map(marker => ({ id: marker.id, name: marker.username }));
+    const hasAdminInMarkers = markers.some(m => m.id === standardMarkerId);
+    if (!hasAdminInMarkers && standardMarkerId) {
+      try {
+        const adminUserRes = await pool.query(
+          `SELECT id, username FROM users WHERE id = $1`,
+          [standardMarkerId]
+        );
+        if (adminUserRes.rows[0]) {
+          // Put admin at the front for display consistency
+          markers = [{ id: adminUserRes.rows[0].id, name: adminUserRes.rows[0].username }, ...markers];
+        }
+      } catch (e) {
+        // If lookup fails, proceed without injecting admin; frontend will still work using IDs from marks
+      }
+    }
+
     // A) Assemble the control paper data, including their file paths and any submitted marks.
     const controlPapersMap = new Map();
     const filePaths = {};
@@ -1553,10 +1574,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
         role: currentUserRole, // This now includes the user's team-specific role.
         personalComplete: personalStatusRes.rows[0]?.completed || false
       },
-      markers: markersRes.rows.map(marker => ({
-        id: marker.id,
-        name: marker.username
-      })),
+      standardMarkerId,
+      markers,
       rubric: rubricWithTiers,
       controlPapers: Array.from(controlPapersMap.values()),
       markersAlreadyMarked: parseInt(markersAlreadyMarkedRes.rows[0].graded_marker_count, 10)
