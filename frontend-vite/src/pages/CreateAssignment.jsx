@@ -51,7 +51,7 @@ const roundToHalf = (num) => Math.round(num * 2) / 2;
 
 // Generates tiers based on standard academic percentages of a total
 const generateTiersWithPercentages = (points) => {
-  const percentages = { hd: 0.85, d: 0.75, c: 0.65, p: 0.50 };
+  const percentages = { hd: 0.80, d: 0.70, c: 0.60, p: 0.50 };
   return [
     { id: crypto.randomUUID(), name: 'High Distinction', description: "", lowerBound: roundToHalf(points * percentages.hd), upperBound: points },
     { id: crypto.randomUUID(), name: 'Distinction', description: "", lowerBound: roundToHalf(points * percentages.d), upperBound: roundToHalf(points * percentages.hd) - 0.5 },
@@ -77,7 +77,7 @@ export default function CreateAssignment() {
     semester: "",
     dueDate: undefined,
   });
-  
+
   const handleRubricUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -87,26 +87,26 @@ export default function CreateAssignment() {
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
-    
+
       // Obtain the first worksheet
       const worksheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[worksheetName];
-    
+
       // For consistency, convert the sheet to JSON
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-    
+
       if (jsonData.length === 0) {
         alert("Excel file is empty. Please upload a valid rubric file.");
         return;
       }
 
-  
+
       const parsedRubric = jsonData.map((row, index) => {
         // try multiple possible column names for each field
         const criteria = row.Criteria || row.Criterion || row["Criteria Description"] || "";
         const points = parseFloat(row.Points || row["Total Points"] || row.Score || 20);
         const deviation = row.Deviation ? parseFloat(row.Deviation) : "";
-      
+
         // Try multiple possible column names for each tier description
         const hdDesc = row.HD || row["High Distinction"] || row["HD Description"] || "";
         const dDesc = row.D || row.Distinction || row["D Description"] || "";
@@ -122,48 +122,48 @@ export default function CreateAssignment() {
           points: totalPoints,
           deviation: isNaN(deviation) ? "" : deviation,
           tiers: [
-          { 
-            id: crypto.randomUUID(), 
-            name: "High Distinction", 
-            description: hdDesc, 
-            lowerBound: roundToHalf(totalPoints * 0.85), 
-            upperBound: totalPoints 
-          },
-          { 
-            id: crypto.randomUUID(), 
-            name: "Distinction", 
-            description: dDesc, 
-            lowerBound: roundToHalf(totalPoints * 0.75), 
-            upperBound: roundToHalf(totalPoints * 0.85) - 0.5 
-          },
-          { 
-            id: crypto.randomUUID(), 
-            name: "Credit", 
-            description: cDesc, 
-            lowerBound: roundToHalf(totalPoints * 0.65), 
-            upperBound: roundToHalf(totalPoints * 0.75) - 0.5 
-          },
-          { 
-            id: crypto.randomUUID(), 
-            name: "Pass", 
-            description: pDesc, 
-            lowerBound: roundToHalf(totalPoints * 0.50), 
-            upperBound: roundToHalf(totalPoints * 0.65) - 0.5 
-          },
-          { 
-            id: crypto.randomUUID(), 
-            name: "Fail", 
-            description: fDesc, 
-            lowerBound: 0, 
-            upperBound: roundToHalf(totalPoints * 0.50) - 0.5 
-          },
-        ],
-      };
-    });
+            {
+              id: crypto.randomUUID(),
+              name: "High Distinction",
+              description: hdDesc,
+              lowerBound: roundToHalf(totalPoints * 0.80),
+              upperBound: totalPoints
+            },
+            {
+              id: crypto.randomUUID(),
+              name: "Distinction",
+              description: dDesc,
+              lowerBound: roundToHalf(totalPoints * 0.70),
+              upperBound: roundToHalf(totalPoints * 0.80) - 0.5
+            },
+            {
+              id: crypto.randomUUID(),
+              name: "Credit",
+              description: cDesc,
+              lowerBound: roundToHalf(totalPoints * 0.60),
+              upperBound: roundToHalf(totalPoints * 0.70) - 0.5
+            },
+            {
+              id: crypto.randomUUID(),
+              name: "Pass",
+              description: pDesc,
+              lowerBound: roundToHalf(totalPoints * 0.50),
+              upperBound: roundToHalf(totalPoints * 0.60) - 0.5
+            },
+            {
+              id: crypto.randomUUID(),
+              name: "Fail",
+              description: fDesc,
+              lowerBound: 0,
+              upperBound: roundToHalf(totalPoints * 0.50) - 0.5
+            },
+          ],
+        };
+      });
 
       // Ignore empty criteria or tiers
-      const validRubric = parsedRubric.filter(item => 
-        item.criteria.trim() !== "" || 
+      const validRubric = parsedRubric.filter(item =>
+        item.criteria.trim() !== "" ||
         item.tiers.some(tier => tier.description.trim() !== "")
       );
 
@@ -173,7 +173,7 @@ export default function CreateAssignment() {
       }
 
       setRubric(validRubric);
-    
+
     } catch (err) {
       console.error("Error occurs when reading data:", err);
       alert(`Fail to read: ${err.message}. Please ensure the file is a valid Excel format.`);
@@ -189,6 +189,7 @@ export default function CreateAssignment() {
   const [showMarkerList, setShowMarkerList] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingMembers, setLoadingMembers] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
 
 
 
@@ -225,7 +226,8 @@ export default function CreateAssignment() {
         const teamRes = await api.get(`/team/${teamId}/members`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setTeamMembers(teamRes.data.members || []);
+        const members = Array.isArray(teamRes.data) ? teamRes.data : (teamRes.data?.members || []);
+        setTeamMembers(members);
       } catch (err) {
         console.error("Failed to load user or team members:", err);
         if (err.response && (err.response.status === 401 || err.response.status === 403)) {
@@ -297,13 +299,55 @@ export default function CreateAssignment() {
     }));
   };
   const updatePoints = (criterionId, value) => {
-    const newPoints = parseFloat(value);
+    let newPoints = parseFloat(value);
+    if (value === '') {
+      // allow input box to be empty, do not update calculation immediately
+      setRubric(rubric.map((c) => c.id === criterionId ? { ...c, points: '' } : c));
+      return;
+    }
     if (isNaN(newPoints) || newPoints < 0) return;
-    setRubric(rubric.map((c) => c.id === criterionId ? { ...c, points: newPoints, tiers: generateTiersWithPercentages(newPoints) } : c));
+    if (newPoints > 100) newPoints = 100;
+
+    // recalculate the intervals, do not clear the original description
+    const recalcTiers = (points, prevTiers) => {
+      const names = [
+        'High Distinction',
+        'Distinction',
+        'Credit',
+        'Pass',
+        'Fail'
+      ];
+      const byName = Object.fromEntries((prevTiers || []).map(t => [t.name, t]));
+      const hdLB = roundToHalf(points * 0.80);
+      const dLB = roundToHalf(points * 0.70);
+      const cLB = roundToHalf(points * 0.60);
+      const pLB = roundToHalf(points * 0.50);
+      const tiers = [
+        { name: 'High Distinction', lowerBound: hdLB, upperBound: points },
+        { name: 'Distinction', lowerBound: dLB, upperBound: hdLB - 0.5 },
+        { name: 'Credit', lowerBound: cLB, upperBound: dLB - 0.5 },
+        { name: 'Pass', lowerBound: pLB, upperBound: cLB - 0.5 },
+        { name: 'Fail', lowerBound: 0, upperBound: pLB - 0.5 },
+      ];
+      return tiers.map(t => ({
+        id: byName[t.name]?.id || crypto.randomUUID(),
+        name: t.name,
+        description: byName[t.name]?.description || '',
+        lowerBound: t.lowerBound,
+        upperBound: t.upperBound,
+      }));
+    };
+
+    setRubric(rubric.map((c) => c.id === criterionId ? { ...c, points: newPoints, tiers: recalcTiers(newPoints, c.tiers) } : c));
   };
   const updateDeviation = (criterionId, value) => {
-    const percentage = parseFloat(value);
-    if (isNaN(percentage) || percentage < 0 || percentage > 100) return;
+    if (value === '') {
+      setRubric(rubric.map((criterion) => criterion.id === criterionId ? { ...criterion, deviation: '' } : criterion));
+      return;
+    }
+    let percentage = parseFloat(value);
+    if (isNaN(percentage) || percentage < 0) return;
+    if (percentage > 100) percentage = 100;
     setRubric(rubric.map((criterion) => criterion.id === criterionId ? { ...criterion, deviation: percentage } : criterion));
   }
   const addCriterion = () => setRubric([...rubric, { id: crypto.randomUUID(), criteria: "", tiers: generateTiersWithPercentages(20), points: 20, deviation: "", },]);
@@ -328,9 +372,10 @@ export default function CreateAssignment() {
       window.alert("At least one row of rubric is required.");
       return;
     }*/
-    setRubric(rubric.filter((c) => c.id !== criterionId))};
-    const handleRightClick = (e, criterionId) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, criterionId }); };
-    const handleContextMenuAction = (action) => {
+    setRubric(rubric.filter((c) => c.id !== criterionId))
+  };
+  const handleRightClick = (e, criterionId) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, criterionId }); };
+  const handleContextMenuAction = (action) => {
     if (!contextMenu) return;
     const { criterionId } = contextMenu;
     if (action === "delete-row") {
@@ -345,7 +390,7 @@ export default function CreateAssignment() {
 
   // --- STEP 3: CONTROL PAPERS STATE ---
   const [controlPaper, setControlPaper] = useState(null);
-  
+
 
   // --- Navigation and Submission Logic ---
   const handleNextStep = () => {
@@ -379,9 +424,10 @@ export default function CreateAssignment() {
   };
 
   const handleCreate = async () => {
+    if (isCreating) return;
     if (!controlPaper) {
-    alert("Please upload the Control Paper before creating the assignment.");
-    return;
+      alert("Please upload the Control Paper before creating the assignment.");
+      return;
     }
 
     const formData = new FormData();
@@ -395,14 +441,14 @@ export default function CreateAssignment() {
     };
     formData.append('assignmentData', JSON.stringify(payload));
 
-
     try {
+      setIsCreating(true);
       const response = await api.post('/assignments', formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
-      
+
       if (response.status === 201) {
         alert("Assignment created successfully!");
         navigate(`/team/${teamId}/dashboard`);
@@ -413,10 +459,12 @@ export default function CreateAssignment() {
       console.error("Failed to create assignment:", error);
       const errorMessage = error.response?.data?.message || "An error occurred while creating the assignment.";
       alert(`Error: ${errorMessage}`);
+    } finally {
+      setIsCreating(false);
     }
   };
 
-    
+
 
   return (
     <div className="bg-neutral-100 min-h-screen">
@@ -532,7 +580,7 @@ export default function CreateAssignment() {
                             className={`w-4 h-4 transition-transform duration-200 ${isSemesterDropdownOpen ? 'transform rotate-180' : ''}`}
                           />
                         </button>
-                        
+
                         {isSemesterDropdownOpen && (
                           <div className="absolute z-50 w-full mt-1 bg-white rounded-lg border border-slate-200 shadow-lg py-1 max-h-60 overflow-auto">
                             {[
@@ -552,13 +600,12 @@ export default function CreateAssignment() {
                                       setIsSemesterDropdownOpen(false);
                                     }
                                   }}
-                                  className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${
-                                    option.disabled 
-                                      ? 'text-slate-400 cursor-not-allowed' 
-                                      : isSelected 
-                                        ? 'bg-slate-100 text-slate-900 font-semibold' 
-                                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                                  }`}
+                                  className={`w-full text-left px-3 py-2.5 text-sm font-medium transition-colors duration-150 ${option.disabled
+                                    ? 'text-slate-400 cursor-not-allowed'
+                                    : isSelected
+                                      ? 'bg-slate-100 text-slate-900 font-semibold'
+                                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                                    }`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <span>{option.label}</span>
@@ -653,8 +700,8 @@ export default function CreateAssignment() {
 
                       <div className="text-right mt-2">
                         <button
-                            className="text-sm font-normal text-zinc-600 underline cursor-pointer"
-                            onClick={() => setShowMarkerList(false)}
+                          className="text-sm font-normal text-zinc-600 underline cursor-pointer"
+                          onClick={() => setShowMarkerList(false)}
                         >
                           Close
                         </button>
@@ -666,226 +713,217 @@ export default function CreateAssignment() {
             )}
 
             {step === 2 && (
-  <div className="w-full mb-6">
-    <span className="text-slate-900 text-2xl font-semibold leading-7">
-      Create New Assignment/<br />
-    </span>
-    <span className="text-slate-900 text-2xl font-medium leading-7">
-      Rubric Setup<br />
-    </span>
-
-    {/* Upload Rubric XLSX */}
-    <div className="mt-8 mb-6">
-      <label className="text-slate-900 text-base font-semibold mb-2 block">
-        Upload Rubric File (.xlsx) to Auto-Fill Criteria (Please ensure the file follows template format)
-      </label>
-
-      {uploadedRubricFile ? (
-        <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <File className="w-6 h-6 text-blue-600" />
-            <span className="text-sm font-medium text-slate-800">
-              {uploadedRubricFile.name}
-            </span>
-          </div>
-          <button
-            onClick={() => setUploadedRubricFile(null)}
-            className="p-1 rounded-full hover:bg-slate-100"
-          >
-            <X className="w-4 h-4 text-slate-500" />
-          </button>
-        </div>
-      ) : (
-        <label
-          htmlFor="rubric-upload"
-          className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100"
-        >
-          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <UploadCloud className="w-10 h-10 mb-3 text-slate-400" />
-            <p className="mb-2 text-sm text-slate-500">
-              <span className="font-semibold">Click to upload</span> or drag and drop
-            </p>
-            <p className="text-xs text-slate-500">Only .xlsx files supported and file size should less than 5 MB</p>
-          </div>
-          <input
-            id="rubric-upload"
-            type="file"
-            accept=".xlsx"
-            className="absolute inset-0 w-full h-full opacity-0"
-            onChange={handleRubricUpload}
-          />
-        </label>
-      )}
-    </div>
-
-    {/* Rubric Table Header */}
-    <div className="justify-start text-slate-900 text-base font-semibold leading-7 pt-4 pb-4">
-      Assignment Criteria
-    </div>
-
-    <div className="w-full flex flex-col">
-      {/* Header Row */}
-      <div className="flex bg-deakinTeal rounded-t-lg">
-        <div className="p-3" style={{ flexBasis: "5%" }}>
-          <div className="text-white text-xs font-semibold"></div>
-        </div>
-        <div className="p-3" style={{ flexBasis: "12%" }}>
-          <div className="text-white text-xs font-semibold">
-            Criteria Description
-          </div>
-        </div>
-        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
-          <div className="text-white text-xs font-semibold">High Distinction</div>
-        </div>
-        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
-          <div className="text-white text-xs font-semibold">Distinction</div>
-        </div>
-        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
-          <div className="text-white text-xs font-semibold">Credit</div>
-        </div>
-        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
-          <div className="text-white text-xs font-semibold">Pass</div>
-        </div>
-        <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
-          <div className="text-white text-xs font-semibold">Fail</div>
-        </div>
-        <div className="p-3 border-l border-zinc-400" style={{ flexBasis: "8%" }}>
-          <div className="text-white text-xs font-semibold">Pts</div>
-        </div>
-        <div className="p-3 border-l border-zinc-400" style={{ flexBasis: "12%" }}>
-          <div className="text-white text-xs font-semibold">Deviation</div>
-        </div>
-      </div>
-
-      {/* Dynamic Rubric Rows */}
-      {rubric.map((criterion) => (
-        <div
-          className="flex bg-white border-l border-r border-b border-zinc-300 last:rounded-b-lg"
-          key={criterion.id}
-        >
-          <div
-            className="flex items-center justify-center p-2 border-r border-zinc-300"
-            style={{ flexBasis: "5%" }}
-          >
-            <button
-              onClick={() => deleteRow(criterion.id)}
-              className="p-1 rounded-full hover:bg-green-100 text-green-600 hover:text-green-800"
-              title="Delete this criterion row"
-              disabled={rubric.length <= 1}
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div
-            className="flex"
-            style={{ flexBasis: "12%" }}
-            onContextMenu={(e) => handleRightClick(e, criterion.id)}
-          >
-            <AutoTextarea
-              value={criterion.criteria}
-              onChange={(e) =>
-                updateCriterionText(criterion.id, e.target.value)
-              }
-              placeholder="Criterion..."
-            />
-          </div>
-
-
-          {criterion.tiers.map((tier, tierIndex) => (
-            <div
-              key={tier.id}
-              className="border-l border-zinc-300 flex flex-col justify-between bg-white/40 min-w-[120px] min-h-[120px]"
-              style={{ flex: 1 }}
-              onContextMenu={(e) => handleRightClick(e, criterion.id)}
-            >
-              <AutoTextarea
-                value={tier.description}
-                onChange={(e) =>
-                  updateTierDescription(criterion.id, tierIndex, e.target.value)
-                }
-                placeholder={`Describe ${tier.name}...`}
-              />
-              <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
-                <input
-                  type="number"
-                  step="0.5"
-                  value={tier.lowerBound}
-                  onChange={(e) =>
-                    updateTierLowerBound(criterion.id, tierIndex, e.target.value)
-                  }
-                  className="w-12 text-center text-xs text-slate-900 bg-transparent focus:outline-none"
-                  disabled={tierIndex === criterion.tiers.length - 1}
-                />
-                <span className="text-xs mx-1">-</span>
-                <span className="w-12 text-center text-xs">
-                  {tier.upperBound}
+              <div className="w-full mb-6">
+                <span className="text-slate-900 text-2xl font-semibold leading-7">
+                  Create New Assignment/<br />
                 </span>
+                <span className="text-slate-900 text-2xl font-medium leading-7">
+                  Rubric Setup<br />
+                </span>
+
+                {/* Upload Rubric XLSX */}
+                <div className="mt-8 mb-6">
+                  <label className="text-slate-900 text-base font-semibold mb-2 block">
+                    Upload Rubric File (.xlsx) to Auto-Fill Criteria (Please ensure the file follows template format)
+                  </label>
+
+                  {uploadedRubricFile ? (
+                    <div className="p-4 bg-white rounded-lg border border-slate-300 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <File className="w-6 h-6 text-blue-600" />
+                        <span className="text-sm font-medium text-slate-800">
+                          {uploadedRubricFile.name}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setUploadedRubricFile(null)}
+                        className="p-1 rounded-full hover:bg-slate-100"
+                      >
+                        <X className="w-4 h-4 text-slate-500" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="rubric-upload"
+                      className="relative flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100"
+                    >
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <UploadCloud className="w-10 h-10 mb-3 text-slate-400" />
+                        <p className="mb-2 text-sm text-slate-500">
+                          <span className="font-semibold">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-slate-500">Only .xlsx files supported and file size should less than 5 MB</p>
+                      </div>
+                      <input
+                        id="rubric-upload"
+                        type="file"
+                        accept=".xlsx"
+                        className="absolute inset-0 w-full h-full opacity-0"
+                        onChange={handleRubricUpload}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Rubric Table Header */}
+                <div className="justify-start text-slate-900 text-base font-semibold leading-7 pt-4 pb-4">
+                  Assignment Criteria
+                </div>
+
+                <div className="w-full flex flex-col">
+                  {/* Header Row */}
+                  <div className="flex bg-deakinTeal rounded-t-lg">
+                    <div className="p-3" style={{ flexBasis: "5%" }}>
+                      <div className="text-white text-xs font-semibold"></div>
+                    </div>
+                    <div className="p-3" style={{ flexBasis: "12%" }}>
+                      <div className="text-white text-xs font-semibold">
+                        Criteria Description
+                      </div>
+                    </div>
+                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+                      <div className="text-white text-xs font-semibold">High Distinction</div>
+                    </div>
+                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+                      <div className="text-white text-xs font-semibold">Distinction</div>
+                    </div>
+                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+                      <div className="text-white text-xs font-semibold">Credit</div>
+                    </div>
+                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+                      <div className="text-white text-xs font-semibold">Pass</div>
+                    </div>
+                    <div className="p-3 text-left border-l border-zinc-400" style={{ flex: 1 }}>
+                      <div className="text-white text-xs font-semibold">Fail</div>
+                    </div>
+                    <div className="p-3 border-l border-zinc-400" style={{ flexBasis: "8%" }}>
+                      <div className="text-white text-xs font-semibold">Pts</div>
+                    </div>
+                    <div className="p-3 border-l border-zinc-400" style={{ flexBasis: "12%" }}>
+                      <div className="text-white text-xs font-semibold">Deviation</div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Rubric Rows */}
+                  {rubric.map((criterion) => (
+                    <div
+                      className="flex bg-white border-l border-r border-b border-zinc-300 last:rounded-b-lg"
+                      key={criterion.id}
+                    >
+                      <div
+                        className="flex items-center justify-center p-2 border-r border-zinc-300"
+                        style={{ flexBasis: "5%" }}
+                      >
+                        <button
+                          onClick={() => deleteRow(criterion.id)}
+                          className="p-1 rounded-full hover:bg-green-100 text-green-600 hover:text-green-800"
+                          title="Delete this criterion row"
+                          disabled={rubric.length <= 1}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div
+                        className="flex"
+                        style={{ flexBasis: "12%" }}
+                        onContextMenu={(e) => handleRightClick(e, criterion.id)}
+                      >
+                        <AutoTextarea
+                          value={criterion.criteria}
+                          onChange={(e) =>
+                            updateCriterionText(criterion.id, e.target.value)
+                          }
+                          placeholder="Criterion..."
+                        />
+                      </div>
+
+
+                      {criterion.tiers.map((tier, tierIndex) => (
+                        <div
+                          key={tier.id}
+                          className="border-l border-zinc-300 flex flex-col justify-between bg-white/40 min-w-[120px] min-h-[120px]"
+                          style={{ flex: 1 }}
+                          onContextMenu={(e) => handleRightClick(e, criterion.id)}
+                        >
+                          <AutoTextarea
+                            value={tier.description}
+                            onChange={(e) =>
+                              updateTierDescription(criterion.id, tierIndex, e.target.value)
+                            }
+                            placeholder={`Describe ${tier.name}...`}
+                          />
+                          <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
+                            <span className="w-12 text-center text-xs">{tier.lowerBound}</span>
+                            <span className="text-xs mx-1">-</span>
+                            <span className="w-12 text-center text-xs">{tier.upperBound}</span>
+                          </div>
+                        </div>
+                      ))}
+
+                      <div
+                        className="border-l border-zinc-300 relative flex items-center justify-center p-2"
+                        style={{ flexBasis: "8%" }}
+                        onContextMenu={(e) => handleRightClick(e, criterion.id)}
+                      >
+                        <input
+                          type="number"
+                          max={100}
+                          step="0.5"
+                          value={criterion.points}
+                          onChange={(e) => updatePoints(criterion.id, e.target.value)}
+                          className="w-full text-center bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] text-xs text-slate-900 p-2 placeholder:text-zinc-600"
+                          placeholder="Pts"
+                        />
+                      </div>
+
+                      <div
+                        className="border-l border-zinc-300 flex items-center justify-center p-2"
+                        style={{ flexBasis: "12%" }}
+                        onContextMenu={(e) => handleRightClick(e, criterion.id)}
+                      >
+                        <div className="w-full flex items-center gap-1 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] p-2">
+                          <span className="text-slate-900 font-normal">±</span>
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={criterion.deviation}
+                            onChange={(e) =>
+                              updateDeviation(criterion.id, e.target.value)
+                            }
+                            className="w-full text-center text-xs text-slate-900 placeholder:text-zinc-600"
+                            placeholder="Dev"
+                          />
+                          <span className="text-slate-900 text-xs ml-1">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  className="w-61 h-12 bg-deakinTeal text-white border-zinc-400 rounded-lg flex justify-center items-center mt-5 cursor-pointer text-5xl font-extralight mb-5 pb-2 hover:bg-slate-100"
+                  onClick={addCriterion}
+                  title="Add New Criterion Row"
+                >
+                  +
+                </div>
+
+                {contextMenu && (
+                  <div
+                    className="absolute bg-white border rounded shadow-lg z-10"
+                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                  >
+                    <div
+                      className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-red-600"
+                      onClick={() => handleContextMenuAction("delete-row")}
+                    >
+                      Delete this Criterion Row
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-
-          <div
-            className="border-l border-zinc-300 relative flex items-center justify-center p-2"
-            style={{ flexBasis: "8%" }}
-            onContextMenu={(e) => handleRightClick(e, criterion.id)}
-          >
-            <input
-              type="number"
-              step="0.5"
-              value={criterion.points}
-              onChange={(e) => updatePoints(criterion.id, e.target.value)}
-              className="w-full text-center bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] text-xs text-slate-900 p-2 placeholder:text-zinc-600"
-              placeholder="Pts"
-            />
-          </div>
-
-          <div
-            className="border-l border-zinc-300 flex items-center justify-center p-2"
-            style={{ flexBasis: "12%" }}
-            onContextMenu={(e) => handleRightClick(e, criterion.id)}
-          >
-            <div className="w-full flex items-center gap-1 bg-white rounded-md outline outline-1 outline-offset-[-1px] outline-[#E4E4E7] p-2">
-              <span className="text-slate-900 font-normal">±</span>
-              <input
-                type="number"
-                step="0.5"
-                value={criterion.deviation}
-                onChange={(e) =>
-                  updateDeviation(criterion.id, e.target.value)
-                }
-                className="w-full text-center text-xs text-slate-900 placeholder:text-zinc-600"
-                placeholder="Dev"
-              />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-
-    <div
-      className="w-61 h-12 bg-deakinTeal text-white border-zinc-400 rounded-lg flex justify-center items-center mt-5 cursor-pointer text-5xl font-extralight mb-5 pb-2 hover:bg-slate-100"
-      onClick={addCriterion}
-      title="Add New Criterion Row"
-    >
-      +
-    </div>
-
-    {contextMenu && (
-      <div
-        className="absolute bg-white border rounded shadow-lg z-10"
-        style={{ top: contextMenu.y, left: contextMenu.x }}
-      >
-        <div
-          className="p-2 hover:bg-gray-100 cursor-pointer text-sm text-red-600"
-          onClick={() => handleContextMenuAction("delete-row")}
-        >
-          Delete this Criterion Row
-        </div>
-      </div>
-    )}
-  </div>
-)}
+            )}
 
             {step === 3 && (
               <div className="w-full mb-6">
@@ -987,7 +1025,6 @@ export default function CreateAssignment() {
                 <div className="w-full flex flex-col">
                   {/* Header Row */}
                   <div className="flex bg-deakinTeal rounded-t-lg border border-zinc-300 border-b-0">
-                    <div className="p-3" style={{ flexBasis: '5%' }}><div className="text-white text-xs font-semibold"></div></div>
                     <div className="p-3" style={{ flexBasis: '12%' }}><div className="text-white text-xs font-semibold">Criteria</div></div>
                     <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">High Distinction</div></div>
                     <div className="p-3 text-left border-l border-zinc-300" style={{ flex: 1 }}><div className="text-white text-xs font-semibold">Distinction</div></div>
@@ -1003,17 +1040,17 @@ export default function CreateAssignment() {
                     <div className="flex bg-white border-l border-r border-b border-zinc-300 last:rounded-b-lg" key={criterion.id}>
                       <div className="p-3" style={{ flexBasis: '12%' }}><p className="text-xs">{criterion.criteria}</p></div>
                       {criterion.tiers.map((tier) => (
-                          <div key={tier.id} className="border-l border-zinc-300 flex flex-col justify-between min-w-[120px]" style={{ flex: 1 }}>
-                              <p className="text-xs p-3">{tier.description}</p>
-                              <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
-                                  <span className="w-12 text-center text-xs">{tier.lowerBound}</span>
-                                  <span className="text-xs mx-1">-</span>
-                                  <span className="w-12 text-center text-xs">{tier.upperBound}</span>
-                              </div>
+                        <div key={tier.id} className="border-l border-zinc-300 flex flex-col justify-between min-w-[120px]" style={{ flex: 1 }}>
+                          <p className="text-xs p-3">{tier.description}</p>
+                          <div className="flex items-center justify-center p-1 bg-slate-50 border-t border-zinc-300">
+                            <span className="w-12 text-center text-xs">{tier.lowerBound}</span>
+                            <span className="text-xs mx-1">-</span>
+                            <span className="w-12 text-center text-xs">{tier.upperBound}</span>
                           </div>
+                        </div>
                       ))}
                       <div className="border-l border-zinc-300 flex items-center justify-center p-2" style={{ flexBasis: '8%' }}><p className="text-xs">{criterion.points}</p></div>
-                      <div className="border-l border-zinc-300 flex items-center justify-center p-2" style={{ flexBasis: '12%' }}><p className="text-xs">± {criterion.deviation}</p></div>
+                      <div className="border-l border-zinc-300 flex items-center justify-center p-2" style={{ flexBasis: '12%' }}><p className="text-xs">± {criterion.deviation}{criterion.deviation !== '' && criterion.deviation !== undefined ? '%' : ''}</p></div>
                     </div>
                   ))}
                 </div>
@@ -1022,24 +1059,26 @@ export default function CreateAssignment() {
 
             <div className="flex justify-end gap-4 px-6 mt-8">
               {step > 1 && (
-                <button 
-                  className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-zinc-900 hover:bg-gray-50 cursor-pointer" 
+                <button
+                  className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-zinc-900 hover:bg-gray-50 cursor-pointer"
                   onClick={() => setStep(step - 1)}>
                   Back
                 </button>
               )}
               {step < 4 && (
-                <button 
-                  className="px-4 py-2 bg-deakinTeal rounded-lg text-sm font-base text-white hover:bg-[#0E796B] cursor-pointer" 
+                <button
+                  className="px-4 py-2 bg-deakinTeal rounded-lg text-sm font-base text-white hover:bg-[#0E796B] cursor-pointer"
                   onClick={handleNextStep}>
                   {step === 3 ? 'Review' : 'Next'}
                 </button>
               )}
               {step === 4 && (
-                <button 
-                  className="px-4 py-2 bg-deakinTeal rounded-lg text-sm font-medium text-white hover:bg-[#0E796B] cursor-pointer"
-                  onClick={handleCreate}>
-                  Create Assignment
+                <button
+                  className="px-4 py-2 bg-deakinTeal rounded-lg text-sm font-medium text-white hover:bg-[#0E796B] cursor-pointer disabled:bg-slate-400 disabled:cursor-not-allowed"
+                  onClick={handleCreate}
+                  disabled={isCreating}
+                >
+                  {isCreating ? 'Creating...' : 'Create Assignment'}
                 </button>
               )}
             </div>

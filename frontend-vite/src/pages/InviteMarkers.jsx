@@ -25,7 +25,7 @@ export default function InviteMarkers() {
       const token = localStorage.getItem("token");
       
       // Get team members
-      const membersRes = await api.get(`/team/${teamId}/members`, {
+      const membersRes = await api.get(`/team/${teamId}/members-detailed`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTeamMembers(membersRes.data);

@@ -25,6 +25,12 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [userTeams, setUserTeams] = useState([]); // stores teams for redirecting
 
+  const getPreferredTeamId = (teams) => {
+    const lastTeamId = localStorage.getItem("lastTeamId");
+    if (lastTeamId && teams?.some(t => String(t.id) === String(lastTeamId))) return lastTeamId;
+    return teams?.[0]?.id;
+  };
+
   const getAuthStatus = () => {
     const token = localStorage.getItem("token");
     if (!token) return false;
@@ -80,7 +86,7 @@ function App() {
         try {
           const teams = await fetchTeams();
           setUserTeams(teams);
-          
+
           // Check for pending invites if user has no teams or no pending invite token
           const existingPendingToken = sessionStorage.getItem("pendingInviteToken");
           if (!existingPendingToken) {
@@ -118,6 +124,18 @@ function App() {
     };
   }, []); // The empty dependency array is correct
 
+  // Track route changes to remember last visited team
+  const LocationWatcher = () => {
+    const location = useLocation();
+    useEffect(() => {
+      const match = location.pathname.match(/^\/team\/([^\/]*)\//);
+      if (match && match[1]) {
+        localStorage.setItem("lastTeamId", match[1]);
+      }
+    }, [location.pathname]);
+    return null;
+  };
+
   // New component to handle the logic for the join-team route
   const JoinTeamRoute = () => {
     const location = useLocation();
@@ -139,58 +157,60 @@ function App() {
   };
 
 
-  if (isLoading) return <div style={{ display: 'flex', justifyContent:'center', alignItems:'center', height:'100vh' }}>Loading...</div>;
+  if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
 
   const pendingInviteToken = sessionStorage.getItem("pendingInviteToken");
 
+  const preferredTeamId = getPreferredTeamId(userTeams);
   const loggedInRedirect = pendingInviteToken
     ? <Navigate to={`/join-team?token=${pendingInviteToken}`} replace />
-    : (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />);
+    : (preferredTeamId ? <Navigate to={`/team/${preferredTeamId}/dashboard`} replace /> : <Navigate to="/create-team" replace />);
 
   return (
     <Router>
+      <LocationWatcher />
 
-        <Routes>
-          <Route
-            path="/"
-            element={
-              isLoggedIn
-                  ? (userTeams.length > 0 ? <Navigate to={`/team/${userTeams[0].id}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
-                  : <Navigate to="/login" replace />
-            }
-          />
+      <Routes>
+        <Route
+          path="/"
+          element={
+            isLoggedIn
+              ? (preferredTeamId ? <Navigate to={`/team/${preferredTeamId}/dashboard`} replace /> : <Navigate to="/create-team" replace />)
+              : <Navigate to="/login" replace />
+          }
+        />
 
-          <Route
-            path="/login"
-            element={isLoggedIn ? loggedInRedirect : <Login />}
-          />
+        <Route
+          path="/login"
+          element={isLoggedIn ? loggedInRedirect : <Login />}
+        />
 
-          <Route
-            path="/signup"
-            element={isLoggedIn ? loggedInRedirect : <Signup />}
-          />
+        <Route
+          path="/signup"
+          element={isLoggedIn ? loggedInRedirect : <Signup />}
+        />
 
-          <Route
-            path="/forgetpassword"
-            element={isLoggedIn ? loggedInRedirect : <Forgetpassword />}
-          />
+        <Route
+          path="/forgetpassword"
+          element={isLoggedIn ? loggedInRedirect : <Forgetpassword />}
+        />
 
-          <Route path="/create-team" element={<CreateTeam />} />
-          <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
-          <Route path="/join-team" element={<JoinTeamRoute />} />
-          <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
-          <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
-          <Route path="/team/:teamId/assignments" element={<Assignments />} />
-          <Route path="/team/:teamId/assignments/:assignmentId" element={<AssignmentDetails />} />
-          <Route path="/team/:teamId/assignments/:assignmentId/mark" element={<MarkingPage />} />
-          <Route path="/dashboard" element={<IndividualDashboard />} />
-          <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
-          <Route path="/team/:teamId/settings" element={<Setting />} />
-          <Route path="/team/:teamId/markers" element={<Markers />} />
-          <Route path="/team/:teamId/reports" element={<Reports />} />
-          <Route path="/team/:teamId/reports/:assignmentId" element={<ReportsDetails />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Route path="/create-team" element={<CreateTeam />} />
+        <Route path="/team/:teamId/dashboard" element={<TeamDashboard />} />
+        <Route path="/join-team" element={<JoinTeamRoute />} />
+        <Route path="/team/:teamId/assignments/new" element={<CreateAssignment />} />
+        <Route path="/team/:teamId/invite" element={<InviteMarkers />} />
+        <Route path="/team/:teamId/assignments" element={<Assignments />} />
+        <Route path="/team/:teamId/assignments/:assignmentId" element={<AssignmentDetails />} />
+        <Route path="/team/:teamId/assignments/:assignmentId/mark" element={<MarkingPage />} />
+        <Route path="/dashboard" element={<IndividualDashboard />} />
+        <Route path="/team/:teamId/assignments/:assignmentId/assignmentmarkers" element={<AssignmentMakers />} />
+        <Route path="/team/:teamId/settings" element={<Setting />} />
+        <Route path="/team/:teamId/markers" element={<Markers />} />
+        <Route path="/team/:teamId/reports" element={<Reports />} />
+        <Route path="/team/:teamId/reports/:assignmentId" element={<ReportsDetails />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }

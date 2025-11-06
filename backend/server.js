@@ -18,6 +18,7 @@ const pool = require("./database.js");
 const { Resend } = require('resend');
 const resend = new Resend(process.env.RESEND_API_KEY);
 const path = require("path");
+const cron = require("node-cron");
 
 // --- NEW REQUIRES FOR AWS SDK v3 ---
 const { S3Client } = require('@aws-sdk/client-s3');
@@ -596,8 +597,8 @@ app.post("/team/:teamId/invite", authenticateToken, async (req, res) => {
       }
     }
 
-    res.json({ 
-      message: "Invitation process completed", 
+    res.json({
+      message: "Invitation process completed",
       results,
       summary: {
         total: uniqueEmails.length,
@@ -1004,6 +1005,49 @@ app.post("/assignments", authenticateToken,
         for (const markerId of markers) await client.query(markerSql, [newAssignmentId, markerId]);
       }
 
+      // STEP 4.5: Send email notifications to assigned markers
+      if (markers?.length > 0 && resend) {
+        try {
+          // Get marker emails using parameterized query
+          const placeholders = markers.map((_, i) => `$${i + 1}`).join(',');
+          const markerEmailsResult = await client.query(
+            `SELECT id, username FROM users WHERE id IN (${placeholders})`,
+            markers
+          );
+
+          // Format due date
+          const dueDateStr = assignmentDetails.dueDate
+            ? new Date(assignmentDetails.dueDate).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })
+            : 'TBD';
+
+          // Send emails to each marker
+          for (const marker of markerEmailsResult.rows) {
+            try {
+              await resend.emails.send({
+                from: process.env.EMAIL_DOMAIN,
+                to: marker.username,
+                subject: `New Assignment: ${assignmentDetails.courseName} (${assignmentDetails.courseCode})`,
+                text: `You have been assigned as a marker for a new assignment:\n\n` +
+                  `Course: ${assignmentDetails.courseName} (${assignmentDetails.courseCode})\n` +
+                  `Semester: ${assignmentDetails.semester}\n` +
+                  `Due Date: ${dueDateStr}\n\n` +
+                  `Please log in to the marking portal to view the assignment details and begin marking.`,
+              });
+            } catch (emailErr) {
+              console.error(`Failed to send email to marker ${marker.username}:`, emailErr);
+              // Continue with other markers even if one fails
+            }
+          }
+        } catch (err) {
+          console.error('Error sending marker notification emails:', err);
+          // Don't fail the assignment creation if email fails
+        }
+      }
+
       // STEP 5: Insert rubric criteria and tiers
       const criteriaSql = `
       INSERT INTO rubric_criteria (assignment_id, criterion_description, points, deviation_threshold)
@@ -1160,7 +1204,7 @@ app.delete("/assignments/:id", authenticateToken, async (req, res) => {
 app.post("/team/:teamId/assignments/:assignmentId/rubric-criteria/:criterionId/admin-comment", authenticateToken, async (req, res) => {
   const { teamId, assignmentId, criterionId } = req.params;
   const { adminComment } = req.body;
-  
+
   try {
     const result = await pool.query(`
       UPDATE rubric_criteria 
@@ -1197,12 +1241,12 @@ async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, 
       WHERE a.id = $1 AND a.team_id = $2
     `;
     const assignmentResult = await pool.query(assignmentQuery, [assignmentId, teamId]);
-    
+
     if (assignmentResult.rows.length === 0) {
       console.log("Assignment not found");
       return;
     }
-    
+
     const assignment = assignmentResult.rows[0];
 
     // 2. Get criterion description
@@ -1241,7 +1285,7 @@ async function sendEmailNotificationToTutors(teamId, assignmentId, criterionId, 
     const emailPromises = tutorsResult.rows.map(async (tutor) => {
       //console.log(`Email domain used: ${process.env.EMAIL_DOMAIN}`);
       try {
-        
+
         const emailData = await resend.emails.send({
           from: process.env.EMAIL_DOMAIN,
           to: tutor.email,
@@ -1514,6 +1558,27 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
 
     const rubricWithTiers = Array.from(criteriaMap.values());
 
+    // Determine standard marker (admin) as the assignment creator
+    const standardMarkerId = assignmentRes.rows[0].created_by;
+
+    // Ensure admin (standard marker) is present in markers list
+    let markers = markersRes.rows.map(marker => ({ id: marker.id, name: marker.username }));
+    const hasAdminInMarkers = markers.some(m => m.id === standardMarkerId);
+    if (!hasAdminInMarkers && standardMarkerId) {
+      try {
+        const adminUserRes = await pool.query(
+          `SELECT id, username FROM users WHERE id = $1`,
+          [standardMarkerId]
+        );
+        if (adminUserRes.rows[0]) {
+          // Put admin at the front for display consistency
+          markers = [{ id: adminUserRes.rows[0].id, name: adminUserRes.rows[0].username }, ...markers];
+        }
+      } catch (e) {
+        // If lookup fails, proceed without injecting admin; frontend will still work using IDs from marks
+      }
+    }
+
     // A) Assemble the control paper data, including their file paths and any submitted marks.
     const controlPapersMap = new Map();
     const filePaths = {};
@@ -1553,10 +1618,8 @@ app.get("/team/:teamId/assignments/:assignmentId/details", authenticateToken, as
         role: currentUserRole, // This now includes the user's team-specific role.
         personalComplete: personalStatusRes.rows[0]?.completed || false
       },
-      markers: markersRes.rows.map(marker => ({
-        id: marker.id,
-        name: marker.username
-      })),
+      standardMarkerId,
+      markers,
       rubric: rubricWithTiers,
       controlPapers: Array.from(controlPapersMap.values()),
       markersAlreadyMarked: parseInt(markersAlreadyMarkedRes.rows[0].graded_marker_count, 10)
@@ -2256,7 +2319,232 @@ app.delete("/team/:teamId/markers/:userId", authenticateToken, async (req, res) 
 });
 
 
+//  Deadline Reminder System
+//  Sends email reminders to tutors 7, 3, and 1 days before deadline
+
+async function sendDeadlineReminders() {
+  if (!resend) {
+    console.log("Resend not configured, skipping deadline reminders");
+    return;
+  }
+
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Calculate target dates for 7, 3, and 1 days from now
+    const daysToCheck = [7, 3, 1];
+    const targetDates = daysToCheck.map(days => {
+      const date = new Date(today);
+      date.setDate(date.getDate() + days);
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    });
+
+    // Find assignments with due dates matching 7, 3, or 1 days from now
+    const assignmentsQuery = await pool.query(
+      `SELECT id, course_code, course_name, semester, due_date, team_id
+       FROM assignments
+       WHERE due_date IS NOT NULL
+       AND DATE(due_date) = ANY($1::date[])
+       ORDER BY due_date`,
+      [targetDates]
+    );
+
+    if (assignmentsQuery.rows.length === 0) {
+      console.log("No assignments due in 7, 3, or 1 days");
+      return;
+    }
+
+    console.log(`Found ${assignmentsQuery.rows.length} assignments to check for reminders`);
+
+    for (const assignment of assignmentsQuery.rows) {
+      const dueDate = new Date(assignment.due_date);
+      const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+      // Determine which bucket (7, 3, or 1 days)
+      let bucketDay = null;
+      if (daysUntilDue === 7) bucketDay = 7;
+      else if (daysUntilDue === 3) bucketDay = 3;
+      else if (daysUntilDue === 1) bucketDay = 1;
+      else continue; // Skip if not exactly 7, 3, or 1 days
+
+      // Get all markers assigned to this assignment
+      const markersQuery = await pool.query(
+        `SELECT DISTINCT u.id, u.username, am.completed
+         FROM assignment_markers am
+         JOIN users u ON am.user_id = u.id
+         WHERE am.assignment_id = $1`,
+        [assignment.id]
+      );
+
+      // Get all control papers for this assignment
+      const controlPapersQuery = await pool.query(
+        `SELECT id FROM submissions
+         WHERE assignment_id = $1 AND is_control_paper = TRUE`,
+        [assignment.id]
+      );
+
+      const controlPaperIds = controlPapersQuery.rows.map(row => row.id);
+      const totalControlPapers = controlPaperIds.length;
+
+      if (totalControlPapers === 0) {
+        console.log(`Assignment ${assignment.id} has no control papers, skipping`);
+        continue;
+      }
+
+      // Check each marker's completion status
+      for (const marker of markersQuery.rows) {
+        // Check if reminder already sent today for this assignment, marker, and bucket
+        const todayStr = today.toISOString().split('T')[0];
+        const reminderCheck = await pool.query(
+          `SELECT id FROM reminders_log
+           WHERE assignment_id = $1 AND user_id = $2 AND bucket_day = $3 AND sent_on = $4`,
+          [assignment.id, marker.id, bucketDay, todayStr]
+        );
+
+        if (reminderCheck.rows.length > 0) {
+          console.log(`Reminder already sent today to ${marker.username} for assignment ${assignment.id} (${bucketDay} days)`);
+          continue;
+        }
+
+        // Check if marker has completed all control papers
+        const marksQuery = await pool.query(
+          `SELECT DISTINCT submission_id
+           FROM marks
+           WHERE tutor_id = $1 AND submission_id = ANY($2::int[])`,
+          [marker.id, controlPaperIds]
+        );
+
+        const markedPapers = marksQuery.rows.map(row => row.submission_id);
+        const isCompleted = markedPapers.length === totalControlPapers;
+
+        if (isCompleted) {
+          console.log(`Marker ${marker.username} has completed assignment ${assignment.id}, skipping reminder`);
+          continue;
+        }
+
+        // Send reminder email
+        try {
+          const dueDateStr = dueDate.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+
+          await resend.emails.send({
+            from: process.env.EMAIL_DOMAIN,
+            to: marker.username,
+            subject: `Reminder: Assignment due in ${bucketDay} day${bucketDay > 1 ? 's' : ''} - ${assignment.course_name} (${assignment.course_code})`,
+            text: `This is a reminder that you have been assigned as a marker for an assignment that is due in ${bucketDay} day${bucketDay > 1 ? 's' : ''}.\n\n` +
+              `Assignment Details:\n` +
+              `Course: ${assignment.course_name} (${assignment.course_code})\n` +
+              `Semester: ${assignment.semester}\n` +
+              `Due Date: ${dueDateStr}\n\n` +
+              `You have not yet completed marking all control papers for this assignment.\n` +
+              `Please log in to the marking portal to complete your marking before the deadline.\n\n` +
+              `Link: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/team/${assignment.team_id}/assignments/${assignment.id}`
+          });
+
+          // Log the reminder
+          await pool.query(
+            `INSERT INTO reminders_log (assignment_id, user_id, bucket_day, sent_on)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (assignment_id, user_id, bucket_day, sent_on) DO NOTHING`,
+            [assignment.id, marker.id, bucketDay, todayStr]
+          );
+
+          console.log(`Reminder sent to ${marker.username} for assignment ${assignment.id} (${bucketDay} days until deadline)`);
+        } catch (emailErr) {
+          console.error(`Failed to send reminder to ${marker.username} for assignment ${assignment.id}:`, emailErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error in deadline reminder system:", err);
+  }
+}
+
+// Schedule reminder job to run daily at 8:00 AM
+// Cron format: minute hour day month day-of-week
+// "0 8 * * *" means: at minute 0, hour 8, every day, every month, every day of week
+cron.schedule("0 8 * * *", () => {
+  console.log("Running deadline reminder job at", new Date().toISOString());
+  sendDeadlineReminders();
+});
+
+console.log("Deadline reminder system initialized - will run daily at 8:00 AM");
+
 /////////////////////
 // Start Server
 /////////////////////
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.get('/assignments/:assignmentId/tutor-comments', authenticateToken, async (req, res) => {
+  try {
+    const { assignmentId } = req.params;
+    const result = await pool.query(
+      `SELECT assignment_id, tutor_id, criterion_id, comment, updated_at
+       FROM tutor_criterion_comments
+       WHERE assignment_id = $1`,
+      [assignmentId]
+    );
+    res.json({ comments: result.rows });
+  } catch (err) {
+    console.error('Failed to fetch tutor comments:', err);
+    res.status(500).json({ message: 'Failed to fetch tutor comments' });
+  }
+});
+
+app.post('/assignments/:assignmentId/markers/:tutorId/criteria/:criterionId/comment', authenticateToken, async (req, res) => {
+  const { assignmentId, tutorId, criterionId } = req.params;
+  const { comment } = req.body || {};
+
+  if (!comment || !comment.trim()) {
+    return res.status(400).json({ message: 'Comment is required' });
+  }
+
+  try {
+    // Upsert comment
+    await pool.query(
+      `INSERT INTO tutor_criterion_comments (assignment_id, tutor_id, criterion_id, comment)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (assignment_id, tutor_id, criterion_id)
+       DO UPDATE SET comment = EXCLUDED.comment, updated_at = NOW()`,
+      [assignmentId, tutorId, criterionId, comment]
+    );
+
+    // Fetch tutor email and assignment details for email
+    const [userRes, asgRes, critRes] = await Promise.all([
+      pool.query(`SELECT username FROM users WHERE id = $1`, [tutorId]),
+      pool.query(`SELECT course_code, course_name, team_id FROM assignments WHERE id = $1`, [assignmentId]),
+      pool.query(`SELECT criterion_description FROM rubric_criteria WHERE id = $1`, [criterionId])
+    ]);
+
+    const tutorEmail = userRes.rows?.[0]?.username;
+    const courseCode = asgRes.rows?.[0]?.course_code;
+    const courseName = asgRes.rows?.[0]?.course_name;
+    const teamId = asgRes.rows?.[0]?.team_id;
+    const criterionName = critRes.rows?.[0]?.criterion_description;
+
+    if (resend && tutorEmail) {
+      try {
+        await resend.emails.send({
+          from: process.env.EMAIL_DOMAIN,
+          to: tutorEmail,
+          subject: `Coordinator note on ${courseName} (${courseCode}) - ${criterionName}`,
+          text: `You have a new coordinator note on your marking for the criterion: ${criterionName}.\n\n` +
+            `Comment:\n${comment}\n\n` +
+            `Link: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/team/${teamId}/reports/${assignmentId}`
+        });
+      } catch (emailErr) {
+        console.error('Failed to send coordinator note email:', emailErr);
+        // Continue silently; comment is saved anyway
+      }
+    }
+
+    res.json({ message: 'Comment saved' });
+  } catch (err) {
+    console.error('Failed to save tutor comment:', err);
+    res.status(500).json({ message: 'Failed to save tutor comment' });
+  }
+});
